@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Unscroll | A gentler relationship with your screen{% endblock %}
+
+{% block content %}
+<main>
+    <section class="hero-shell">
+        <nav class="site-nav" aria-label="Main navigation">
+            <a class="brand" href="{% url 'core:home' %}">unscroll<span>.</span></a>
+            <span class="nav-note">a mindful reset</span>
+        </nav>
+
+        <div class="hero-grid">
+            <div class="hero-copy reveal">
+                <p class="eyebrow">A calmer digital ritual</p>
+                <h1>Make room for<br><em>what matters.</em></h1>
+                <p class="hero-lede">Turn a small screen-time check-in into a thoughtful postcard, a gentle action, and a promise for tomorrow.</p>
+                <div class="hero-points" aria-label="Benefits">
+                    <span>✦ Under a minute</span>
+                    <span>✦ Private by design</span>
+                    <span>✦ Different every time</span>
+                </div>
+            </div>
+
+            <section class="check-in-card reveal" aria-labelledby="check-in-heading">
+                <div class="card-topline">
+                    <span class="step-badge">01</span>
+                    <p>Daily check-in</p>
+                </div>
+                <h2 id="check-in-heading">How do you want tomorrow to feel?</h2>
+                <form method="post" enctype="multipart/form-data" novalidate data-loading-form>
+                    {% csrf_token %}
+                    {{ form.non_field_errors }}
+                    <div class="input-box file-field">
+                        {{ form.file.label_tag }}
+                        {{ form.file }}
+                        <small>{{ form.file.help_text }}</small>
+                        {{ form.file.errors }}
+                    </div>
+                    <div class="input-box">
+                        {{ form.screen_time.label_tag }}
+                        {{ form.screen_time }}
+                        {{ form.screen_time.errors }}
+                    </div>
+                    <div class="form-row">
+                        <div class="input-box">
+                            {{ form.mood.label_tag }}
+                            {{ form.mood }}
+                            {{ form.mood.errors }}
+                        </div>
+                        <div class="input-box">
+                            {{ form.goal.label_tag }}
+                            {{ form.goal }}
+                            {{ form.goal.errors }}
+                        </div>
+                    </div>
+                    <button class="primary-button" type="submit" data-loading-button>
+                        <span>Create my postcard</span><span aria-hidden="true">→</span>
+                    </button>
+                </form>
+            </section>
+        </div>
+    </section>
+
+    <section class="ritual-section" aria-labelledby="ritual-heading">
+        <p class="eyebrow">A simple ritual</p>
+        <h2 id="ritual-heading">Less judgment. More intention.</h2>
+        <div class="feature-grid">
+            <article class="feature-card">
+                <span class="feature-number">01</span>
+                <h3>Check in</h3>
+                <p>Name how you feel and what you want to protect tomorrow.</p>
+            </article>
+            <article class="feature-card">
+                <span class="feature-number">02</span>
+                <h3>Receive a pause</h3>
+                <p>Get a fresh reflection, haiku, tiny action, and pledge.</p>
+            </article>
+            <article class="feature-card">
+                <span class="feature-number">03</span>
+                <h3>Take it with you</h3>
+                <p>Download or share your postcard when you need the reminder.</p>
+            </article>
+        </div>
+    </section>
+</main>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Your Digital Postcard | Unscroll{% endblock %}
+
+{% block content %}
+<main class="result-page">
+    <nav class="site-nav result-nav" aria-label="Main navigation">
+        <a class="brand" href="{% url 'core:home' %}">unscroll<span>.</span></a>
+        <a class="text-link" href="{% url 'core:home' %}">New check-in <span aria-hidden="true">→</span></a>
+    </nav>
+
+    <section class="result-intro reveal">
+        <p class="eyebrow">Your mindful moment</p>
+        <h1>Here’s a note for<br><em>tomorrow you.</em></h1>
+    </section>
+
+    <article class="postcard reveal" id="postcard-content" aria-labelledby="postcard-title">
+        <div class="postcard-orbit postcard-orbit-one" aria-hidden="true"></div>
+        <div class="postcard-orbit postcard-orbit-two" aria-hidden="true"></div>
+        <div class="postcard-header">
+            <p>UNSCROLL / DAILY EDITION</p>
+            <span>{{ goal }}</span>
+        </div>
+        <h2 id="postcard-title">A small promise,<br>made with care.</h2>
+
+        <dl class="postcard-meta">
+            <div><dt>Mood</dt><dd>{{ mood }}</dd></div>
+            <div><dt>Screen time</dt><dd>{{ screen_time|default:"Not provided" }}</dd></div>
+            <div><dt>Report</dt><dd>{% if filename %}Included{% else %}Not included{% endif %}</dd></div>
+        </dl>
+
+        <section class="postcard-section haiku-section">
+            <p class="section-label">Today’s haiku</p>
+            <pre>{{ haiku }}</pre>
+        </section>
+        <section class="postcard-section">
+            <p class="section-label">Your reflection</p>
+            <p class="reflection" id="reflection-content">{{ reflection }}</p>
+        </section>
+        <div class="postcard-bottom-grid">
+            <section class="postcard-section">
+                <p class="section-label">Tiny action</p>
+                <p>{{ action }}</p>
+            </section>
+            <section class="postcard-section pledge">
+                <p class="section-label">Tomorrow’s pledge</p>
+                <p>{{ pledge }}</p>
+            </section>
+        </div>
+    </article>
+
+    <section class="postcard-actions reveal" aria-label="Postcard actions">
+        <div>
+            <p class="eyebrow">Keep this close</p>
+            <h2>Save or share your pause.</h2>
+        </div>
+        <div class="action-buttons">
+            <a class="secondary-button" href="{% url 'core:download_postcard' 'png' %}">Download PNG <span aria-hidden="true">↓</span></a>
+            <a class="secondary-button" href="{% url 'core:download_postcard' 'pdf' %}">Download PDF <span aria-hidden="true">↓</span></a>
+            <button class="text-button" type="button" data-copy-target="reflection-content">Copy reflection</button>
+            <button class="text-button" type="button" data-copy-target="postcard-content">Copy entire postcard</button>
+        </div>
+        <p class="copy-status" role="status" aria-live="polite"></p>
+    </section>
+</main>
+{% endblock %}
