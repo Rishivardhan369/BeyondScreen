@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Today's Digital Summary | BeyondScreen{% endblock %}
+
+{% block content %}
+<main class="result-page">
+    <nav class="site-nav result-nav" aria-label="Main navigation">
+        <a class="brand" href="{% url 'core:home' %}">beyondscreen<span>.</span></a>
+        <a class="text-link" href="{% url 'core:home' %}">← Upload Another Report</a>
+    </nav>
+
+    <section class="summary-intro reveal">
+        <p class="eyebrow">Today's Digital Summary</p>
+        <h1>Here’s a quick overview of your digital activity.</h1>
+    </section>
+
+    <section class="stats-section">
+        <div class="stats-grid">
+            <!-- Total Screen Time -->
+            <div class="stat-card reveal">
+                <h3>Total Screen Time</h3>
+                <p class="stat-value">{{ summary.total_screen_time }}</p>
+            </div>
+
+            <!-- Digital Wellness Score -->
+            <div class="stat-card reveal">
+                <h3>Digital Wellness Score</h3>
+                <p class="stat-value">{{ summary.wellness_score }} / 100</p>
+            </div>
+
+            <!-- Wellness Category -->
+            <div class="stat-card reveal">
+                <h3>Wellness Category</h3>
+                <p class="stat-value">{{ summary.wellness_category }}</p>
+            </div>
+
+            <!-- Insight -->
+            <div class="stat-card reveal">
+                <h3>Insight</h3>
+                <p class="stat-value">{{ summary.insight }}</p>
+            </div>
+
+            <!-- Recommendation -->
+            <div class="stat-card reveal">
+                <h3>Recommendation</h3>
+                <p class="stat-value">{{ summary.recommendation }}</p>
+            </div>
+
+            <!-- Motivation -->
+            <div class="stat-card reveal">
+                <h3>Motivation</h3>
+                <p class="stat-value">{{ summary.motivational }}</p>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}

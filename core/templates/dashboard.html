@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - BeyondScreen{% endblock %}
+
+{% block content %}
+<style>
+    .chart-container {
+        position: relative;
+        min-height: 350px;
+    }
+    .empty-state-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        display: none;
+    }
+</style>
+<main>
+    <!-- Hero Section -->
+    <section class="hero-shell dashboard-hero">
+        <div class="hero-grid">
+            <div class="hero-copy reveal">
+                <p class="eyebrow">Welcome back</p>
+                <h1>{{ user.first_name|default:user.username }}</h1>
+                <p class="hero-lede">Here’s a quick look at your mindful journey.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Actions -->
+    <section class="ritual-section dashboard">
+        <h2 class="section-title">Quick Actions</h2>
+        <div class="actions-grid">
+            <a href="{% url 'core:dashboard' %}" class="action-card">
+                <span>Dashboard</span>
+                <span aria-hidden="true">→</span>
+            </a>
+            <a href="{% url 'core:postcard_history' %}" class="action-card">
+                <span>History</span>
+                <span aria-hidden="true">→</span>
+            </a>
+            <a href="{% url 'core:profile' %}" class="action-card">
+                <span>Profile</span>
+                <span aria-hidden="true">→</span>
+            </a>
+        </div>
+    </section>
+
+    <!-- Statistics Section -->
+    <section class="ritual-section dashboard">
+        <h2 class="section-title">Your Statistics</h2>
+        <div class="stats-grid">
+            <!-- Total Postcards -->
+            <div class="stat-card reveal">
+                <h3>Total Postcards</h3>
+                <p class="stat-value">{{ total_postcards }}</p>
+            </div>
+
+            <!-- Monthly Postcards -->
+            <div class="stat-card reveal">
+                <h3>Monthly Postcards</h3>
+                <p class="stat-value">{{ monthly_postcards }}</p>
+            </div>
+
+            <!-- Member Since -->
+            <div class="stat-card reveal">
+                <h3>Member Since</h3>
+                <p class="stat-value">{{ member_since|date:"M Y" }}</p>
+            </div>
+
+            <!-- Streak -->
+            <div class="stat-card reveal">
+                <h3>Current Streak</h3>
+                <p class="stat-value">{{ current_streak }} days</p>
+            </div>
+
+            <!-- Most Common Mood -->
+            <div class="stat-card reveal">
+                <h3>Most Common Mood</h3>
+                <p class="stat-value">{{ most_common_mood }}</p>
+            </div>
+
+            <!-- Total Words Written -->
+            <div class="stat-card reveal">
+                <h3>Total Words Written</h3>
+                <p class="stat-value">{{ total_words }}</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Mood Distribution -->
+    <section class="ritual-section dashboard">
+        <h2 class="section-title">Mood Distribution</h2>
+        <div class="chart-container" style="position: relative;">
+            <canvas id="moodChart" width="400" height="200"></canvas>
+            <div class="empty-state-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; display: none;">
+                <p>No mood data available. Generate postcards to see your mood distribution.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Monthly Activity -->
+    <section class="ritual-section dashboard">
+        <h2 class="section-title">Monthly Activity</h2>
+        <div class="chart-container" style="position: relative;">
+            <canvas id="monthlyChart" width="400" height="200"></canvas>
+            <div class="empty-state-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; display: none;">
+                <p>No activity data available. Generate postcards to see your monthly activity.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Recent Postcards -->
+    <section class="ritual-section dashboard">
+        <h2 class="section-title">Recent Postcards</h2>
+        <div class="recent-grid">
+            {% for postcard in postcards %}
+            <div class="recent-card" onclick="location.href='{% url 'core:view_postcard' postcard.id %}'">
+                <div class="recent-header">
+                    <p class="recent-meta">{{ postcard.mood }} • {{ postcard.goal }}</p>
+                    <time class="recent-date">{{ postcard.created_at|date:"M d, Y" }}</time>
+                </div>
+                <h3 class="recent-title">{{ postcard.haiku_first_line }}</h3>
+                <p class="recent-preview">{{ postcard.reflection|truncatewords:8 }}</p>
+                <div class="action-buttons" onclick="event.stopPropagation()">
+                    <a href="{% url 'core:download_postcard_by_id' postcard.id 'pdf' %}" class="secondary-button" onclick="event.stopPropagation()">Download PDF</a>
+                    <form action="{% url 'core:delete_postcard' postcard.id %}" method="post" class="form-delete" onclick="event.stopPropagation()" onsubmit="return confirm('Are you sure you want to delete this postcard?');">
+                        {% csrf_token %}
+                        <button type="submit" class="text-button" onclick="event.stopPropagation()">Delete</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+            {% if not postcards %}
+            <div class="empty-state">
+                <p>No postcards yet.</p>
+                <a href="{% url 'core:home' %}" class="primary-button">
+                    <span>Get Started</span><span aria-hidden="true">→</span>
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mood Chart
+        const moodCtx = document.getElementById('moodChart');
+        const moodOverlay = moodCtx.nextElementSibling;
+        if ({{ total_postcards|default:0 }} > 0) {
+            moodOverlay.style.display = 'none';
+            new Chart(moodCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: {{ mood_labels|safe }},
+                    datasets: [{
+                        data: {{ mood_values|safe }},
+                        backgroundColor: [
+                            '#4caf50',
+                            '#2196f3',
+                            '#f44336',
+                            '#ff9800',
+                            '#9c27b0'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20
+                            }
+                        },
+                        tooltip: {
+                            enabled: true
+                        }
+                    }
+                }
+            });
+        } else {
+            moodOverlay.style.display = 'flex';
+        }
+
+        // Monthly Chart
+        const monthlyCtx = document.getElementById('monthlyChart');
+        const monthlyOverlay = monthlyCtx.nextElementSibling;
+        if ({{ total_postcards|default:0 }} > 0) {
+            monthlyOverlay.style.display = 'none';
+            new Chart(monthlyCtx, {
+                type: 'bar',
+                data: {
+                    labels: {{ month_labels|safe }},
+                    datasets: [{
+                        label: 'Postcards Created',
+                        data: {{ month_counts|safe }},
+                        backgroundColor: 'rgba(33, 150, 243, 0.5)',
+                        borderColor: 'rgba(33, 150, 243, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        } else {
+            monthlyOverlay.style.display = 'flex';
+        }
+    });
+</script>
+{% endblock %}

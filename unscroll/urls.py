@@ -20,4 +20,6 @@ from django.urls import include, path
 urlpatterns = [
     path('', include('core.urls')),
     path('admin/', admin.site.urls),
+    # Django auth URLs (for password reset etc.) - placed after allauth to avoid overriding
+    path('accounts/', include('django.contrib.auth.urls')),
 ]

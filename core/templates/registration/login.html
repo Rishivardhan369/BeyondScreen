@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Log in - BeyondScreen{% endblock %}
+
+{% block content %}
+<main>
+    <section class="hero-shell auth-hero-shell">
+        <div class="hero-grid">
+            <div class="hero-copy reveal">
+                <p class="eyebrow">Welcome back</p>
+                <h1>Log in to your account</h1>
+                <p class="hero-lede">Access your saved postcards and continue your mindful journey.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="ritual-section">
+        <div class="auth-card auth-card--form">
+            <p class="eyebrow">Log in</p>
+            <h2 id="account-heading">Sign in</h2>
+            <form method="post" novalidate class="auth-form">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                <div class="auth-error">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+                <div class="auth-field">
+                    {{ form.username.label_tag }}
+                    {{ form.username }}
+                    {% if form.username.errors %}
+                    <div class="auth-field-error">
+                        {{ form.username.errors|striptags }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="auth-field">
+                    {{ form.password.label_tag }}
+                    {{ form.password }}
+                    {% if form.password.errors %}
+                    <div class="auth-field-error">
+                        {{ form.password.errors|striptags }}
+                    </div>
+                    {% endif %}
+                </div>
+                <button class="auth-button" type="submit">
+                    <span>Log in</span><span aria-hidden="true">→</span>
+                </button>
+            </form>
+            <p class="auth-text-link" style="text-align: center;">
+                Forgot your password? <a href="{% url 'password_reset' %}">Reset it</a>
+            </p>
+            <p class="auth-text-link" style="text-align: center;">
+                Don't have an account? <a href="{% url 'core:register' %}">Sign up</a>
+            </p>
+        </div>
+    </section>
+</main>
+{% endblock %}

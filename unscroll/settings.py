@@ -57,6 +57,9 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
             ],
+            "builtins": [
+                # Custom template tags if any
+            ],
         },
     },
 ]
@@ -87,7 +90,18 @@ STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Production-safe defaults are enabled automatically when debug mode is off.
+# Authentication backends
+AUTHENTICATION_BACKENDS = [
+    # Needed to login by username in Django admin, regardless of `allauth`
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+# Redirect to dashboard after login
+LOGIN_REDIRECT_URL = "core:dashboard"
+LOGOUT_REDIRECT_URL = "core:home"
+
+
+# Security settings (production-safe defaults are enabled automatically when debug mode is off)
 SECURE_SSL_REDIRECT = not DEBUG
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG

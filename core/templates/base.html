@@ -5,18 +5,172 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="theme-color" content="#0b1020">
-    <title>{% block title %}Unscroll{% endblock %}</title>
+    <title>{% block title %}BeyondScreen{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        /* Toast container */
+        #toast-container {
+            position: fixed;
+            top: 80px; /* Adjust based on navbar height */
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1050;
+            pointer-events: auto;
+            width: 320px;
+            max-width: calc(100% - 40px);
+        }
+
+        /* Toast */
+        .toast {
+            position: relative;
+            min-height: 56px; /* Adjust as needed */
+            max-width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            background-color: #fff;
+            border-left: 4px solid;
+            color: #333;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 14px;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            will-change: opacity, transform;
+        }
+
+        /* Toast types based on message tags */
+        .toast-success { border-left-color: #4caf50; background-color: #e8f5e9; }
+        .toast-error { border-left-color: #f44336; background-color: #ffebee; }
+        .toast-warning { border-left-color: #ff9800; background-color: #fff3e0; }
+        .toast-info { border-left-color: #2196f3; background-color: #e3f2fd; }
+
+        /* Default to info if tag not matched */
+        .toast { border-left-color: #2196f3; background-color: #e3f2fd; }
+
+        /* Toast body */
+        .toast-body {
+            flex: 1;
+            margin-right: 12px;
+            word-break: break-word;
+        }
+
+        /* Toast close button */
+        .toast-close {
+            position: absolute;
+            top: 50%;
+            right: 12px;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            font-size: 24px;
+            line-height: 1;
+            color: #666;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s ease;
+        }
+        .toast-close:hover {
+            color: #333;
+        }
+
+        /* Hide animation */
+        .toast-hide {
+            opacity: 0;
+            transform: translateX(20px);
+            pointer-events: none;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 480px) {
+            #toast-container {
+                width: calc(100% - 40px);
+                left: 20px;
+            }
+        }
+    </style>
 </head>
 <body>
+    <header class="site-header">
+        <nav class="site-nav" aria-label="Primary">
+            <a href="{% url 'core:home' %}" class="brand">beyondscreen<span>.</span></a>
+            <div class="nav-links">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'core:dashboard' %}" class="nav-link{% if request.path == '/dashboard/' %} active{% endif %}">Dashboard</a>
+                    <a href="{% url 'core:history' %}" class="nav-link{% if request.path == '/history/' %} active{% endif %}">History</a>
+                    <a href="{% url 'core:profile' %}" class="nav-link{% if request.path == '/profile/' %} active{% endif %}">Profile</a>
+                    <form action="{% url 'core:logout' %}" method="post" class="nav-link logout-form">
+                        {% csrf_token %}
+                        <button type="submit" class="nav-link logout">Log out</button>
+                    </form>
+                {% else %}
+                    <a href="{% url 'core:login' %}" class="nav-link{% if request.path == '/accounts/login/' %} active{% endif %}">Log in</a>
+                    <a href="{% url 'core:register' %}" class="nav-link primary{% if request.path == '/accounts/signup/' %} active{% endif %}">Sign up</a>
+                {% endif %}
+            </div>
+        </nav>
+    </header>
+
+    <!-- Toast container -->
+    <div id="toast-container" aria-live="polite">
+        {% for message in messages %}
+        <div class="toast toast-{{ message.tags }}" role="alert">
+            <div class="toast-body">
+                {{ message }}
+            </div>
+            <button type="button" class="toast-close" aria-label="Close">×</button>
+        </div>
+        {% endfor %}
+    </div>
+
     {% block content %}{% endblock %}
+
     <footer class="site-footer">
-        <a href="{% url 'core:home' %}" class="brand">unscroll</a>
+        <a href="{% url 'core:home' %}" class="brand">beyondscreen<span>.</span></a>
         <p>Small pauses. More of your day.</p>
     </footer>
     <script src="{% static 'js/postcard.js' %}" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const toastContainer = document.getElementById('toast-container');
+            if (!toastContainer) return;
+
+            const toasts = toastContainer.querySelectorAll('.toast');
+
+            toasts.forEach(toast => {
+                // Set up auto-dismiss after 4 seconds
+                const timer = setTimeout(() => {
+                    hideToast(toast);
+                }, 4000);
+
+                // Set up close button
+                const closeButton = toast.querySelector('.toast-close');
+                if (closeButton) {
+                    closeButton.addEventListener('click', () => {
+                        clearTimeout(timer);
+                        hideToast(toast);
+                    });
+                }
+            });
+
+            function hideToast(toast) {
+                toast.classList.add('toast-hide');
+                // Wait for the transition to end then remove from DOM
+                toast.addEventListener('transitionend', () => {
+                    toast.remove();
+                }, { once: true });
+            }
+        });
+    </script>
 </body>
 </html>

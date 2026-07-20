@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Digital History - BeyondScreen{% endblock %}
+
+{% block content %}
+<main>
+    <!-- Hero Section -->
+    <section class="hero-shell">
+        <div class="hero-grid">
+            <div class="hero-copy reveal">
+                <p class="eyebrow">Your digital wellness history</p>
+                <h1>{{ user.first_name|default:user.username }}</h1>
+                <p class="hero-lede">Track your screen‑time insights over time.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- History Stats (Trend Card) -->
+    {% if summaries %}
+    <section class="ritual-section history-section">
+        <h2 class="section-title">Overview</h2>
+        <div class="stats-grid">
+            <div class="stat-card reveal">
+                <h3>Total Analyses</h3>
+                <p class="stat-value">{{ summaries|length }}</p>
+            </div>
+            <div class="stat-card reveal">
+                <h3>Average Wellness Score</h3>
+                <p class="stat-value">{{ avg_wellness|floatformat:1 }} / 100</p>
+            </div>
+            <div class="stat-card reveal">
+                <h3>Latest Analysis</h3>
+                <p class="stat-value">{{ summaries.first.created_at|date:"M d, Y" }}</p>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Digital Summaries List -->
+    <section class="ritual-section history-section">
+        <h2 class="section-title">Your Digital Summaries</h2>
+
+        <!-- Sort Form -->
+        <form method="get" novalidate class="auth-form">
+            <div class="auth-field">
+                <label for="id_sort">Sort</label>
+                <select name="sort" id="id_sort">
+                    <option value="newest" {% if sort != 'oldest' %}selected{% endif %}>Newest</option>
+                    <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>Oldest</option>
+                </select>
+                <button type="submit" class="auth-button">Sort</button>
+                <a href="{% url 'core:history' %}" class="text-button">Reset Sort</a>
+            </div>
+        </form>
+
+        {% if summaries %}
+            <div class="recent-grid">
+                {% for summary in summaries %}
+                <div class="recent-card" onclick="location.href='{% url 'core:summary' %}'">
+                    <div class="recent-header">
+                        <p class="recent-meta">{{ summary.created_at|date:"M d, Y H:i" }} • {{ summary.screen_time_minutes }} min</p>
+                        <time class="recent-date">{{ summary.created_at|date:"M d, Y" }}</time>
+                    </div>
+                    <h3 class="recent-title">Wellness Score: {{ summary.wellness_score }}/100</h3>
+                    <p class="recent-preview">{{ summary.insight|truncatewords:12 }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <p>No digital analyses yet.</p>
+                <a href="{% url 'core:home' %}" class="primary-button">
+                    <span>Get Started</span><span aria-hidden="true">→</span>
+                </a>
+            </div>
+        {% endif %}
+    </section>
+</main>
+{% endblock %}

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}History - BeyondScreen{% endblock %}
+
+{% block content %}
+<main>
+    <!-- Hero Section -->
+    <section class="hero-shell">
+        <div class="hero-grid">
+            <div class="hero-copy reveal">
+                <p class="eyebrow">Your postcard history</p>
+                <h1>{{ user.first_name|default:user.username }}</h1>
+                <p class="hero-lede">All your mindful moments, in one place.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Postcards Grid -->
+    <section class="ritual-section history-section">
+        <h2 class="section-title">Your Postcards</h2>
+
+        <!-- Filter Form -->
+        <form method="get" novalidate class="auth-form">
+            <div class="auth-field">
+                <label for="id_q">Search</label>
+                <input type="text" name="q" id="id_q" value="{{ query|default:'' }}" placeholder="Search by goal, reflection, or haiku">
+            </div>
+            <div class="auth-field">
+                <label for="id_mood">Mood</label>
+                <select name="mood" id="id_mood">
+                    <option value="All" {% if mood_filter == 'All' %}selected{% endif %}>All</option>
+                    <option value="Happy" {% if mood_filter == 'Happy' %}selected{% endif %}>Happy</option>
+                    <option value="Calm" {% if mood_filter == 'Calm' %}selected{% endif %}>Calm</option>
+                    <option value="Sad" {% if mood_filter == 'Sad' %}selected{% endif %}>Sad</option>
+                    <option value="Anxious" {% if mood_filter == 'Anxious' %}selected{% endif %}>Anxious</option>
+                    <option value="Motivated" {% if mood_filter == 'Motivated' %}selected{% endif %}>Motivated</option>
+                    <option value="Reflective" {% if mood_filter == 'Reflective' %}selected{% endif %}>Reflective</option>
+                </select>
+            </div>
+            <div class="auth-field">
+                <label for="id_sort">Sort</label>
+                <select name="sort" id="id_sort">
+                    <option value="newest" {% if sort != 'oldest' %}selected{% endif %}>Newest</option>
+                    <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>Oldest</option>
+                </select>
+            </div>
+            <div class="auth-field">
+                <button type="submit" class="auth-button">Filter</button>
+                <a href="{% url 'core:history' %}" class="text-button">Clear Filters</a>
+            </div>
+        </form>
+
+        {% if postcards %}
+            <div class="recent-grid">
+                {% for postcard in postcards %}
+                <div class="recent-card" onclick="location.href='{% url 'core:view_postcard' postcard.id %}'">
+                    <div class="recent-header">
+                        <p class="recent-meta">{{ postcard.mood }} • {{ postcard.goal }}</p>
+                        <time class="recent-date">{{ postcard.created_at|date:"M d, Y" }}</time>
+                    </div>
+                    <h3 class="recent-title">{{ postcard.haiku_first_line }}</h3>
+                    <p class="recent-preview">{{ postcard.reflection|truncatewords:8 }}</p>
+                    <div class="action-buttons" onclick="event.stopPropagation()">
+                        <a href="{% url 'core:download_postcard_by_id' postcard.id 'pdf' %}" class="secondary-button" onclick="event.stopPropagation()">Download PDF</a>
+                        <form action="{% url 'core:delete_postcard' postcard.id %}" method="post" class="form-delete" onclick="event.stopPropagation()" onsubmit="return confirm('Are you sure you want to delete this postcard?');">
+                            {% csrf_token %}
+                            <button type="submit" class="text-button" onclick="event.stopPropagation()">Delete</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <p>No matching postcards found.</p>
+                <a href="{% url 'core:history' %}" class="primary-button">
+                    <span>Clear Filters</span><span aria-hidden="true">→</span>
+                </a>
+            </div>
+        {% endif %}
+    </section>
+</main>
+{% endblock %}

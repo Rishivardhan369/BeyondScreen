@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Register - BeyondScreen{% endblock %}
+
+{% block content %}
+<main>
+    <section class="hero-shell auth-hero-shell">
+        <div class="hero-grid">
+            <div class="hero-copy reveal">
+                <p class="eyebrow">Join BeyondScreen</p>
+                <h1>Create your account</h1>
+                <p class="hero-lede">Save your postcards, track your journey, and unlock personalized insights.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="ritual-section">
+        <div class="auth-card auth-card--form">
+            <p class="eyebrow">Create account</p>
+            <h2 id="account-heading">Sign up</h2>
+            <form method="post" novalidate class="auth-form">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                <div class="auth-error">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+                <div class="auth-field">
+                    {{ form.username.label_tag }}
+                    {{ form.username }}
+                    {% if form.username.errors %}
+                    <div class="auth-field-error">
+                        {{ form.username.errors|striptags }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="auth-field">
+                    {{ form.email.label_tag }}
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                    <div class="auth-field-error">
+                        {{ form.email.errors|striptags }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="auth-field">
+                    {{ form.first_name.label_tag }}
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                    <div class="auth-field-error">
+                        {{ form.first_name.errors|striptags }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="auth-field">
+                    {{ form.last_name.label_tag }}
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                    <div class="auth-field-error">
+                        {{ form.last_name.errors|striptags }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="auth-field">
+                    {{ form.password1.label_tag }}
+                    {{ form.password1 }}
+                    {% if form.password1.errors %}
+                    <div class="auth-field-error">
+                        {{ form.password1.errors|striptags }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="auth-field">
+                    {{ form.password2.label_tag }}
+                    {{ form.password2 }}
+                    {% if form.password2.errors %}
+                    <div class="auth-field-error">
+                        {{ form.password2.errors|striptags }}
+                    </div>
+                    {% endif %}
+                </div>
+                <button class="auth-button" type="submit">
+                    <span>Create account</span><span aria-hidden="true">→</span>
+                </button>
+            </form>
+            <p class="auth-text-link" style="text-align: center;">
+                Already have an account? <a href="{% url 'core:login' %}">Log in</a>
+            </p>
+        </div>
+    </section>
+</main>
+{% endblock %}

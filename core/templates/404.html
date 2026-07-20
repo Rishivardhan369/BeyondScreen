@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Page not found – Unscroll{% endblock %}
+
+{% block content %}
+<section class="hero-shell">
+    <div class="hero-grid">
+        <div class="hero-copy reveal">
+            <p class="eyebrow">Page not found</p>
+            <h1>404</h1>
+            <p class="hero-lede">The page you’re looking for doesn’t exist.</p>
+            <a href="{% url 'core:home' %}" class="primary-button">
+                <span>Return home</span><span aria-hidden="true">→</span>
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}

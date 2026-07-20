@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - BeyondScreen{% endblock %}
+
+{% block content %}
+<main>
+    <section class="hero-shell auth-hero-shell">
+        <div class="hero-grid">
+            <div class="hero-copy reveal">
+                <p class="eyebrow">Your profile</p>
+                <h1>{{ user.get_full_name|default:user.username }}</h1>
+                <p class="hero-lede">Here you can view and update your account information.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="ritual-section">
+        <div class="auth-card auth-card--profile">
+            <div class="profile-info">
+                <div class="profile-field">
+                    <label class="profile-label">Username</label>
+                    <div class="profile-value">{{ user.username }}</div>
+                </div>
+                <div class="profile-field">
+                    <label class="profile-label">Email</label>
+                    <div class="profile-value">{{ user.email }}</div>
+                </div>
+                <div class="profile-field">
+                    <label class="profile-label">First name</label>
+                    <div class="profile-value">{{ user.first_name }}</div>
+                </div>
+                <div class="profile-field">
+                    <label class="profile-label">Last name</label>
+                    <div class="profile-value">{{ user.last_name }}</div>
+                </div>
+                {% if user.userprofile.bio %}
+                <div class="profile-field">
+                    <label class="profile-label">Bio</label>
+                    <div class="profile-value">{{ user.userprofile.bio }}</div>
+                </div>
+                {% endif %}
+                {% if user.userprofile.avatar %}
+                <div class="profile-field">
+                    <label class="profile-label">Avatar</label>
+                    <div class="profile-value">
+                        <img src="{{ user.userprofile.avatar.url }}" alt="Avatar" style="max-width: 150px; border-radius: 50%;">
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="profile-actions">
+                <a href="{% url 'core:edit_profile' %}" class="auth-button">
+                    <span>Edit profile</span><span aria-hidden="true">→</span>
+                </a>
+            </div>
+        </div>
+    </section>
+</main>
+{% endblock %}
