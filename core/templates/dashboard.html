@@ -1,234 +1,484 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}Dashboard | BeyondScreen{% endblock %}
+
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
 {% endblock %}
+
 {% block header %}
-<header class="top-bar">
-  <div class="container">
-    <div class="search-wrapper">
-      <input type="search" placeholder="Search reports, insights..." aria-label="Search">
+<header class="top-nav">
+  <div class="top-nav-inner">
+    <div class="welcome-copy">
+      <strong>
+        Welcome back,
+        {{ request.user.first_name|default:request.user.username }}
+        <span aria-hidden="true">👋</span>
+      </strong>
+      <small>Here is your latest digital-life snapshot</small>
     </div>
-    <div class="nav-actions">
-      <button class="icon-button" aria-label="Notifications">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="ring">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+
+    <div class="top-search">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"></circle>
+        <path d="m20 20-3.5-3.5"></path>
+      </svg>
+
+      <input
+        type="search"
+        placeholder="Search anything..."
+        aria-label="Search reports and insights"
+      >
+    </div>
+
+    <div class="top-actions">
+      <button class="notification-button" type="button" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>
+          <path d="M13.7 21a2 2 0 0 1-3.4 0"></path>
         </svg>
+        <span class="notification-dot"></span>
       </button>
-      <a href="{% url 'core:home' %}" class="btn btn-upload">Upload New Report</a>
+
+      <a href="{% url 'core:home' %}" class="upload-button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 16V4"></path>
+          <path d="m7 9 5-5 5 5"></path>
+          <path d="M20 15v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4"></path>
+        </svg>
+        Upload New Report
+      </a>
     </div>
   </div>
 </header>
 {% endblock %}
+
 {% block content %}
-<div class="hero-section">
+<div class="dashboard-layout">
 
-    <div class="hero-card">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <a href="{% url 'core:home' %}" class="brand-link">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48">
+            <circle cx="23" cy="23" r="15"></circle>
+            <path d="M30 11a14 14 0 0 1 5 20"></path>
+            <path d="M34 31l6 1-1-6"></path>
+            <path d="M16 35a14 14 0 0 1-5-20"></path>
+            <path d="M12 15 6 14l1 6"></path>
+          </svg>
+        </span>
 
-        <div class="hero-left">
+        <span class="brand-text">
+          <strong>BeyondScreen</strong>
+          <small>Your time. Reclaimed.</small>
+        </span>
+      </a>
+    </div>
 
-            <div class="hero-badge">
-                TODAY'S OVERVIEW
+    <nav class="sidebar-nav" aria-label="Dashboard navigation">
+      <a
+        href="{% url 'core:dashboard' %}"
+        class="sidebar-link {% if request.path == '/dashboard/' %}active{% endif %}"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m3 11 9-8 9 8"></path>
+          <path d="M5 10v10h14V10"></path>
+          <path d="M9 20v-6h6v6"></path>
+        </svg>
+        <span>Overview</span>
+      </a>
+
+      <a href="#opportunity-cost" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M12 7v5l3 2"></path>
+        </svg>
+        <span>Opportunity Cost</span>
+      </a>
+
+      <a href="#today-focus" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8"></circle>
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 2v2"></path>
+          <path d="M12 20v2"></path>
+          <path d="m4.9 4.9 1.4 1.4"></path>
+          <path d="m17.7 17.7 1.4 1.4"></path>
+        </svg>
+        <span>Today's Focus</span>
+      </a>
+
+      <a href="#weekly-progress" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 19V9"></path>
+          <path d="M10 19V5"></path>
+          <path d="M16 19v-7"></path>
+          <path d="M22 19H2"></path>
+        </svg>
+        <span>Progress</span>
+      </a>
+
+      <a
+        href="{% url 'core:history' %}"
+        class="sidebar-link {% if request.path == '/history/' %}active{% endif %}"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+          <path d="M3 4v5h5"></path>
+          <path d="M12 7v5l3 2"></path>
+        </svg>
+        <span>History</span>
+      </a>
+
+      <a
+        href="{% url 'core:profile' %}"
+        class="sidebar-link {% if request.path == '/profile/' %}active{% endif %}"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="8" r="4"></circle>
+          <path d="M4 21a8 8 0 0 1 16 0"></path>
+        </svg>
+        <span>Profile</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="reclaimed-card">
+      <div class="reclaimed-heading">
+        <span>✦</span>
+        <strong>You are doing great!</strong>
+      </div>
+
+      <p>You have started reclaiming your attention.</p>
+
+      <div class="reclaimed-time">
+        <strong>
+          {{ dashboard_summary.total_screen_time|default:"0m" }}
+        </strong>
+        <small>latest screen-time snapshot</small>
+      </div>
+
+      <a href="{% url 'core:summary' %}">View Full Summary</a>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar">
+        {{ request.user.username|first|upper }}
+      </div>
+
+      <div class="user-details">
+        <strong>
+          {{ request.user.first_name|default:request.user.username }}
+        </strong>
+        <small>{{ request.user.email|default:"BeyondScreen member" }}</small>
+      </div>
+
+      <form action="{% url 'core:logout' %}" method="post">
+        {% csrf_token %}
+        <button type="submit" aria-label="Log out">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10 17l5-5-5-5"></path>
+            <path d="M15 12H3"></path>
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+          </svg>
+        </button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="main-content bs-dashboard">
+    <div class="content-shell bs-dashboard-shell">
+
+    <section class="bs-hero" aria-labelledby="bs-dashboard-title">
+      <div class="bs-hero-glow bs-hero-glow-gold"></div>
+      <div class="bs-hero-glow bs-hero-glow-teal"></div>
+      <div class="bs-hero-stars" aria-hidden="true"></div>
+
+      <div class="bs-hero-copy">
+        <span class="bs-eyebrow">TODAY'S OVERVIEW</span>
+
+        <h1 id="bs-dashboard-title">
+          Your time is valuable.<br>
+          Let’s make it <span>meaningful.</span>
+        </h1>
+
+        <p>
+          You spent
+          <strong>
+            {{ dashboard_summary.total_screen_time|default:"0m" }}
+          </strong>
+          on your devices today.
+          See what that time <em>could have become.</em>
+        </p>
+
+        <a href="{% url 'core:summary' %}" class="bs-primary-button">
+          View Full Summary
+          <span aria-hidden="true">→</span>
+        </a>
+      </div>
+
+      <div class="bs-time-portal" aria-label="Latest screen-time report">
+        <div class="bs-portal-orbit bs-portal-orbit-one"></div>
+        <div class="bs-portal-orbit bs-portal-orbit-two"></div>
+
+        <div class="bs-portal-core">
+          <svg class="bs-hourglass" viewBox="0 0 100 130" aria-hidden="true">
+            <path d="M23 10h54"></path>
+            <path d="M23 120h54"></path>
+            <path d="M29 14c0 27 14 31 21 42 7-11 21-15 21-42"></path>
+            <path d="M29 116c0-27 14-31 21-42 7 11 21 15 21 42"></path>
+            <path d="M38 45h24"></path>
+            <path d="M39 85h22"></path>
+          </svg>
+
+          <strong>
+            {{ dashboard_summary.total_screen_time|default:"0m" }}
+          </strong>
+
+          <span>Time Spent</span>
+          <small>Latest Report</small>
+        </div>
+      </div>
+
+      <div class="bs-hero-opportunity" id="opportunity-cost">
+        <h2>That time could have become</h2>
+
+        <div class="bs-opportunity-list">
+          <div class="bs-opportunity-row">
+            <span class="bs-opportunity-icon bs-icon-cyan">▤</span>
+            <div>
+              <strong>
+                {{ dashboard_summary.opportunity_cost.reading_pages|default:"0" }}
+                Pages
+              </strong>
+              <small>Reading</small>
             </div>
+          </div>
 
-            <h1 class="hero-title">
-                Your time is valuable.<br>
-                Let's make it <span>meaningful.</span>
-            </h1>
+          <div class="bs-opportunity-row">
+            <span class="bs-opportunity-icon bs-icon-gold">⌁</span>
+            <div>
+              <strong>
+                {{ dashboard_summary.opportunity_cost.walking_km|default:"0" }}
+                km
+              </strong>
+              <small>Walking</small>
+            </div>
+          </div>
 
-            <p class="hero-description">
-                You spent {{ request.session.summary_data.total_screen_time|default:"0h 0m" }}
-                on your devices today.
+          <div class="bs-opportunity-row">
+            <span class="bs-opportunity-icon bs-icon-teal">◴</span>
+            <div>
+              <strong>
+                {{ dashboard_summary.opportunity_cost.pomodoro_sessions|default:"0" }}
+                Sessions
+              </strong>
+              <small>Pomodoros</small>
+            </div>
+          </div>
 
-                See what that time could have become.
-            </p>
+          <div class="bs-opportunity-row">
+            <span class="bs-opportunity-icon bs-icon-blue">☾</span>
+            <div>
+              <strong>
+                {{ dashboard_summary.opportunity_cost.sleep_hours|default:"0" }}
+                Hours
+              </strong>
+              <small>Sleep</small>
+            </div>
+          </div>
 
-            <a href="{% url 'core:home' %}" class="btn btn-gold">
-                View Full Summary →
+          <div class="bs-opportunity-row">
+            <span class="bs-opportunity-icon bs-icon-purple">✦</span>
+            <div>
+              <strong>
+                {{ dashboard_summary.opportunity_cost.meditation_sessions|default:"0" }}
+                Sessions
+              </strong>
+              <small>Meditation</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="bs-dashboard-grid">
+
+      <article class="bs-card bs-mood-card">
+        <header class="bs-card-header">
+          <div class="bs-card-title">
+            <span class="bs-title-icon">☼</span>
+            <div>
+              <h2>Mood Distribution</h2>
+              <p>From your latest reports</p>
+            </div>
+          </div>
+        </header>
+
+        <div class="bs-mood-content">
+          <div
+            class="bs-mood-donut"
+            style="--bs-mood-gradient: {{ mood_gradient }};"
+          >
+            <div class="bs-mood-donut-center">
+              <strong>{{ mood_report_count|default:"0" }}</strong>
+              <span>Reports</span>
+            </div>
+          </div>
+
+          <div class="bs-mood-legend">
+            {% for mood in mood_stats %}
+              <div>
+                <span>
+                  <i class="bs-mood-dot {{ mood.css_class }}"></i>
+                  {{ mood.label }}
+                </span>
+
+                <strong>
+                  {{ mood.count }} ({{ mood.percentage }}%)
+                </strong>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <a href="{% url 'core:history' %}" class="bs-card-link">
+          View Mood History
+          <span aria-hidden="true">→</span>
+        </a>
+      </article>
+
+      <article class="bs-card bs-trend-card" id="weekly-progress">
+        <header class="bs-card-header">
+          <div class="bs-card-title">
+            <span class="bs-title-icon">⌁</span>
+            <div>
+              <h2>Activity Trend</h2>
+              <p>Reports submitted over time</p>
+            </div>
+          </div>
+
+          <span class="bs-period-pill">6 Months</span>
+        </header>
+
+        <div class="bs-activity-chart">
+          {% for month in monthly_activity %}
+            <div class="bs-activity-column">
+              <strong>{{ month.count }}</strong>
+
+              <div class="bs-activity-track">
+                <span
+                  class="bs-activity-bar"
+                  style="--bs-activity-height: {{ month.height }}%;"
+                ></span>
+              </div>
+
+              <small>{{ month.label }}</small>
+            </div>
+          {% endfor %}
+        </div>
+
+        <a href="{% url 'core:history' %}" class="bs-card-link bs-link-teal">
+          View Full History
+          <span aria-hidden="true">→</span>
+        </a>
+      </article>
+
+      <article class="bs-card bs-focus-card" id="today-focus">
+        <header class="bs-card-header">
+          <div class="bs-card-title">
+            <span class="bs-title-icon">◎</span>
+            <div>
+              <h2>Today’s Focus</h2>
+              <p>Small steps, meaningful change</p>
+            </div>
+          </div>
+        </header>
+
+        <blockquote class="bs-focus-quote">
+          <span aria-hidden="true">“</span>
+          <p>
+            Protect your peace.<br>
+            Your future self is watching.
+          </p>
+        </blockquote>
+
+        <div class="bs-focus-label">Recommended for you</div>
+
+        <div class="bs-focus-action">
+          <span class="bs-focus-action-icon">⌁</span>
+
+          <div>
+            <strong>
+              {{ dashboard_summary.recommendation|default:"Upload your first report to receive a recommendation." }}
+            </strong>
+
+            <small>Move your body, clear your mind.</small>
+          </div>
+        </div>
+
+        <a href="{% url 'core:summary' %}" class="bs-card-link bs-link-teal">
+          Explore More Tips
+          <span aria-hidden="true">→</span>
+        </a>
+      </article>
+
+      <article class="bs-card bs-reports-card">
+        <header class="bs-card-header">
+          <div class="bs-card-title">
+            <span class="bs-title-icon">▤</span>
+            <div>
+              <h2>Recent Reports</h2>
+              <p>Your latest digital-wellbeing reports</p>
+            </div>
+          </div>
+        </header>
+
+        <div class="bs-report-list">
+          {% for report in recent_reports %}
+            <a href="{% url 'core:history' %}" class="bs-report-row">
+              <div class="bs-report-date">
+                <span>{{ report.created|date:"M" }}</span>
+                <strong>{{ report.created|date:"d" }}</strong>
+              </div>
+
+              <div class="bs-report-info">
+                <strong>
+                  {% if report.is_latest %}
+                    Latest report
+                  {% else %}
+                    Previous report
+                  {% endif %}
+                </strong>
+
+                <small>{{ report.screen_time }}</small>
+              </div>
+
+              {% if report.is_latest %}
+                <span class="bs-latest-pill">Latest</span>
+              {% endif %}
+
+              <b aria-hidden="true">›</b>
             </a>
-
+          {% empty %}
+            <div class="bs-report-empty">
+              <span>▤</span>
+              <strong>No reports yet</strong>
+              <p>Upload your first screen-time report to begin.</p>
+            </div>
+          {% endfor %}
         </div>
 
-        <div class="hero-right">
+        <a href="{% url 'core:history' %}" class="bs-card-link">
+          View All Reports
+          <span aria-hidden="true">→</span>
+        </a>
+      </article>
 
-            <div class="screen-ring">
+    </section>
 
-                <div class="ring-center">
-
-                    <div class="screen-time-value">
-                        {{ request.session.summary_data.total_screen_time|default:"0h 0m" }}
-                    </div>
-
-                    <div class="screen-time-label">
-                        Time Spent Today
-                    </div>
-
-                </div>
-
-            </div>
-
-            <div class="opportunity-mini">
-
-                <h3>That time could have become</h3>
-
-                <ul>
-
-                    <li>
-                        <span>📚</span>
-                        <span>118 Pages Read</span>
-                    </li>
-
-                    <li>
-                        <span>🚶</span>
-                        <span>24 km Walked</span>
-                    </li>
-
-                    <li>
-                        <span>🍅</span>
-                        <span>12 Pomodoros</span>
-                    </li>
-
-                    <li>
-                        <span>🌙</span>
-                        <span>5h Sleep</span>
-                    </li>
-
-                    <li>
-                        <span>🎸</span
-We need to output the rest of the HTML.
-<tool_call>
-<function=Write>
-<parameter=content>
-                        <span>3 Guitar Sessions</span>
-                    </li>
-
-                </ul>
-
-            </div>
-
-        </div>
-
-    </div>
-
+  </div>
+</main>
 </div>
-
-<!-- Second Row: Three Equal Cards -->
-<div class="stats-row">
-  <div class="stat-card">
-    <h3>Opportunity Cost</h3>
-    <p class="stat-value">0 hrs</p>
-    <p class="stat-label">Time reclaimed today</p>
-  </div>
-  <div class="stat-card">
-    <h3>What Happened</h3>
-    <p class="stat-value">{{ total_postcards }}</p>
-    <p class="stat-label">Postcards created</p>
-  </div>
-  <div class="stat-card">
-    <h3>Why It Matters</h3>
-    <p class="stat-value">{{ current_streak }}</p>
-    <p class="stat-label">Current streak</p>
-  </div>
-</div>
-
-<!-- Third Row -->
-<div class="bottom-row">
-  <!-- Today's Focus -->
-  <div class="focus-card">
-    <h3>Today's Focus</h3>
-    <div class="focus-content">
-      {% if most_common_mood %}
-        <p class="focus-mood">{{ most_common_mood }}</p>
-      {% else %}
-        <p class="focus-mood">No data</p>
-      {% endif %}
-    </div>
-    <p class="focus-text">Your dominant mood today</p>
-  </div>
-
-  <!-- Recommendation Panel -->
-  <div class="recommendation-card">
-    <h3>Recommendations</h3>
-    <ul class="recommendation-list">
-      <li>Reduce screen time by 30 minutes</li>
-      <li>Take regular breaks every 90 minutes</li>
-      <li>Practice mindfulness before bed</li>
-      <li>Engage in offline hobbies</li>
-      <li>Review your goals weekly</li>
-    </ul>
-  </div>
-
-  <!-- Weekly Progress Chart -->
-  <div class="progress-card">
-    <h3>Weekly Progress</h3>
-    <div class="chart-container">
-      {{ month_labels|json_script:"month-labels" }}
-      {{ month_counts|json_script:"month-counts" }}
-      <div class="chart-bars"></div>
-    </div>
-  </div>
-</div>
-{% endblock %}
-{% block scripts %}
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const labelsEl = document.getElementById('month-labels');
-    const countsEl = document.getElementById('month-counts');
-    if (!labelsEl || !countsEl) return;
-    const labels = JSON.parse(labelsEl.textContent);
-    const counts = JSON.parse(countsEl.textContent);
-    const container = document.querySelector('.chart-bars');
-    if (!container) return;
-
-    // Clear any existing content
-    container.innerHTML = '';
-
-    // Determine max count for scaling
-    const maxCount = Math.max(...counts);
-    const barWidth = 20; // px
-    const gap = 8; // px between bars
-
-    labels.forEach((label, index) => {
-      const count = counts[index] || 0;
-      const heightPercent = maxCount > 0 ? (count / maxCount) * 100 : 0;
-
-      const bar = document.createElement('div');
-      bar.className = 'chart-bar';
-      bar.style.flex = '1';
-      bar.style.display = 'flex';
-      bar.style.flexDirection = 'column';
-      bar.style.alignItems = 'center';
-      bar.style.margin = `0 ${gap/2}px`;
-
-      const fill = document.createElement('div');
-      fill.className = 'chart-bar-fill';
-      fill.style.width = `${barWidth}px`;
-      fill.style.height = `${heightPercent}%`;
-      fill.style.background = 'var(--accent-teal)';
-      fill.style.borderRadius = '4px 4px 0 0';
-
-      const labelSpan = document.createElement('span');
-      labelSpan.className = 'chart-label';
-      labelSpan.textContent = label;
-      labelSpan.style.fontSize = '0.75rem';
-      labelSpan.style.color = 'var(--text-secondary)';
-      labelSpan.style.marginTop = '0.5rem';
-      labelSpan.style.textAlign = 'center';
-      labelSpan.style.width = '100%';
-
-      bar.appendChild(fill);
-      bar.appendChild(labelSpan);
-      container.appendChild(bar);
-    });
-
-    // Set container display flex
-    container.style.display = 'flex';
-    container.style.justifyContent = 'space-around';
-    container.style.alignItems = 'flex-end';
-    container.style.height = '120px';
-    container.style.padding = '1rem';
-  });
-</script>
 {% endblock %}
