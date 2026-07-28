@@ -14,43 +14,68 @@
         <h1>Here’s a quick overview of your digital activity.</h1>
     </section>
 
-    <section class="stats-section">
+    <!-- Your Screen Time Snapshot -->
+    <section class="digital-snapshot ritual-section">
         <div class="stats-grid">
-            <!-- Total Screen Time -->
             <div class="stat-card reveal">
                 <h3>Total Screen Time</h3>
                 <p class="stat-value">{{ summary.total_screen_time }}</p>
             </div>
-
-            <!-- Digital Wellness Score -->
             <div class="stat-card reveal">
                 <h3>Digital Wellness Score</h3>
                 <p class="stat-value">{{ summary.wellness_score }} / 100</p>
             </div>
+        </div>
+    </section>
 
-            <!-- Wellness Category -->
+    <!-- What This Means -->
+    <section class="what-we-found ritual-section">
+        <div class="stats-grid">
             <div class="stat-card reveal">
                 <h3>Wellness Category</h3>
                 <p class="stat-value">{{ summary.wellness_category }}</p>
             </div>
-
-            <!-- Insight -->
             <div class="stat-card reveal">
                 <h3>Insight</h3>
                 <p class="stat-value">{{ summary.insight }}</p>
             </div>
+        </div>
+    </section>
 
-            <!-- Recommendation -->
-            <div class="stat-card reveal">
-                <h3>Recommendation</h3>
-                <p class="stat-value">{{ summary.recommendation }}</p>
+    <!-- Beyond the Screen (Opportunity Cost) - Hero Section -->
+    <section class="opportunity-cost-hero ritual-section" style="text-align: center; padding: 3rem 1.5rem; background-color: #f8f9fa; border-radius: 16px; margin: 2rem 0;">
+        <h2 class="section-title" style="margin-bottom: 1.5rem; color: #2c3e50;">Beyond the Screen</h2>
+        <div class="opportunity-display" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 2rem; margin-bottom: 2rem;">
+            {% for key, value in summary.opportunity_cost.items %}
+            <div class="opportunity-item" style="text-align: center; min-width: 120px;">
+                <div style="font-size: 3rem; margin-bottom: 0.5rem;">
+                    {% if key == 'reading_pages' %}📚{% elif key == 'walking_km' %}🚶{% elif key == 'gym_sessions' %}💪{% elif key == 'pomodoro_sessions' %}🍅{% elif key == 'meditation_sessions' %}🧘{% elif key == 'sleep_hours' %}😴{% endif %}
+                </div>
+                <div class="opportunity-value" style="font-size: 2.2rem; font-weight: bold; color: #2c3e50; line-height: 1.2;">{{ value }}</div>
+                <div class="opportunity-label" style="font-size: 1.1rem; color: #7f8c8d; margin-top: 0.5rem;">
+                    {% if key == 'reading_pages' %}Pages read{% elif key == 'walking_km' %}Walked km{% elif key == 'gym_sessions' %}Gym sessions{% elif key == 'pomodoro_sessions' %}Pomodoro sessions{% elif key == 'meditation_sessions' %}Meditation sessions{% elif key == 'sleep_hours' %}Sleep hours{% endif %}
+                </div>
             </div>
+            {% endfor %}
+        </div>
+        <p style="font-size: 1.2rem; color: #34495e; max-width: 600px; margin: 0 auto; line-height: 1.6;">
+            What this time could have become:
+        </p>
+    </section>
 
-            <!-- Motivation -->
-            <div class="stat-card reveal">
-                <h3>Motivation</h3>
-                <p class="stat-value">{{ summary.motivational }}</p>
-            </div>
+    <!-- Your Next Step -->
+    <section class="recommendation ritual-section">
+        <div class="stat-card reveal" style="text-align: center;">
+            <h3>Your Next Step</h3>
+            <p class="stat-value" style="font-size: 1.4rem; line-height: 1.6; color: #2c3e50;">{{ summary.recommendation }}</p>
+        </div>
+    </section>
+
+    <!-- Moving Forward -->
+    <section class="encouragement ritual-section">
+        <div class="stat-card reveal" style="text-align: center; background-color: #ecf0f1; border-left: 4px solid #3498db; padding: 1.5rem;">
+            <h3>Moving Forward</h3>
+            <p class="stat-value" style="font-size: 1.3rem; font-style: italic; color: #2c3e50; line-height: 1.7;">{{ summary.motivational }}</p>
         </div>
     </section>
 </main>

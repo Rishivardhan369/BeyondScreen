@@ -56,13 +56,21 @@
         {% if summaries %}
             <div class="recent-grid">
                 {% for summary in summaries %}
-                <div class="recent-card" onclick="location.href='{% url 'core:summary' %}'">
+                <div class="recent-card" onclick="location.href='{% url 'core:view_summary' summary.id %}'">
                     <div class="recent-header">
                         <p class="recent-meta">{{ summary.created_at|date:"M d, Y H:i" }} • {{ summary.screen_time_minutes }} min</p>
                         <time class="recent-date">{{ summary.created_at|date:"M d, Y" }}</time>
                     </div>
                     <h3 class="recent-title">Wellness Score: {{ summary.wellness_score }}/100</h3>
                     <p class="recent-preview">{{ summary.insight|truncatewords:12 }}</p>
+                    <div class="opportunity-summary" style="margin-top: 8px; font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 8px;">
+                        {% for key, value in summary.opportunity_cost.items %}
+                        <div class="opportunity-item" style="display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 12px;">
+                            <span class="opportunity-icon">{% if key == 'reading_pages' %}📚{% elif key == 'walking_km' %}🚶{% elif key == 'gym_sessions' %}💪{% elif key == 'pomodoro_sessions' %}🍅{% elif key == 'meditation_sessions' %}🧘{% elif key == 'sleep_hours' %}😴{% endif %}</span>
+                            <span class="opportunity-label">{{ value }}{% if key == 'reading_pages' %} pages{% elif key == 'walking_km' %} km{% elif key == 'gym_sessions' %} gym{% elif key == 'pomodoro_sessions' %} pomodoro{% elif key == 'meditation_sessions' %} meditation{% elif key == 'sleep_hours' %} hrs{% endif %}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
                 {% endfor %}
             </div>

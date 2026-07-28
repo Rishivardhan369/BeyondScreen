@@ -47,6 +47,18 @@ class DigitalSummary(models.Model):
     class Meta:
         ordering = ['-created_at']
 
+    @property
+    def opportunity_cost(self):
+        minutes = self.screen_time_minutes
+        return {
+            "reading_pages": int(minutes * (20 / 60)),
+            "walking_km": int(minutes * (5 / 60)),
+            "gym_sessions": int(minutes / 60),
+            "pomodoro_sessions": int(minutes / 25),
+            "meditation_sessions": int(minutes / 10),
+            "sleep_hours": int(minutes / 60),
+        }
+
     def __str__(self):
         return f"{self.user.username} summary on {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 

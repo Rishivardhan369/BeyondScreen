@@ -1,0 +1,194 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BeyondScreen | Turn Screen Time Into Something Beautiful</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" id="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                beyondscreen<span>.</span>
+            </div>
+            <div class="nav-links" id="navLinks">
+                <a href="{% url 'core:home' %}" class="nav-link active">Home</a>
+                <a href="{% url 'core:dashboard' %}" class="nav-link">Dashboard</a>
+                <a href="{% url 'core:history' %}" class="nav-link">History</a>
+                <a href="{% url 'core:profile' %}" class="nav-link">Profile</a>
+                {% if user.is_authenticated %}
+                <form action="{% url 'core:logout' %}" method="post" class="nav-link logout-form">
+                    {% csrf_token %}
+                    <button type="submit" class="nav-link">Log out</button>
+                </form>
+                {% else %}
+                <a href="{% url 'core:login' %}" class="nav-link">Log in</a>
+                <a href="{% url 'core:register' %}" class="nav-link primary">Sign up</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-eyebrow animate-fade-in-up delay-100">
+                    Transform your digital habits
+                </div>
+                <h1 class="hero-title animate-fade-in-up delay-200">
+                    Turn Screen Time Into <span>Something Beautiful</span>
+                </h1>
+                <p class="hero-subtitle animate-fade-in-up delay-300">
+                    Upload your Digital Wellbeing report and discover what your screen time could have become.
+                </p>
+                <div class="hero-buttons animate-fade-in-up delay-400">
+                    <a href="{% url 'core:home' %}" class="btn-primary">Upload Screen Time Report</a>
+                    <a href="#how-it-works" class="btn-outline">How It Works</a>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="visual-container">
+                    <div class="visual-glow"></div>
+                    <div class="visual-circle"></div>
+                    <div class="visual-ring"></div>
+                    <div class="visual-dot"></div>
+                    <div class="visual-dot"></div>
+                    <div class="visual-dot"></div>
+                    <div class="visual-dot"></div>
+                    <div class="visual-dot"></div>
+                    <div class="visual-line"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features section-padding">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="Section-title">Why BeyondScreen</h2>
+                <p class="section-description">Transform your screen time insights into meaningful actions</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card animate-fade-in-up delay-100">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m2 0a2 2 0 110-4 2 2 0 010 4zm-6 0a2 2 0 100-4 2 2 0 000 4zM3 9h18"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Transform Insights</h3>
+                    <p class="feature-description">Turn raw screen time data into beautiful, actionable insights that inspire real change.</p>
+                </div>
+                <div class="feature-card animate-fade-in-up delay-200">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.1 0-2 .9-2 2s1 2 2 2 2-1 2-2-1-2-2-2m0 12c-1.1 0-2 .9-2 2s1 2 2 2 2-1 2-2-1-2-2-2m0-6a2 2 0 100-4 2 2 0 000 4z"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Beautiful Visualizations</h3>
+                    <p class="feature-description">See your digital habits represented as elegant visualizations that tell your unique story.</p>
+                </div>
+                <div class="feature-card animate-fade-in-up delay-300">
+                    <div class="feature-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Personalized Recommendations</h3>
+                    <p class="feature-description">Get tailored suggestions to help you reclaim time for what truly matters in life.</p>
+                </div>
+            </div>
+        </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="how-it-works section-padding">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="section-title">How It Works</h2>
+                <p class="section-description">Simple steps to transform your screen time into meaningful insights</p>
+            </div>
+            <div class="steps-grid">
+                <div class="step animate-fade-in-up delay-100">
+                    <div class="step-number">01</div>
+                    <h3 class="step-title">Upload Your Report</h3>
+                    <p class="step-description">Export your Digital Wellbeing report from iOS or Android and upload it here.</p>
+                </div>
+                <div class="step animate-fade-in-up delay-200">
+                    <div class="step-number">02</div>
+                    <h3 class="step-title">Get Beautiful Insights</h3>
+                    <p class="step-description">Our analysis transforms your data into meaningful visualizations and actionable insights.</p>
+                </div>
+                <div class="step animate-fade-in-up delay-300">
+                    <div class="step-number">03</div>
+                    <h3 class="step-title">Reclaim Your Time</h3>
+                    <p class="step-description">Receive personalized recommendations to help you focus on what truly matters.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Postcard Preview Section -->
+    <section class="postcard-preview section-padding">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="section-title">See Your Potential</h3>
+                <p class="section-description">Preview the beautiful postcard you'll receive after analyzing your screen time</p>
+            </div>
+            <div class="postcard-container">
+                <div class="postcard-card">
+                    <div class="postcard-content">
+                        <h3 class="postcard-title">Your Screen Time Story</h3>
+                        <div class="postcard-image">
+                            <!-- Visual placeholder for the postcard -->
+                            <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-style: italic;">
+                                Your personalized visualisation will appear here
+                            </div>
+                        </div>
+                        <div class="postcard-details">
+                            <div class="detail-item">
+                                <div class="detail-label">Time Recovered</div>
+                                <div class="detail-value">3h 24m</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Books Read</div>
+                                <div class="detail-value">2</div>
+                            </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Workouts</div>
+                                <div class="detail-value">5</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">
+                    beyondscreen<span>.</span>
+                </div>
+                <div class="footer-links">
+                    <a href="{% url 'core:privacy' %}" class="footer-link">Privacy</a>
+                    <a href="{% url 'core:terms' %}" class="footer-link">Terms</a>
+                    <a href="{% url 'core:about' %}" class="footer-link">About</a>
+                    <a href="{% url 'core:contact' %}" class="footer-link">Contact</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; {% now "Y" %} BeyondScreen. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="{% static 'js/home.js' %}"></script>
+</body>
+</html>

@@ -22,5 +22,6 @@ urlpatterns = [
     # History
     path("history/", views.history, name="history"),
     path("postcard-history/", views.postcard_history, name="postcard_history"),
+    path("history/<int:summary_id>/", views.view_summary, name="view_summary"),
     path("postcard/download/<int:postcard_id>/<str:file_format>/", views.download_postcard_by_id, name="download_postcard_by_id"),
 ]

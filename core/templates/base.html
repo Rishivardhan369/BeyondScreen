@@ -10,6 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    {% block extra_css %}{% endblock %}
     <style>
         /* Toast container */
         #toast-container {
@@ -101,6 +102,7 @@
     </style>
 </head>
 <body>
+    {% block header %}
     <header class="site-header">
         <nav class="site-nav" aria-label="Primary">
             <a href="{% url 'core:home' %}" class="brand">beyondscreen<span>.</span></a>
@@ -120,7 +122,9 @@
             </div>
         </nav>
     </header>
+    {% endblock %}
 
+    {% block toast %}
     <!-- Toast container -->
     <div id="toast-container" aria-live="polite">
         {% for message in messages %}
@@ -132,13 +136,17 @@
         </div>
         {% endfor %}
     </div>
+    {% endblock %}
 
     {% block content %}{% endblock %}
 
+    {% block footer %}
     <footer class="site-footer">
         <a href="{% url 'core:home' %}" class="brand">beyondscreen<span>.</span></a>
         <p>Small pauses. More of your day.</p>
     </footer>
+    {% endblock %}
+
     <script src="{% static 'js/postcard.js' %}" defer></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -172,5 +180,6 @@
             }
         });
     </script>
+{% block scripts %}{% endblock %}
 </body>
 </html>
