@@ -1,9 +1,10 @@
-from django.shortcuts import render, redirect, get_object_or_404
+﻿from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib import messages
 from django.http import HttpResponse, Http404
+from django.db.models import Avg, Q
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 import os
@@ -568,20 +569,130 @@ def user_logout(request):
     return redirect("core:home")
 
 
+@login_required
 def history(request):
-    summaries = DigitalSummary.objects.all().order_by('-created_at')
-    return render(request, "history.html", {"summaries": summaries})
+    base_summaries = DigitalSummary.objects.filter(user=request.user)
 
+    total_reports = base_summaries.count()
+    avg_wellness = (
+        base_summaries.aggregate(average=Avg("wellness_score"))["average"]
+        or 0
+    )
+    latest_summary = base_summaries.order_by("-created_at").first()
+
+    categories = list(
+        base_summaries.order_by("category")
+        .values_list("category", flat=True)
+        .distinct()
+    )
+
+    query = request.GET.get("q", "").strip()
+    category = request.GET.get("category", "all").strip()
+    sort = request.GET.get("sort", "newest").strip()
+
+    summaries = base_summaries
+
+    if query:
+        summaries = summaries.filter(
+            Q(insight__icontains=query)
+            | Q(category__icontains=query)
+        )
+
+    if category != "all":
+        summaries = summaries.filter(category=category)
+
+    sort_fields = {
+        "newest": "-created_at",
+        "oldest": "created_at",
+        "highest": "-wellness_score",
+        "lowest": "wellness_score",
+    }
+
+    if sort not in sort_fields:
+        sort = "newest"
+
+    summaries = summaries.order_by(sort_fields[sort])
+
+    def format_minutes(minutes):
+        try:
+            minutes = max(0, int(minutes))
+        except (TypeError, ValueError):
+            minutes = 0
+
+        hours, remaining_minutes = divmod(minutes, 60)
+
+        if hours:
+            return f"{hours}h {remaining_minutes:02d}m"
+
+        return f"{remaining_minutes}m"
+
+    history_reports = []
+
+    for summary_item in summaries:
+        wellness_score = max(
+            0,
+            min(100, int(summary_item.wellness_score or 0)),
+        )
+
+        if wellness_score >= 70:
+            wellness_tone = "good"
+        elif wellness_score >= 40:
+            wellness_tone = "steady"
+        else:
+            wellness_tone = "attention"
+
+        history_reports.append(
+            {
+                "id": summary_item.id,
+                "created_at": summary_item.created_at,
+                "screen_time": format_minutes(
+                    summary_item.screen_time_minutes
+                ),
+                "wellness_score": wellness_score,
+                "wellness_tone": wellness_tone,
+                "category": summary_item.category,
+                "insight": summary_item.insight,
+                "opportunity_cost": summary_item.opportunity_cost,
+            }
+        )
+
+    latest_screen_time = (
+        format_minutes(latest_summary.screen_time_minutes)
+        if latest_summary
+        else "0m"
+    )
+
+    context = {
+        "history_reports": history_reports,
+        "filtered_report_count": len(history_reports),
+        "total_reports": total_reports,
+        "avg_wellness": avg_wellness,
+        "latest_summary": latest_summary,
+        "latest_screen_time": latest_screen_time,
+        "dashboard_summary": {
+            "total_screen_time": latest_screen_time,
+        },
+        "categories": categories,
+        "query": query,
+        "category": category,
+        "sort": sort,
+    }
+
+    return render(request, "history.html", context)
 
 def postcard_history(request):
     postcards = Postcard.objects.all().order_by('-created_at')
     return render(request, "postcard_history.html", {"postcards": postcards})
 
 
+@login_required
 def view_summary(request, summary_id):
-    summary = get_object_or_404(DigitalSummary, id=summary_id)
+    summary = get_object_or_404(
+        DigitalSummary,
+        id=summary_id,
+        user=request.user,
+    )
     return render(request, "view_summary.html", {"summary": summary})
-
 
 def download_postcard_by_id(request, postcard_id, file_format):
     postcard = get_object_or_404(Postcard, id=postcard_id)

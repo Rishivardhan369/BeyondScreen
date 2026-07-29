@@ -1,87 +1,420 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}Digital History - BeyondScreen{% endblock %}
+{% block title %}Digital History | BeyondScreen{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'css/history.css' %}">
+{% endblock %}
+
+{% block header %}
+<header class="top-nav">
+  <div class="top-nav-inner">
+    <div class="welcome-copy">
+      <strong>
+        Digital history,
+        {{ request.user.first_name|default:request.user.username }}
+      </strong>
+      <small>Your screen-time journey, organized over time</small>
+    </div>
+
+    <form class="top-search" method="get" action="{% url 'core:history' %}">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"></circle>
+        <path d="m20 20-3.5-3.5"></path>
+      </svg>
+      <input
+        type="search"
+        name="q"
+        value="{{ query }}"
+        placeholder="Search history..."
+        aria-label="Search digital history"
+      >
+      {% if category and category != "all" %}
+        <input type="hidden" name="category" value="{{ category }}">
+      {% endif %}
+      {% if sort %}
+        <input type="hidden" name="sort" value="{{ sort }}">
+      {% endif %}
+    </form>
+
+    <div class="top-actions">
+      <button class="notification-button" type="button" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>
+          <path d="M13.7 21a2 2 0 0 1-3.4 0"></path>
+        </svg>
+        <span class="notification-dot"></span>
+      </button>
+
+      <a href="{% url 'core:home' %}" class="upload-button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 16V4"></path>
+          <path d="m7 9 5-5 5 5"></path>
+          <path d="M20 15v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4"></path>
+        </svg>
+        Upload New Report
+      </a>
+    </div>
+  </div>
+</header>
+{% endblock %}
 
 {% block content %}
-<main>
-    <!-- Hero Section -->
-    <section class="hero-shell">
-        <div class="hero-grid">
-            <div class="hero-copy reveal">
-                <p class="eyebrow">Your digital wellness history</p>
-                <h1>{{ user.first_name|default:user.username }}</h1>
-                <p class="hero-lede">Track your screen‑time insights over time.</p>
-            </div>
+<div class="dashboard-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <a href="{% url 'core:home' %}" class="brand-link">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48">
+            <circle cx="23" cy="23" r="15"></circle>
+            <path d="M30 11a14 14 0 0 1 5 20"></path>
+            <path d="M34 31l6 1-1-6"></path>
+            <path d="M16 35a14 14 0 0 1-5-20"></path>
+            <path d="M12 15 6 14l1 6"></path>
+          </svg>
+        </span>
+
+        <span class="brand-text">
+          <strong>BeyondScreen</strong>
+          <small>Your time. Reclaimed.</small>
+        </span>
+      </a>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Dashboard navigation">
+      <a href="{% url 'core:dashboard' %}" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m3 11 9-8 9 8"></path>
+          <path d="M5 10v10h14V10"></path>
+          <path d="M9 20v-6h6v6"></path>
+        </svg>
+        <span>Overview</span>
+      </a>
+
+      <a href="{% url 'core:dashboard' %}#opportunity-cost" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M12 7v5l3 2"></path>
+        </svg>
+        <span>Opportunity Cost</span>
+      </a>
+
+      <a href="{% url 'core:dashboard' %}#today-focus" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8"></circle>
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 2v2"></path>
+          <path d="M12 20v2"></path>
+          <path d="m4.9 4.9 1.4 1.4"></path>
+          <path d="m17.7 17.7 1.4 1.4"></path>
+        </svg>
+        <span>Today's Focus</span>
+      </a>
+
+      <a href="{% url 'core:dashboard' %}#weekly-progress" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 19V9"></path>
+          <path d="M10 19V5"></path>
+          <path d="M16 19v-7"></path>
+          <path d="M22 19H2"></path>
+        </svg>
+        <span>Progress</span>
+      </a>
+
+      <a href="{% url 'core:history' %}" class="sidebar-link active" aria-current="page">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+          <path d="M3 4v5h5"></path>
+          <path d="M12 7v5l3 2"></path>
+        </svg>
+        <span>History</span>
+      </a>
+
+      <a href="{% url 'core:profile' %}" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="8" r="4"></circle>
+          <path d="M4 21a8 8 0 0 1 16 0"></path>
+        </svg>
+        <span>Profile</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="reclaimed-card">
+      <div class="reclaimed-heading">
+        <span>âœ¦</span>
+        <strong>Your journey is growing</strong>
+      </div>
+
+      <p>Every report makes your digital habits easier to understand.</p>
+
+      <div class="reclaimed-time">
+        <strong>{{ dashboard_summary.total_screen_time|default:"0m" }}</strong>
+        <small>latest screen-time snapshot</small>
+      </div>
+
+      <a href="{% url 'core:summary' %}">View Full Summary</a>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar">
+        {{ request.user.username|first|upper }}
+      </div>
+
+      <div class="user-details">
+        <strong>
+          {{ request.user.first_name|default:request.user.username }}
+        </strong>
+        <small>{{ request.user.email|default:"BeyondScreen member" }}</small>
+      </div>
+
+      <form action="{% url 'core:logout' %}" method="post">
+        {% csrf_token %}
+        <button type="submit" aria-label="Log out">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10 17l5-5-5-5"></path>
+            <path d="M15 12H3"></path>
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+          </svg>
+        </button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="main-content bs-dashboard history-main">
+    <div class="history-shell">
+      <section class="history-hero" aria-labelledby="history-title">
+        <div class="history-hero-glow history-glow-gold"></div>
+        <div class="history-hero-glow history-glow-teal"></div>
+
+        <div class="history-hero-copy">
+          <span class="history-eyebrow">DIGITAL HISTORY</span>
+          <h1 id="history-title">
+            Your progress,<br>
+            <span>preserved.</span>
+          </h1>
+          <p>
+            Revisit every digital-wellbeing report, compare your patterns,
+            and see how your relationship with screen time is changing.
+          </p>
         </div>
-    </section>
 
-    <!-- History Stats (Trend Card) -->
-    {% if summaries %}
-    <section class="ritual-section history-section">
-        <h2 class="section-title">Overview</h2>
-        <div class="stats-grid">
-            <div class="stat-card reveal">
-                <h3>Total Analyses</h3>
-                <p class="stat-value">{{ summaries|length }}</p>
-            </div>
-            <div class="stat-card reveal">
-                <h3>Average Wellness Score</h3>
-                <p class="stat-value">{{ avg_wellness|floatformat:1 }} / 100</p>
-            </div>
-            <div class="stat-card reveal">
-                <h3>Latest Analysis</h3>
-                <p class="stat-value">{{ summaries.first.created_at|date:"M d, Y" }}</p>
-            </div>
+        <div class="history-hero-visual" aria-hidden="true">
+          <div class="history-orbit history-orbit-one"></div>
+          <div class="history-orbit history-orbit-two"></div>
+          <div class="history-clock">
+            <svg viewBox="0 0 24 24">
+              <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+              <path d="M3 4v5h5"></path>
+              <path d="M12 7v5l3 2"></path>
+            </svg>
+          </div>
         </div>
-    </section>
-    {% endif %}
 
-    <!-- Digital Summaries List -->
-    <section class="ritual-section history-section">
-        <h2 class="section-title">Your Digital Summaries</h2>
+        <div class="history-hero-note">
+          <span>âœ¦</span>
+          <div>
+            <strong>Patterns become clearer over time.</strong>
+            <small>Keep uploading reports to build a meaningful timeline.</small>
+          </div>
+        </div>
+      </section>
 
-        <!-- Sort Form -->
-        <form method="get" novalidate class="auth-form">
-            <div class="auth-field">
-                <label for="id_sort">Sort</label>
-                <select name="sort" id="id_sort">
-                    <option value="newest" {% if sort != 'oldest' %}selected{% endif %}>Newest</option>
-                    <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>Oldest</option>
-                </select>
-                <button type="submit" class="auth-button">Sort</button>
-                <a href="{% url 'core:history' %}" class="text-button">Reset Sort</a>
-            </div>
+      <section class="history-stats" aria-label="History overview">
+        <article class="history-stat-card">
+          <span class="history-stat-icon history-stat-gold">â–¤</span>
+          <div>
+            <small>Total Reports</small>
+            <strong>{{ total_reports }}</strong>
+            <p>Digital analyses saved</p>
+          </div>
+        </article>
+
+        <article class="history-stat-card">
+          <span class="history-stat-icon history-stat-teal">â—Ž</span>
+          <div>
+            <small>Average Wellness</small>
+            <strong>{{ avg_wellness|floatformat:1 }}</strong>
+            <p>Out of 100</p>
+          </div>
+        </article>
+
+        <article class="history-stat-card">
+          <span class="history-stat-icon history-stat-blue">â—´</span>
+          <div>
+            <small>Latest Screen Time</small>
+            <strong>{{ latest_screen_time }}</strong>
+            <p>
+              {% if latest_summary %}
+                {{ latest_summary.created_at|date:"M d, Y" }}
+              {% else %}
+                No report uploaded
+              {% endif %}
+            </p>
+          </div>
+        </article>
+      </section>
+
+      <section class="history-panel">
+        <div class="history-panel-heading">
+          <div>
+            <span class="history-section-kicker">REPORT ARCHIVE</span>
+            <h2>Your Digital Summaries</h2>
+            <p>Search, filter and revisit your previous screen-time insights.</p>
+          </div>
+
+          <span class="history-result-count">
+            {{ filtered_report_count }}
+            report{{ filtered_report_count|pluralize }}
+          </span>
+        </div>
+
+        <form method="get" class="history-toolbar">
+          <label class="history-search-field">
+            <span class="sr-only">Search reports</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="m20 20-3.5-3.5"></path>
+            </svg>
+            <input
+              type="search"
+              name="q"
+              value="{{ query }}"
+              placeholder="Search insights or categories"
+            >
+          </label>
+
+          <label class="history-select-field">
+            <span>Category</span>
+            <select name="category">
+              <option value="all" {% if category == "all" %}selected{% endif %}>
+                All categories
+              </option>
+              {% for item in categories %}
+                <option value="{{ item }}" {% if category == item %}selected{% endif %}>
+                  {{ item }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label class="history-select-field">
+            <span>Sort by</span>
+            <select name="sort">
+              <option value="newest" {% if sort == "newest" %}selected{% endif %}>
+                Newest first
+              </option>
+              <option value="oldest" {% if sort == "oldest" %}selected{% endif %}>
+                Oldest first
+              </option>
+              <option value="highest" {% if sort == "highest" %}selected{% endif %}>
+                Highest wellness
+              </option>
+              <option value="lowest" {% if sort == "lowest" %}selected{% endif %}>
+                Lowest wellness
+              </option>
+            </select>
+          </label>
+
+          <button type="submit" class="history-filter-button">
+            Apply
+          </button>
+
+          <a href="{% url 'core:history' %}" class="history-reset-button">
+            Reset
+          </a>
         </form>
 
-        {% if summaries %}
-            <div class="recent-grid">
-                {% for summary in summaries %}
-                <div class="recent-card" onclick="location.href='{% url 'core:view_summary' summary.id %}'">
-                    <div class="recent-header">
-                        <p class="recent-meta">{{ summary.created_at|date:"M d, Y H:i" }} • {{ summary.screen_time_minutes }} min</p>
-                        <time class="recent-date">{{ summary.created_at|date:"M d, Y" }}</time>
-                    </div>
-                    <h3 class="recent-title">Wellness Score: {{ summary.wellness_score }}/100</h3>
-                    <p class="recent-preview">{{ summary.insight|truncatewords:12 }}</p>
-                    <div class="opportunity-summary" style="margin-top: 8px; font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 8px;">
-                        {% for key, value in summary.opportunity_cost.items %}
-                        <div class="opportunity-item" style="display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 12px;">
-                            <span class="opportunity-icon">{% if key == 'reading_pages' %}📚{% elif key == 'walking_km' %}🚶{% elif key == 'gym_sessions' %}💪{% elif key == 'pomodoro_sessions' %}🍅{% elif key == 'meditation_sessions' %}🧘{% elif key == 'sleep_hours' %}😴{% endif %}</span>
-                            <span class="opportunity-label">{{ value }}{% if key == 'reading_pages' %} pages{% elif key == 'walking_km' %} km{% elif key == 'gym_sessions' %} gym{% elif key == 'pomodoro_sessions' %} pomodoro{% elif key == 'meditation_sessions' %} meditation{% elif key == 'sleep_hours' %} hrs{% endif %}</span>
-                        </div>
-                        {% endfor %}
-                    </div>
+        {% if history_reports %}
+          <div class="history-timeline">
+            {% for report in history_reports %}
+              <a
+                href="{% url 'core:view_summary' report.id %}"
+                class="history-report-card"
+              >
+                <div class="history-date-card">
+                  <span>{{ report.created_at|date:"M" }}</span>
+                  <strong>{{ report.created_at|date:"d" }}</strong>
+                  <small>{{ report.created_at|date:"Y" }}</small>
                 </div>
-                {% endfor %}
-            </div>
+
+                <div class="history-report-body">
+                  <div class="history-report-topline">
+                    <div>
+                      <span class="history-category">{{ report.category }}</span>
+                      <time>{{ report.created_at|date:"g:i A" }}</time>
+                    </div>
+
+                    <span class="history-wellness history-wellness-{{ report.wellness_tone }}">
+                      {{ report.wellness_score }}/100
+                    </span>
+                  </div>
+
+                  <h3>{{ report.screen_time }} of screen time</h3>
+                  <p>{{ report.insight|truncatewords:24 }}</p>
+
+                  <div class="history-opportunity-row">
+                    <span>
+                      <b>â–¤</b>
+                      {{ report.opportunity_cost.reading_pages }} pages
+                    </span>
+                    <span>
+                      <b>âŒ</b>
+                      {{ report.opportunity_cost.walking_km }} km
+                    </span>
+                    <span>
+                      <b>â—´</b>
+                      {{ report.opportunity_cost.pomodoro_sessions }} focus
+                    </span>
+                    <span>
+                      <b>âœ¦</b>
+                      {{ report.opportunity_cost.meditation_sessions }} mindful
+                    </span>
+                  </div>
+                </div>
+
+                <div class="history-report-action">
+                  <span>View report</span>
+                  <b aria-hidden="true">â†’</b>
+                </div>
+              </a>
+            {% endfor %}
+          </div>
         {% else %}
-            <div class="empty-state">
-                <p>No digital analyses yet.</p>
-                <a href="{% url 'core:home' %}" class="primary-button">
-                    <span>Get Started</span><span aria-hidden="true">→</span>
-                </a>
-            </div>
+          <div class="history-empty-state">
+            <div class="history-empty-icon">â—´</div>
+            <span class="history-section-kicker">NO REPORTS FOUND</span>
+            <h3>
+              {% if query or category != "all" %}
+                No history matches these filters.
+              {% else %}
+                Your digital history starts here.
+              {% endif %}
+            </h3>
+            <p>
+              {% if query or category != "all" %}
+                Reset the filters or try a different search.
+              {% else %}
+                Upload your first screen-time report to begin building your timeline.
+              {% endif %}
+            </p>
+
+            {% if query or category != "all" %}
+              <a href="{% url 'core:history' %}" class="history-empty-button">
+                Reset Filters
+              </a>
+            {% else %}
+              <a href="{% url 'core:home' %}" class="history-empty-button">
+                Upload First Report
+              </a>
+            {% endif %}
+          </div>
         {% endif %}
-    </section>
-</main>
+      </section>
+    </div>
+  </main>
+</div>
 {% endblock %}
