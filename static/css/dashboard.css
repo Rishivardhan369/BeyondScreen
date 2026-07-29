@@ -1602,6 +1602,63 @@ footer {
     flex-direction: column;
     gap: 1px;
   }
+
+  .bs-hero {
+    min-height: 0;
+    grid-template-columns: 1fr;
+    padding: 24px 18px;
+  }
+
+  .bs-hero-copy {
+    text-align: center;
+  }
+
+  .bs-hero-copy h1,
+  .bs-hero-copy p {
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .bs-hero-copy h1 {
+    font-size: 36px;
+  }
+
+  .bs-time-portal {
+    min-height: 280px;
+  }
+
+  .bs-hero-opportunity {
+    grid-column: auto;
+  }
+
+  .bs-hero-opportunity h2 {
+    text-align: center;
+  }
+
+  .bs-opportunity-list {
+    grid-template-columns: 1fr;
+  }
+
+  .bs-opportunity-row {
+    min-height: 48px;
+    grid-template-columns: 41px minmax(0, 1fr);
+    justify-items: stretch;
+    text-align: left;
+  }
+
+  .bs-opportunity-row > div {
+    align-items: baseline;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .bs-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bs-card {
+    min-height: 0;
+  }
 }
 
 @media (max-width: 760px) {
@@ -1733,8 +1790,6 @@ footer {
     justify-items: center;
   }
 
-  }
-
   .bs-activity-chart {
     gap: 6px;
   }
@@ -1811,4 +1866,1108 @@ footer {
   .bs-hero-copy h1 {
     font-size: 31px;
   }
+}
+
+/* ==================================================
+   BEYONDSCREEN SIDEBAR FINAL POLISH
+   ================================================== */
+
+.sidebar {
+  padding: 22px 14px 16px;
+  overflow-x: hidden;
+  background:
+    radial-gradient(
+      circle at 18% 3%,
+      rgba(241, 183, 96, 0.085),
+      transparent 27%
+    ),
+    radial-gradient(
+      circle at 92% 74%,
+      rgba(88, 222, 208, 0.045),
+      transparent 34%
+    ),
+    linear-gradient(180deg, #07131f 0%, #050e18 100%);
+  border-right-color: rgba(255, 255, 255, 0.095);
+  box-shadow:
+    18px 0 52px rgba(0, 0, 0, 0.22),
+    inset -1px 0 rgba(255, 255, 255, 0.018);
+  scrollbar-width: none;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Brand */
+
+.sidebar-brand {
+  padding: 2px 7px 23px;
+}
+
+.brand-link {
+  gap: 12px;
+}
+
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  color: #f1b760;
+  background:
+    radial-gradient(
+      circle at 30% 22%,
+      rgba(255, 220, 145, 0.17),
+      transparent 44%
+    ),
+    rgba(241, 183, 96, 0.055);
+  border: 1px solid rgba(241, 183, 96, 0.27);
+  border-radius: 13px;
+  box-shadow:
+    0 0 22px rgba(241, 183, 96, 0.1),
+    inset 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.brand-mark svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.8;
+}
+
+.brand-text strong {
+  color: #f7f9fa;
+  font-size: 16px;
+  font-weight: 720;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.brand-text small {
+  margin-top: 4px;
+  color: #9ca9b8;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+/* Navigation */
+
+.sidebar-nav {
+  gap: 6px;
+}
+
+.sidebar-link {
+  min-height: 47px;
+  gap: 13px;
+  padding: 0 14px;
+  color: #a7b3c1;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 570;
+}
+
+.sidebar-link svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  stroke-width: 1.7;
+}
+
+.sidebar-link:hover {
+  color: #f8fafb;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.052),
+      rgba(255, 255, 255, 0.017)
+    );
+  border-color: rgba(255, 255, 255, 0.065);
+}
+
+.sidebar-link.active {
+  color: #ffffff;
+  background:
+    radial-gradient(
+      circle at 0% 50%,
+      rgba(241, 183, 96, 0.16),
+      transparent 54%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(241, 183, 96, 0.105),
+      rgba(255, 255, 255, 0.034)
+    );
+  border-color: rgba(241, 183, 96, 0.25);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.16),
+    inset 0 1px rgba(255, 255, 255, 0.028);
+}
+
+.sidebar-link.active::before {
+  top: 9px;
+  bottom: 9px;
+  background: linear-gradient(180deg, #ffd47e, #e9a73e);
+  box-shadow:
+    0 0 8px rgba(241, 183, 96, 0.72),
+    0 0 17px rgba(241, 183, 96, 0.34);
+}
+
+/* Reclaimed-time card */
+
+.sidebar-spacer {
+  min-height: 18px;
+}
+
+.reclaimed-card {
+  margin-bottom: 14px;
+  padding: 15px;
+  background:
+    radial-gradient(
+      circle at 100% 100%,
+      rgba(88, 222, 208, 0.085),
+      transparent 43%
+    ),
+    radial-gradient(
+      circle at 0% 0%,
+      rgba(241, 183, 96, 0.1),
+      transparent 42%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(13, 28, 44, 0.98),
+      rgba(8, 20, 33, 0.98)
+    );
+  border-color: rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.18),
+    inset 0 1px rgba(255, 255, 255, 0.034);
+}
+
+.reclaimed-card::before {
+  position: absolute;
+  top: 0;
+  left: 17px;
+  width: 70px;
+  height: 1px;
+  content: "";
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(241, 183, 96, 0.78),
+      transparent
+    );
+}
+
+.reclaimed-heading {
+  gap: 8px;
+}
+
+.reclaimed-heading span {
+  font-size: 14px;
+  filter: drop-shadow(0 0 6px rgba(241, 183, 96, 0.42));
+}
+
+.reclaimed-heading strong {
+  color: #f3f6f8;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.reclaimed-card p {
+  margin: 10px 0 9px;
+  color: #a5b1bf;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.reclaimed-time {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+}
+
+.reclaimed-time strong {
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 610;
+  line-height: 1;
+}
+
+.reclaimed-time small {
+  margin-top: 5px;
+  color: #93a1b1;
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+.reclaimed-card > a {
+  min-height: 36px;
+  color: #dde4e9;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.052),
+      rgba(255, 255, 255, 0.024)
+    );
+  border-color: rgba(255, 255, 255, 0.09);
+  border-radius: 9px;
+  font-size: 10.5px;
+}
+
+.reclaimed-card > a:hover {
+  color: #f4ba59;
+  background: rgba(241, 183, 96, 0.06);
+  border-color: rgba(241, 183, 96, 0.27);
+}
+
+/* User identity */
+
+.sidebar-user {
+  grid-template-columns: 39px minmax(0, 1fr) 31px;
+  gap: 10px;
+  padding: 12px 9px;
+  background: rgba(255, 255, 255, 0.023);
+  border: 1px solid rgba(255, 255, 255, 0.067);
+  border-radius: 12px;
+}
+
+.user-avatar {
+  width: 39px;
+  height: 39px;
+  color: #211506;
+  background: linear-gradient(135deg, #ffd37f, #e9a944);
+  border: 1px solid rgba(255, 222, 158, 0.58);
+  box-shadow: 0 7px 18px rgba(241, 183, 96, 0.14);
+  font-size: 14px;
+}
+
+.user-details strong {
+  color: #f7f9fa;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.user-details small {
+  display: block;
+  max-width: 118px;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #99a6b5;
+  font-size: 9px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-user button {
+  width: 31px;
+  height: 31px;
+  border: 1px solid transparent;
+}
+
+.sidebar-user button:hover {
+  color: #f1b760;
+  background: rgba(241, 183, 96, 0.065);
+  border-color: rgba(241, 183, 96, 0.14);
+}
+
+/* Preserve the existing compact responsive sidebar */
+
+@media (max-width: 980px) {
+  .brand-mark {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+  }
+
+  .sidebar-user {
+    display: flex;
+    justify-content: center;
+    padding: 12px 0;
+    background: transparent;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+}
+
+/* ==================================================
+   VISIBLE SIDEBAR UPGRADE + ANIMATED TIME DIAL
+   ================================================== */
+
+:root {
+  --sidebar-width: 252px;
+}
+
+/* Make the sidebar upgrade clearly visible */
+
+.sidebar {
+  padding: 20px 16px 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background:
+    radial-gradient(
+      circle at 20% 2%,
+      rgba(241, 183, 96, 0.13),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 90% 72%,
+      rgba(63, 224, 215, 0.07),
+      transparent 36%
+    ),
+    linear-gradient(180deg, #081624 0%, #050e18 100%);
+  border-right: 1px solid rgba(241, 183, 96, 0.16);
+  box-shadow:
+    22px 0 60px rgba(0, 0, 0, 0.3),
+    inset -1px 0 rgba(255, 255, 255, 0.025);
+  scrollbar-width: none;
+}
+
+.sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Brand area */
+
+.sidebar-brand {
+  padding: 2px 6px 21px;
+}
+
+.brand-link {
+  gap: 13px;
+}
+
+.brand-mark {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  color: #f4b955;
+  background:
+    radial-gradient(
+      circle at 32% 24%,
+      rgba(255, 225, 159, 0.2),
+      transparent 44%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(241, 183, 96, 0.11),
+      rgba(241, 183, 96, 0.035)
+    );
+  border: 1px solid rgba(241, 183, 96, 0.34);
+  border-radius: 15px;
+  box-shadow:
+    0 0 25px rgba(241, 183, 96, 0.15),
+    inset 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.brand-mark svg {
+  width: 30px;
+  height: 30px;
+  stroke-width: 1.9;
+}
+
+.brand-text strong {
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 740;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.brand-text small {
+  margin-top: 4px;
+  color: #a7b3c1;
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+
+/* Navigation */
+
+.sidebar-nav {
+  gap: 7px;
+}
+
+.sidebar-link {
+  min-height: 49px;
+  gap: 14px;
+  padding: 0 15px;
+  color: #aeb9c6;
+  border-radius: 13px;
+  font-size: 13.5px;
+  font-weight: 590;
+}
+
+.sidebar-link svg {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  stroke-width: 1.75;
+}
+
+.sidebar-link:hover {
+  color: #ffffff;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.065),
+      rgba(255, 255, 255, 0.018)
+    );
+  border-color: rgba(255, 255, 255, 0.085);
+}
+
+.sidebar-link.active {
+  color: #ffffff;
+  background:
+    radial-gradient(
+      circle at 0% 50%,
+      rgba(241, 183, 96, 0.24),
+      transparent 58%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(241, 183, 96, 0.15),
+      rgba(255, 255, 255, 0.045)
+    );
+  border-color: rgba(241, 183, 96, 0.36);
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.2),
+    inset 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.sidebar-link.active::before {
+  top: 8px;
+  bottom: 8px;
+  width: 4px;
+  background: linear-gradient(180deg, #ffdc91, #e9a43b);
+  box-shadow:
+    0 0 10px rgba(241, 183, 96, 0.85),
+    0 0 22px rgba(241, 183, 96, 0.42);
+}
+
+/* Keep the lower sidebar content fully visible */
+
+.sidebar-spacer {
+  min-height: 14px;
+}
+
+.reclaimed-card {
+  height: auto;
+  min-height: 158px;
+  max-height: none;
+  margin-bottom: 14px;
+  padding: 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 100% 100%,
+      rgba(67, 224, 215, 0.12),
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 0% 0%,
+      rgba(241, 183, 96, 0.15),
+      transparent 42%
+    ),
+    linear-gradient(145deg, #102438, #091827);
+  border-color: rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.22),
+    inset 0 1px rgba(255, 255, 255, 0.045);
+}
+
+.reclaimed-heading strong {
+  color: #f7f9fa;
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+
+.reclaimed-card p {
+  margin: 10px 0;
+  color: #b0bbc7;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.reclaimed-time {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+}
+
+.reclaimed-time strong {
+  color: #ffffff;
+  font-size: 23px;
+  line-height: 1;
+}
+
+.reclaimed-time small {
+  display: block;
+  margin-top: 5px;
+  color: #9dabb9;
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+.reclaimed-card > a {
+  min-height: 37px;
+  font-size: 10.5px;
+}
+
+/* Signed-in user */
+
+.sidebar-user {
+  grid-template-columns: 41px minmax(0, 1fr) 32px;
+  gap: 11px;
+  padding: 12px 10px;
+  background:
+    linear-gradient(
+      110deg,
+      rgba(255, 255, 255, 0.04),
+      rgba(255, 255, 255, 0.015)
+    );
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 13px;
+}
+
+.user-avatar {
+  width: 41px;
+  height: 41px;
+  font-size: 14px;
+}
+
+.user-details strong {
+  color: #ffffff;
+  font-size: 12.5px;
+  line-height: 1.3;
+}
+
+.user-details small {
+  display: block;
+  max-width: 138px;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #a4b0be;
+  font-size: 9.5px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Spin the actual gold-teal dial around Time Spent */
+
+.bs-portal-core::before {
+  transform-origin: center;
+  animation: bs-main-dial-spin 11s linear infinite;
+  will-change: transform;
+}
+
+.bs-portal-orbit-one {
+  animation: bs-orbit-visible-clockwise 16s linear infinite;
+  will-change: transform;
+}
+
+.bs-portal-orbit-two {
+  animation: bs-orbit-visible-counter 12s linear infinite;
+  will-change: transform;
+}
+
+@keyframes bs-main-dial-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes bs-orbit-visible-clockwise {
+  from {
+    transform: rotate(22deg);
+  }
+
+  to {
+    transform: rotate(382deg);
+  }
+}
+
+@keyframes bs-orbit-visible-counter {
+  from {
+    transform: rotate(-31deg);
+  }
+
+  to {
+    transform: rotate(-391deg);
+  }
+}
+
+/* Preserve the compact sidebar on smaller screens */
+
+@media (max-width: 980px) {
+  :root {
+    --sidebar-width: 82px;
+  }
+
+  .brand-mark {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+
+  .sidebar-user {
+    display: flex;
+    justify-content: center;
+    padding: 12px 0;
+    background: transparent;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    --sidebar-width: 0px;
+  }
+}
+
+/* ==================================================
+   BEYONDSCREEN DEFINITIVE SIDEBAR
+   Visible redesign and reliable dial runner
+   ================================================== */
+
+:root {
+  --sidebar-width: 264px;
+}
+
+/* Sidebar shell */
+
+.sidebar {
+  padding: 18px 16px 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background:
+    radial-gradient(
+      circle at 10% 0%,
+      rgba(240, 177, 73, 0.17),
+      transparent 25%
+    ),
+    radial-gradient(
+      circle at 100% 76%,
+      rgba(57, 220, 211, 0.08),
+      transparent 35%
+    ),
+    linear-gradient(180deg, #071522 0%, #040b13 100%);
+  border-right: 1px solid rgba(240, 177, 73, 0.2);
+  box-shadow:
+    24px 0 70px rgba(0, 0, 0, 0.34),
+    inset -1px 0 rgba(255, 255, 255, 0.025);
+  scrollbar-width: none;
+}
+
+.sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Distinct brand panel */
+
+.sidebar .sidebar-brand {
+  margin-bottom: 16px;
+  padding: 14px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(240, 177, 73, 0.09),
+      rgba(255, 255, 255, 0.018)
+    );
+  border: 1px solid rgba(240, 177, 73, 0.17);
+  border-radius: 17px;
+  box-shadow:
+    0 14px 34px rgba(0, 0, 0, 0.2),
+    inset 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.sidebar .brand-link {
+  gap: 13px;
+}
+
+.sidebar .brand-mark {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  color: #f3b34d;
+  background:
+    radial-gradient(
+      circle at 35% 25%,
+      rgba(255, 226, 163, 0.24),
+      transparent 42%
+    ),
+    rgba(240, 177, 73, 0.08);
+  border: 1px solid rgba(240, 177, 73, 0.38);
+  border-radius: 15px;
+  box-shadow:
+    0 0 22px rgba(240, 177, 73, 0.16),
+    inset 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.sidebar .brand-mark svg {
+  width: 30px;
+  height: 30px;
+  stroke-width: 1.9;
+}
+
+.sidebar .brand-text strong {
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 740;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.sidebar .brand-text small {
+  margin-top: 4px;
+  color: #a9b5c2;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+/* Navigation panel */
+
+.sidebar .sidebar-nav {
+  gap: 7px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.018);
+  border: 1px solid rgba(255, 255, 255, 0.052);
+  border-radius: 18px;
+}
+
+.sidebar .sidebar-link {
+  min-height: 49px;
+  gap: 13px;
+  padding: 0 13px;
+  color: #aeb9c6;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 580;
+}
+
+.sidebar .sidebar-link svg {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
+  stroke-width: 1.75;
+}
+
+.sidebar .sidebar-link:hover {
+  color: #ffffff;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.065),
+      rgba(255, 255, 255, 0.018)
+    );
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar .sidebar-link.active {
+  color: #ffffff;
+  background:
+    radial-gradient(
+      circle at 0% 50%,
+      rgba(240, 177, 73, 0.27),
+      transparent 58%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(240, 177, 73, 0.16),
+      rgba(255, 255, 255, 0.04)
+    );
+  border-color: rgba(240, 177, 73, 0.38);
+  box-shadow:
+    0 13px 30px rgba(0, 0, 0, 0.21),
+    inset 0 1px rgba(255, 255, 255, 0.045);
+}
+
+.sidebar .sidebar-link.active::before {
+  top: 8px;
+  bottom: 8px;
+  left: -1px;
+  width: 4px;
+  background: linear-gradient(180deg, #ffdb8b, #e7a039);
+  box-shadow:
+    0 0 10px rgba(240, 177, 73, 0.88),
+    0 0 21px rgba(240, 177, 73, 0.45);
+}
+
+/* Lower sidebar spacing */
+
+.sidebar .sidebar-spacer {
+  min-height: 20px;
+}
+
+/* Reclaimed-time panel */
+
+.sidebar .reclaimed-card {
+  min-height: 164px;
+  margin-bottom: 14px;
+  padding: 16px;
+  background:
+    radial-gradient(
+      circle at 100% 100%,
+      rgba(55, 221, 212, 0.13),
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 0% 0%,
+      rgba(240, 177, 73, 0.17),
+      transparent 42%
+    ),
+    linear-gradient(145deg, #11283d, #091827);
+  border: 1px solid rgba(255, 255, 255, 0.115);
+  border-radius: 17px;
+  box-shadow:
+    0 19px 42px rgba(0, 0, 0, 0.24),
+    inset 0 1px rgba(255, 255, 255, 0.045);
+}
+
+.sidebar .reclaimed-card::before {
+  position: absolute;
+  top: 0;
+  left: 18px;
+  width: 82px;
+  height: 2px;
+  content: "";
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      #f2b24a,
+      transparent
+    );
+  box-shadow: 0 0 10px rgba(240, 177, 73, 0.48);
+}
+
+.sidebar .reclaimed-heading strong {
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.sidebar .reclaimed-card p {
+  margin: 10px 0;
+  color: #b2bdc9;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.sidebar .reclaimed-time {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+}
+
+.sidebar .reclaimed-time strong {
+  color: #ffffff;
+  font-size: 24px;
+  font-weight: 620;
+  line-height: 1;
+}
+
+.sidebar .reclaimed-time small {
+  display: block;
+  margin-top: 5px;
+  color: #9daab8;
+  font-size: 9.5px;
+  line-height: 1.35;
+}
+
+.sidebar .reclaimed-card > a {
+  min-height: 38px;
+  color: #e7edf1;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.065),
+      rgba(255, 255, 255, 0.027)
+    );
+  border-color: rgba(255, 255, 255, 0.105);
+  border-radius: 10px;
+  font-size: 10.5px;
+}
+
+.sidebar .reclaimed-card > a:hover {
+  color: #f3b34d;
+  background: rgba(240, 177, 73, 0.07);
+  border-color: rgba(240, 177, 73, 0.32);
+}
+
+/* User panel */
+
+.sidebar .sidebar-user {
+  grid-template-columns: 42px minmax(0, 1fr) 32px;
+  gap: 11px;
+  padding: 12px 10px;
+  background:
+    linear-gradient(
+      110deg,
+      rgba(255, 255, 255, 0.052),
+      rgba(255, 255, 255, 0.018)
+    );
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  box-shadow: 0 13px 30px rgba(0, 0, 0, 0.16);
+}
+
+.sidebar .user-avatar {
+  width: 42px;
+  height: 42px;
+  color: #211506;
+  background: linear-gradient(135deg, #ffda8b, #e8a43d);
+  border: 1px solid rgba(255, 225, 167, 0.63);
+  box-shadow: 0 8px 20px rgba(240, 177, 73, 0.17);
+  font-size: 15px;
+}
+
+.sidebar .user-details strong {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 660;
+  line-height: 1.3;
+}
+
+.sidebar .user-details small {
+  display: block;
+  max-width: 135px;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #a7b2bf;
+  font-size: 9.5px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Clearly visible rotating runner around the time dial */
+
+.bs-time-portal::before {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  left: 50%;
+  width: 282px;
+  height: 282px;
+  content: "";
+  pointer-events: none;
+  background:
+    conic-gradient(
+      from 0deg,
+      transparent 0deg 246deg,
+      rgba(75, 239, 229, 0.18) 258deg,
+      #5af1e7 270deg,
+      #f3b34d 291deg,
+      rgba(243, 179, 77, 0.2) 306deg,
+      transparent 320deg 360deg
+    );
+  border-radius: 50%;
+  filter:
+    drop-shadow(0 0 8px rgba(75, 239, 229, 0.72))
+    drop-shadow(0 0 13px rgba(243, 179, 77, 0.58));
+  transform: translate(-50%, -50%) rotate(0deg);
+  animation: bs-definitive-dial-runner 4.8s linear infinite;
+  -webkit-mask:
+    radial-gradient(
+      farthest-side,
+      transparent calc(100% - 4px),
+      #000 calc(100% - 3px)
+    );
+  mask:
+    radial-gradient(
+      farthest-side,
+      transparent calc(100% - 4px),
+      #000 calc(100% - 3px)
+    );
+}
+
+@keyframes bs-definitive-dial-runner {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* Responsive preservation */
+
+@media (max-width: 980px) {
+  :root {
+    --sidebar-width: 82px;
+  }
+
+  .sidebar .sidebar-brand {
+    padding: 8px 0 18px;
+    background: transparent;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .sidebar .brand-mark {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+
+  .sidebar .sidebar-nav {
+    padding: 6px;
+  }
+
+  .sidebar .sidebar-user {
+    display: flex;
+    justify-content: center;
+    padding: 12px 0;
+    background: transparent;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    --sidebar-width: 0px;
+  }
+}
+/* ==================================================
+   SIDEBAR CTA CLIP FIX
+   ================================================== */
+
+.sidebar .sidebar-spacer {
+  min-height: 0;
+  flex: 1 1 0;
+}
+
+.sidebar .reclaimed-card {
+  height: auto;
+  min-height: auto;
+  max-height: none;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+.sidebar .reclaimed-card > a {
+  min-height: 34px;
+  flex: 0 0 34px;
+}
+
+.sidebar .sidebar-user {
+  flex: 0 0 auto;
 }
