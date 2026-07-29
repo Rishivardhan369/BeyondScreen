@@ -1,4 +1,4 @@
-﻿from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
@@ -680,10 +680,112 @@ def history(request):
 
     return render(request, "history.html", context)
 
+@login_required
 def postcard_history(request):
-    postcards = Postcard.objects.all().order_by('-created_at')
-    return render(request, "postcard_history.html", {"postcards": postcards})
+    base_postcards = Postcard.objects.filter(user=request.user)
 
+    total_postcards = base_postcards.count()
+    latest_postcard = base_postcards.order_by("-created_at").first()
+
+    moods = list(
+        base_postcards.order_by("mood")
+        .values_list("mood", flat=True)
+        .distinct()
+    )
+
+    mood_counts = {}
+
+    for mood_value in base_postcards.values_list("mood", flat=True):
+        mood_key = str(mood_value or "").strip() or "Unknown"
+        mood_counts[mood_key] = mood_counts.get(mood_key, 0) + 1
+
+    dominant_mood = (
+        max(mood_counts, key=mood_counts.get)
+        if mood_counts
+        else "None yet"
+    )
+
+    query = request.GET.get("q", "").strip()
+    mood_filter = request.GET.get("mood", "All").strip() or "All"
+    sort = request.GET.get("sort", "newest").strip()
+
+    postcards = base_postcards
+
+    if query:
+        postcards = postcards.filter(
+            Q(haiku__icontains=query)
+            | Q(reflection__icontains=query)
+            | Q(goal__icontains=query)
+            | Q(pledge__icontains=query)
+        )
+
+    if mood_filter != "All":
+        postcards = postcards.filter(mood=mood_filter)
+
+    if sort == "oldest":
+        postcards = postcards.order_by("created_at")
+    else:
+        sort = "newest"
+        postcards = postcards.order_by("-created_at")
+
+    postcard_cards = []
+
+    for postcard in postcards:
+        haiku_lines = [
+            line.strip()
+            for line in str(postcard.haiku or "").splitlines()
+            if line.strip()
+        ]
+
+        postcard_cards.append(
+            {
+                "id": postcard.id,
+                "mood": postcard.mood,
+                "goal": postcard.goal,
+                "screen_time": postcard.screen_time or "0m",
+                "haiku_preview": (
+                    haiku_lines[0]
+                    if haiku_lines
+                    else "A quieter moment begins here."
+                ),
+                "reflection": postcard.reflection,
+                "created_at": postcard.created_at,
+            }
+        )
+
+    latest_haiku_lines = (
+        [
+            line.strip()
+            for line in str(latest_postcard.haiku or "").splitlines()
+            if line.strip()
+        ]
+        if latest_postcard
+        else []
+    )
+
+    context = {
+        "postcard_cards": postcard_cards,
+        "filtered_postcard_count": len(postcard_cards),
+        "total_postcards": total_postcards,
+        "latest_postcard": latest_postcard,
+        "latest_screen_time": (
+            latest_postcard.screen_time or "0m"
+            if latest_postcard
+            else "0m"
+        ),
+        "latest_haiku": (
+            latest_haiku_lines[0]
+            if latest_haiku_lines
+            else "A quieter moment begins here."
+        ),
+        "dominant_mood": dominant_mood,
+        "moods": moods,
+        "query": query,
+        "mood_filter": mood_filter,
+        "sort": sort,
+    }
+
+    return render(request, "postcard_history.html", context)
 
 @login_required
 def view_summary(request, summary_id):
@@ -694,32 +796,39 @@ def view_summary(request, summary_id):
     )
     return render(request, "view_summary.html", {"summary": summary})
 
+@login_required
 def download_postcard_by_id(request, postcard_id, file_format):
-    postcard = get_object_or_404(Postcard, id=postcard_id)
+    postcard = get_object_or_404(
+        Postcard,
+        id=postcard_id,
+        user=request.user,
+    )
+
+    postcard_data = {
+        "mood": postcard.mood,
+        "goal": postcard.goal,
+        "screen_time": postcard.screen_time or "0m",
+        "has_report": postcard.has_report,
+        "filename": postcard.filename,
+        "haiku": postcard.haiku,
+        "reflection": postcard.reflection,
+        "action": postcard.action,
+        "pledge": postcard.pledge,
+    }
 
     if file_format == "pdf":
-        content = render_postcard_pdf({
-            "mood": postcard.mood,
-            "goal": postcard.goal,
-            "screen_time": postcard.screen_time or "0m",
-            "has_report": postcard.has_report,
-            "filename": postcard.filename,
-        })
+        content = render_postcard_pdf(postcard_data)
         content_type = "application/pdf"
         filename = f"postcard_{postcard_id}.pdf"
     elif file_format == "png":
-        content = render_postcard_png({
-            "mood": postcard.mood,
-            "goal": postcard.goal,
-            "screen_time": postcard.screen_time or "0m",
-            "has_report": postcard.has_report,
-            "filename": postcard.filename,
-        })
+        content = render_postcard_png(postcard_data)
         content_type = "image/png"
         filename = f"postcard_{postcard_id}.png"
     else:
         raise Http404("Format not supported")
 
     response = HttpResponse(content, content_type=content_type)
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Content-Disposition"] = (
+        f'attachment; filename="{filename}"'
+    )
     return response

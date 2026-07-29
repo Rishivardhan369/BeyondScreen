@@ -1,83 +1,428 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}History - BeyondScreen{% endblock %}
+{% block title %}Postcard History | BeyondScreen{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'css/postcard_history.css' %}">
+{% endblock %}
+
+{% block header %}
+<header class="top-nav">
+  <div class="top-nav-inner">
+    <div class="welcome-copy">
+      <strong>
+        Mindful postcards,
+        {{ request.user.first_name|default:request.user.username }}
+      </strong>
+      <small>Your reflections, preserved in one thoughtful archive</small>
+    </div>
+
+    <form class="top-search" method="get" action="{% url 'core:postcard_history' %}">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"></circle>
+        <path d="m20 20-3.5-3.5"></path>
+      </svg>
+      <input
+        type="search"
+        name="q"
+        value="{{ query }}"
+        placeholder="Search postcards..."
+        aria-label="Search postcards"
+      >
+      {% if mood_filter and mood_filter != "All" %}
+        <input type="hidden" name="mood" value="{{ mood_filter }}">
+      {% endif %}
+      {% if sort %}
+        <input type="hidden" name="sort" value="{{ sort }}">
+      {% endif %}
+    </form>
+
+    <div class="top-actions">
+      <button class="notification-button" type="button" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>
+          <path d="M13.7 21a2 2 0 0 1-3.4 0"></path>
+        </svg>
+        <span class="notification-dot"></span>
+      </button>
+
+      <a href="{% url 'core:home' %}" class="upload-button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 16V4"></path>
+          <path d="m7 9 5-5 5 5"></path>
+          <path d="M20 15v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4"></path>
+        </svg>
+        Create New Postcard
+      </a>
+    </div>
+  </div>
+</header>
+{% endblock %}
 
 {% block content %}
-<main>
-    <!-- Hero Section -->
-    <section class="hero-shell">
-        <div class="hero-grid">
-            <div class="hero-copy reveal">
-                <p class="eyebrow">Your postcard history</p>
-                <h1>{{ user.first_name|default:user.username }}</h1>
-                <p class="hero-lede">All your mindful moments, in one place.</p>
-            </div>
+<div class="dashboard-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <a href="{% url 'core:home' %}" class="brand-link">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48">
+            <circle cx="23" cy="23" r="15"></circle>
+            <path d="M30 11a14 14 0 0 1 5 20"></path>
+            <path d="M34 31l6 1-1-6"></path>
+            <path d="M16 35a14 14 0 0 1-5-20"></path>
+            <path d="M12 15 6 14l1 6"></path>
+          </svg>
+        </span>
+
+        <span class="brand-text">
+          <strong>BeyondScreen</strong>
+          <small>Your time. Reclaimed.</small>
+        </span>
+      </a>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Dashboard navigation">
+      <a href="{% url 'core:dashboard' %}" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m3 11 9-8 9 8"></path>
+          <path d="M5 10v10h14V10"></path>
+          <path d="M9 20v-6h6v6"></path>
+        </svg>
+        <span>Overview</span>
+      </a>
+
+      <a href="{% url 'core:dashboard' %}#opportunity-cost" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M12 7v5l3 2"></path>
+        </svg>
+        <span>Opportunity Cost</span>
+      </a>
+
+      <a href="{% url 'core:dashboard' %}#today-focus" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8"></circle>
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 2v2"></path>
+          <path d="M12 20v2"></path>
+          <path d="m4.9 4.9 1.4 1.4"></path>
+          <path d="m17.7 17.7 1.4 1.4"></path>
+        </svg>
+        <span>Today's Focus</span>
+      </a>
+
+      <a href="{% url 'core:dashboard' %}#weekly-progress" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 19V9"></path>
+          <path d="M10 19V5"></path>
+          <path d="M16 19v-7"></path>
+          <path d="M22 19H2"></path>
+        </svg>
+        <span>Progress</span>
+      </a>
+
+      <a href="{% url 'core:history' %}" class="sidebar-link active" aria-current="page">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+          <path d="M3 4v5h5"></path>
+          <path d="M12 7v5l3 2"></path>
+        </svg>
+        <span>History</span>
+      </a>
+
+      <a href="{% url 'core:profile' %}" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="8" r="4"></circle>
+          <path d="M4 21a8 8 0 0 1 16 0"></path>
+        </svg>
+        <span>Profile</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="reclaimed-card">
+      <div class="reclaimed-heading">
+        <span>✦</span>
+        <strong>Your mindful archive</strong>
+      </div>
+
+      <p>Every postcard captures one deliberate step beyond the screen.</p>
+
+      <div class="reclaimed-time">
+        <strong>{{ latest_screen_time|default:"0m" }}</strong>
+        <small>latest postcard screen time</small>
+      </div>
+
+      <a href="{% url 'core:history' %}">View Digital History</a>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar">
+        {{ request.user.username|first|upper }}
+      </div>
+
+      <div class="user-details">
+        <strong>{{ request.user.first_name|default:request.user.username }}</strong>
+        <small>{{ request.user.email|default:"BeyondScreen member" }}</small>
+      </div>
+
+      <form action="{% url 'core:logout' %}" method="post">
+        {% csrf_token %}
+        <button type="submit" aria-label="Log out">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10 17l5-5-5-5"></path>
+            <path d="M15 12H3"></path>
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+          </svg>
+        </button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="main-content bs-dashboard postcard-history-main">
+    <div class="postcard-history-shell">
+      <section class="postcard-hero" aria-labelledby="postcard-history-title">
+        <div class="postcard-hero-copy">
+          <span class="postcard-eyebrow">MINDFUL ARCHIVE</span>
+          <h1 id="postcard-history-title">
+            Moments worth<br>
+            <span>keeping.</span>
+          </h1>
+          <p>
+            Return to the reflections, promises and small intentions that helped
+            you choose life beyond the screen.
+          </p>
+
+          <div class="postcard-hero-actions">
+            <a href="{% url 'core:home' %}" class="postcard-primary-action">
+              Create a Postcard
+              <span aria-hidden="true">→</span>
+            </a>
+            <a href="{% url 'core:history' %}" class="postcard-secondary-action">
+              Digital Reports
+            </a>
+          </div>
         </div>
-    </section>
 
-    <!-- Postcards Grid -->
-    <section class="ritual-section history-section">
-        <h2 class="section-title">Your Postcards</h2>
+        <div class="postcard-stack" aria-hidden="true">
+          <div class="postcard-sheet postcard-sheet-back"></div>
+          <div class="postcard-sheet postcard-sheet-middle"></div>
+          <div class="postcard-sheet postcard-sheet-front">
+            <div class="postcard-stamp">✦</div>
+            <span>BEYONDSCREEN</span>
+            <strong>{{ latest_haiku|default:"A quieter moment begins here." }}</strong>
+            <div class="postcard-signature">
+              <i></i>
+              <small>Mindful reflection</small>
+            </div>
+          </div>
+        </div>
 
-        <!-- Filter Form -->
-        <form method="get" novalidate class="auth-form">
-            <div class="auth-field">
-                <label for="id_q">Search</label>
-                <input type="text" name="q" id="id_q" value="{{ query|default:'' }}" placeholder="Search by goal, reflection, or haiku">
-            </div>
-            <div class="auth-field">
-                <label for="id_mood">Mood</label>
-                <select name="mood" id="id_mood">
-                    <option value="All" {% if mood_filter == 'All' %}selected{% endif %}>All</option>
-                    <option value="Happy" {% if mood_filter == 'Happy' %}selected{% endif %}>Happy</option>
-                    <option value="Calm" {% if mood_filter == 'Calm' %}selected{% endif %}>Calm</option>
-                    <option value="Sad" {% if mood_filter == 'Sad' %}selected{% endif %}>Sad</option>
-                    <option value="Anxious" {% if mood_filter == 'Anxious' %}selected{% endif %}>Anxious</option>
-                    <option value="Motivated" {% if mood_filter == 'Motivated' %}selected{% endif %}>Motivated</option>
-                    <option value="Reflective" {% if mood_filter == 'Reflective' %}selected{% endif %}>Reflective</option>
-                </select>
-            </div>
-            <div class="auth-field">
-                <label for="id_sort">Sort</label>
-                <select name="sort" id="id_sort">
-                    <option value="newest" {% if sort != 'oldest' %}selected{% endif %}>Newest</option>
-                    <option value="oldest" {% if sort == 'oldest' %}selected{% endif %}>Oldest</option>
-                </select>
-            </div>
-            <div class="auth-field">
-                <button type="submit" class="auth-button">Filter</button>
-                <a href="{% url 'core:history' %}" class="text-button">Clear Filters</a>
-            </div>
+        <div class="postcard-hero-glow postcard-glow-gold"></div>
+        <div class="postcard-hero-glow postcard-glow-teal"></div>
+      </section>
+
+      <section class="postcard-stats" aria-label="Postcard overview">
+        <article class="postcard-stat-card">
+          <span class="postcard-stat-icon postcard-stat-gold">▧</span>
+          <div>
+            <small>Total Postcards</small>
+            <strong>{{ total_postcards }}</strong>
+            <p>Mindful moments saved</p>
+          </div>
+        </article>
+
+        <article class="postcard-stat-card">
+          <span class="postcard-stat-icon postcard-stat-teal">✦</span>
+          <div>
+            <small>Most Common Mood</small>
+            <strong>{{ dominant_mood }}</strong>
+            <p>Your recurring emotional tone</p>
+          </div>
+        </article>
+
+        <article class="postcard-stat-card">
+          <span class="postcard-stat-icon postcard-stat-blue">◴</span>
+          <div>
+            <small>Latest Screen Time</small>
+            <strong>{{ latest_screen_time }}</strong>
+            <p>
+              {% if latest_postcard %}
+                {{ latest_postcard.created_at|date:"M d, Y" }}
+              {% else %}
+                No postcard created
+              {% endif %}
+            </p>
+          </div>
+        </article>
+      </section>
+
+      <section class="postcard-archive-panel">
+        <div class="postcard-panel-heading">
+          <div>
+            <span class="postcard-section-kicker">POSTCARD COLLECTION</span>
+            <h2>Your Reflections</h2>
+            <p>Search, filter and revisit the moments you chose to preserve.</p>
+          </div>
+
+          <span class="postcard-result-count">
+            {{ filtered_postcard_count }}
+            postcard{{ filtered_postcard_count|pluralize }}
+          </span>
+        </div>
+
+        <form method="get" class="postcard-toolbar">
+          <label class="postcard-search-field">
+            <span class="sr-only">Search postcards</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"></circle>
+              <path d="m20 20-3.5-3.5"></path>
+            </svg>
+            <input
+              type="search"
+              name="q"
+              value="{{ query }}"
+              placeholder="Search haiku, reflection or goal"
+            >
+          </label>
+
+          <label class="postcard-select-field">
+            <span>Mood</span>
+            <select name="mood">
+              <option value="All" {% if mood_filter == "All" %}selected{% endif %}>
+                All moods
+              </option>
+              {% for mood in moods %}
+                <option value="{{ mood }}" {% if mood_filter == mood %}selected{% endif %}>
+                  {{ mood }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label class="postcard-select-field">
+            <span>Sort by</span>
+            <select name="sort">
+              <option value="newest" {% if sort == "newest" %}selected{% endif %}>
+                Newest first
+              </option>
+              <option value="oldest" {% if sort == "oldest" %}selected{% endif %}>
+                Oldest first
+              </option>
+            </select>
+          </label>
+
+          <button type="submit" class="postcard-filter-button">Apply</button>
+          <a href="{% url 'core:postcard_history' %}" class="postcard-reset-button">
+            Reset
+          </a>
         </form>
 
-        {% if postcards %}
-            <div class="recent-grid">
-                {% for postcard in postcards %}
-                <div class="recent-card" onclick="location.href='{% url 'core:view_postcard' postcard.id %}'">
-                    <div class="recent-header">
-                        <p class="recent-meta">{{ postcard.mood }} • {{ postcard.goal }}</p>
-                        <time class="recent-date">{{ postcard.created_at|date:"M d, Y" }}</time>
-                    </div>
-                    <h3 class="recent-title">{{ postcard.haiku_first_line }}</h3>
-                    <p class="recent-preview">{{ postcard.reflection|truncatewords:8 }}</p>
-                    <div class="action-buttons" onclick="event.stopPropagation()">
-                        <a href="{% url 'core:download_postcard_by_id' postcard.id 'pdf' %}" class="secondary-button" onclick="event.stopPropagation()">Download PDF</a>
-                        <form action="{% url 'core:delete_postcard' postcard.id %}" method="post" class="form-delete" onclick="event.stopPropagation()" onsubmit="return confirm('Are you sure you want to delete this postcard?');">
-                            {% csrf_token %}
-                            <button type="submit" class="text-button" onclick="event.stopPropagation()">Delete</button>
-                        </form>
-                    </div>
+        {% if postcard_cards %}
+          <div class="postcard-grid">
+            {% for postcard in postcard_cards %}
+              <article class="postcard-card">
+                <div class="postcard-card-topline">
+                  <span class="postcard-mood postcard-mood-{{ postcard.mood|lower }}">
+                    {{ postcard.mood }}
+                  </span>
+                  <time>{{ postcard.created_at|date:"M d, Y" }}</time>
                 </div>
-                {% endfor %}
-            </div>
+
+                <div class="postcard-card-paper">
+                  <span class="postcard-card-label">A NOTE TO YOURSELF</span>
+                  <blockquote>{{ postcard.haiku_preview }}</blockquote>
+                  <p>{{ postcard.reflection|truncatewords:22 }}</p>
+
+                  <div class="postcard-card-divider"></div>
+
+                  <dl class="postcard-card-meta">
+                    <div>
+                      <dt>Intention</dt>
+                      <dd>{{ postcard.goal }}</dd>
+                    </div>
+                    <div>
+                      <dt>Screen Time</dt>
+                      <dd>{{ postcard.screen_time }}</dd>
+                    </div>
+                  </dl>
+                </div>
+
+                <div class="postcard-card-actions">
+                  <a href="{% url 'core:view_postcard' postcard.id %}" class="postcard-view-action">
+                    View Postcard
+                    <span aria-hidden="true">→</span>
+                  </a>
+
+                  <div class="postcard-card-tools">
+                    <a
+                      href="{% url 'core:download_postcard_by_id' postcard.id 'pdf' %}"
+                      aria-label="Download postcard as PDF"
+                      title="Download PDF"
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 3v12"></path>
+                        <path d="m7 10 5 5 5-5"></path>
+                        <path d="M5 21h14"></path>
+                      </svg>
+                    </a>
+
+                    <form
+                      action="{% url 'core:delete_postcard' postcard.id %}"
+                      method="post"
+                      onsubmit="return confirm('Delete this postcard permanently?');"
+                    >
+                      {% csrf_token %}
+                      <button type="submit" aria-label="Delete postcard" title="Delete">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M4 7h16"></path>
+                          <path d="M9 7V4h6v3"></path>
+                          <path d="m7 7 1 13h8l1-13"></path>
+                          <path d="M10 11v5"></path>
+                          <path d="M14 11v5"></path>
+                        </svg>
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
         {% else %}
-            <div class="empty-state">
-                <p>No matching postcards found.</p>
-                <a href="{% url 'core:history' %}" class="primary-button">
-                    <span>Clear Filters</span><span aria-hidden="true">→</span>
-                </a>
-            </div>
+          <div class="postcard-empty-state">
+            <div class="postcard-empty-icon">✦</div>
+            <span class="postcard-section-kicker">NO POSTCARDS FOUND</span>
+            <h3>
+              {% if query or mood_filter != "All" %}
+                No postcards match these filters.
+              {% else %}
+                Your mindful archive starts here.
+              {% endif %}
+            </h3>
+            <p>
+              {% if query or mood_filter != "All" %}
+                Reset the filters or search for a different reflection.
+              {% else %}
+                Create a postcard to preserve your first mindful intention.
+              {% endif %}
+            </p>
+
+            {% if query or mood_filter != "All" %}
+              <a href="{% url 'core:postcard_history' %}" class="postcard-empty-button">
+                Reset Filters
+              </a>
+            {% else %}
+              <a href="{% url 'core:home' %}" class="postcard-empty-button">
+                Create First Postcard
+              </a>
+            {% endif %}
+          </div>
         {% endif %}
-    </section>
-</main>
+      </section>
+    </div>
+  </main>
+</div>
 {% endblock %}
