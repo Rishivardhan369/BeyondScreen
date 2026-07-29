@@ -958,3 +958,41 @@
   font-family: "DM Sans", "Segoe UI", Arial, sans-serif;
   font-variant-numeric: tabular-nums;
 }
+
+/* ==================================================
+   POSTCARD CARD CLICK TARGET FIX
+   Make the full postcard card open its detail page
+   ================================================== */
+
+.postcard-card {
+  position: relative;
+}
+
+.postcard-view-action {
+  position: static;
+}
+
+.postcard-view-action::after {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  content: "";
+  cursor: pointer;
+}
+
+.postcard-card-topline,
+.postcard-card-paper {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.postcard-card-tools {
+  position: relative;
+  z-index: 3;
+}
+
+.postcard-card-tools a,
+.postcard-card-tools button {
+  pointer-events: auto;
+}
