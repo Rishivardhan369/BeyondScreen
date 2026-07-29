@@ -117,47 +117,492 @@ def postcard_lines(postcard):
     ]
 
 
-def render_postcard_png(postcard):
-    image = Image.new("RGB", (1400, 1800), "#0f172a")
+def render_postcard_png(postcard_data):
+    """Render a premium BeyondScreen postcard as PNG bytes."""
+    import io
+    import os
+    from pathlib import Path
+
+    from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+    width, height = 1600, 1000
+
+    colors = {
+        "background_top": (4, 13, 23),
+        "background_bottom": (7, 20, 33),
+        "panel": (10, 27, 42),
+        "panel_soft": (13, 34, 51),
+        "gold": (239, 174, 67),
+        "gold_soft": (255, 208, 126),
+        "teal": (57, 221, 213),
+        "blue": (121, 156, 242),
+        "purple": (189, 131, 239),
+        "text": (248, 250, 252),
+        "muted": (166, 179, 193),
+        "muted_soft": (117, 133, 151),
+        "line": (45, 63, 80),
+    }
+
+    def load_font(size, *, bold=False, serif=False, italic=False):
+        windows = Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts"
+
+        if serif:
+            names = (
+                ["georgiaz.ttf", "georgiai.ttf", "georgiab.ttf", "georgia.ttf"]
+                if italic
+                else ["georgiab.ttf", "georgia.ttf"]
+            )
+            linux = [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSerif-BoldItalic.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+            ]
+        elif bold:
+            names = ["seguisb.ttf", "segoeuib.ttf", "arialbd.ttf"]
+            linux = [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+            ]
+        else:
+            names = ["segoeui.ttf", "arial.ttf"]
+            linux = [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+            ]
+
+        candidates = [windows / name for name in names]
+        candidates.extend(Path(item) for item in linux)
+
+        for candidate in candidates:
+            try:
+                if candidate.exists():
+                    return ImageFont.truetype(str(candidate), size=size)
+            except (OSError, ValueError):
+                continue
+
+        return ImageFont.load_default()
+
+    def text_width(draw, text, font):
+        box = draw.textbbox((0, 0), str(text), font=font)
+        return box[2] - box[0]
+
+    def wrap_text(draw, text, font, max_width, max_lines=None):
+        paragraphs = str(text or "").replace("\r", "").split("\n")
+        lines = []
+
+        for paragraph in paragraphs:
+            words = paragraph.split()
+
+            if not words:
+                if lines and (max_lines is None or len(lines) < max_lines):
+                    lines.append("")
+                continue
+
+            current = ""
+
+            for word in words:
+                candidate = word if not current else f"{current} {word}"
+
+                if text_width(draw, candidate, font) <= max_width:
+                    current = candidate
+                    continue
+
+                if current:
+                    lines.append(current)
+                    current = word
+                else:
+                    lines.append(word)
+                    current = ""
+
+                if max_lines is not None and len(lines) >= max_lines:
+                    break
+
+            if max_lines is not None and len(lines) >= max_lines:
+                break
+
+            if current:
+                lines.append(current)
+
+            if max_lines is not None and len(lines) >= max_lines:
+                break
+
+        if max_lines is not None and len(lines) > max_lines:
+            lines = lines[:max_lines]
+
+        if max_lines is not None and len(lines) == max_lines:
+            combined = " ".join(paragraphs).strip()
+            visible = " ".join(lines).strip()
+
+            if len(visible) < len(combined):
+                last = lines[-1].rstrip(" .")
+                while last and text_width(draw, f"{last}…", font) > max_width:
+                    last = last[:-1].rstrip()
+                lines[-1] = f"{last}…"
+
+        return lines
+
+    def draw_lines(draw, lines, x, y, font, fill, line_gap, *, anchor=None):
+        current_y = y
+
+        for line in lines:
+            draw.text(
+                (x, current_y),
+                line,
+                font=font,
+                fill=fill,
+                anchor=anchor,
+            )
+            current_y += line_gap
+
+        return current_y
+
+    def rounded_panel(draw, box, radius, fill, outline, width_px=2):
+        draw.rounded_rectangle(
+            box,
+            radius=radius,
+            fill=fill,
+            outline=outline,
+            width=width_px,
+        )
+
+    image = Image.new("RGB", (width, height), colors["background_top"])
+    pixels = image.load()
+
+    for y in range(height):
+        ratio = y / max(1, height - 1)
+        top = colors["background_top"]
+        bottom = colors["background_bottom"]
+        shade = tuple(
+            int(top[index] + (bottom[index] - top[index]) * ratio)
+            for index in range(3)
+        )
+
+        for x in range(width):
+            pixels[x, y] = shade
+
+    glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(glow)
+    glow_draw.ellipse(
+        (-180, -230, 620, 570),
+        fill=(*colors["gold"], 54),
+    )
+    glow_draw.ellipse(
+        (1000, 560, 1780, 1340),
+        fill=(*colors["teal"], 42),
+    )
+    glow = glow.filter(ImageFilter.GaussianBlur(90))
+    image = Image.alpha_composite(image.convert("RGBA"), glow)
+
     draw = ImageDraw.Draw(image)
-    draw.rounded_rectangle((70, 70, 1330, 1730), radius=48, fill="#172554", outline="#67e8f9", width=4)
-    title_font = ImageFont.load_default(size=42)
-    heading_font = ImageFont.load_default(size=25)
-    body_font = ImageFont.load_default(size=21)
-    y = 130
-    for line in postcard_lines(postcard):
-        font = title_font if line.startswith("UNSCROLL") else heading_font if line.isupper() else body_font
-        color = "#67e8f9" if font != body_font else "#e2e8f0"
-        for paragraph in line.splitlines() or [""]:
-            for wrapped_line in wrap(paragraph, width=72) or [""]:
-                draw.text((130, y), wrapped_line, fill=color, font=font)
-                y += 42 if font == body_font else 50
-        y += 12
-    output = BytesIO()
-    image.save(output, format="PNG", optimize=True)
+
+    card = (76, 70, 1524, 930)
+    rounded_panel(
+        draw,
+        card,
+        38,
+        (*colors["panel"], 252),
+        (*colors["line"], 255),
+        3,
+    )
+
+    draw.line(
+        (108, 72, 415, 72),
+        fill=(*colors["gold"], 220),
+        width=4,
+    )
+    draw.line(
+        (1185, 928, 1490, 928),
+        fill=(*colors["teal"], 180),
+        width=3,
+    )
+
+    brand_font = load_font(25, bold=True)
+    tiny_font = load_font(18)
+    label_font = load_font(20, bold=True)
+    chip_font = load_font(23, bold=True)
+    body_font = load_font(27)
+    body_bold_font = load_font(28, bold=True)
+    haiku_font = load_font(56, serif=True, italic=True)
+    pledge_font = load_font(29, bold=True)
+    footer_font = load_font(18)
+
+    draw.text(
+        (118, 112),
+        "BEYONDSCREEN",
+        font=brand_font,
+        fill=colors["gold"],
+    )
+    draw.text(
+        (118, 149),
+        "YOUR TIME. RECLAIMED.",
+        font=tiny_font,
+        fill=colors["muted_soft"],
+    )
+
+    stamp = (1372, 105, 1468, 201)
+    rounded_panel(
+        draw,
+        stamp,
+        18,
+        (*colors["gold"], 20),
+        (*colors["gold"], 120),
+        2,
+    )
+    draw.text(
+        (1420, 139),
+        "✦",
+        font=load_font(31, bold=True),
+        fill=colors["gold"],
+        anchor="mm",
+    )
+    draw.text(
+        (1420, 178),
+        "MINDFUL",
+        font=load_font(13, bold=True),
+        fill=colors["muted"],
+        anchor="mm",
+    )
+
+    content_left = 118
+    content_width = 835
+
+    draw.text(
+        (content_left, 238),
+        "A NOTE TO YOURSELF",
+        font=label_font,
+        fill=colors["teal"],
+    )
+
+    haiku = str(
+        postcard_data.get("haiku")
+        or "A quieter moment begins here."
+    ).strip()
+    haiku_lines = wrap_text(
+        draw,
+        haiku,
+        haiku_font,
+        content_width,
+        max_lines=4,
+    )
+    haiku_bottom = draw_lines(
+        draw,
+        haiku_lines,
+        content_left,
+        280,
+        haiku_font,
+        colors["text"],
+        72,
+    )
+
+    reflection_y = min(max(haiku_bottom + 28, 500), 590)
+
+    draw.text(
+        (content_left, reflection_y),
+        "REFLECTION",
+        font=label_font,
+        fill=colors["gold"],
+    )
+
+    reflection = str(
+        postcard_data.get("reflection")
+        or "Notice the space that appears when attention returns to you."
+    ).strip()
+    reflection_lines = wrap_text(
+        draw,
+        reflection,
+        body_font,
+        content_width,
+        max_lines=4,
+    )
+    draw_lines(
+        draw,
+        reflection_lines,
+        content_left,
+        reflection_y + 39,
+        body_font,
+        colors["muted"],
+        39,
+    )
+
+    divider_x = 1000
+    draw.line(
+        (divider_x, 235, divider_x, 825),
+        fill=(*colors["line"], 255),
+        width=2,
+    )
+
+    right_x = 1048
+    right_w = 394
+
+    draw.text(
+        (right_x, 238),
+        "TODAY'S SNAPSHOT",
+        font=label_font,
+        fill=colors["gold"],
+    )
+
+    chip_y = 284
+    chip_gap = 76
+    chips = [
+        ("MOOD", postcard_data.get("mood") or "Reflective", colors["teal"]),
+        ("INTENTION", postcard_data.get("goal") or "Mindful progress", colors["gold"]),
+        ("SCREEN TIME", postcard_data.get("screen_time") or "0m", colors["blue"]),
+    ]
+
+    for index, (label, value, accent) in enumerate(chips):
+        y = chip_y + index * chip_gap
+        rounded_panel(
+            draw,
+            (right_x, y, right_x + right_w, y + 58),
+            16,
+            (*colors["panel_soft"], 245),
+            (*accent, 70),
+            2,
+        )
+        draw.text(
+            (right_x + 18, y + 13),
+            label,
+            font=load_font(14, bold=True),
+            fill=colors["muted_soft"],
+        )
+        value_text = str(value)
+        value_font = chip_font
+
+        while (
+            text_width(draw, value_text, value_font) > right_w - 155
+            and getattr(value_font, "size", 20) > 15
+        ):
+            value_font = load_font(
+                getattr(value_font, "size", 20) - 1,
+                bold=True,
+            )
+
+        draw.text(
+            (right_x + right_w - 18, y + 29),
+            value_text,
+            font=value_font,
+            fill=colors["text"],
+            anchor="rm",
+        )
+
+    action_y = 545
+    rounded_panel(
+        draw,
+        (right_x, action_y, right_x + right_w, action_y + 122),
+        18,
+        (*colors["panel_soft"], 245),
+        (*colors["gold"], 62),
+        2,
+    )
+    draw.text(
+        (right_x + 19, action_y + 17),
+        "NEXT ACTION",
+        font=load_font(15, bold=True),
+        fill=colors["gold"],
+    )
+    action_lines = wrap_text(
+        draw,
+        postcard_data.get("action") or "Take one small step away from the screen.",
+        body_bold_font,
+        right_w - 38,
+        max_lines=2,
+    )
+    draw_lines(
+        draw,
+        action_lines,
+        right_x + 19,
+        action_y + 47,
+        body_bold_font,
+        colors["text"],
+        35,
+    )
+
+    pledge_y = 690
+    rounded_panel(
+        draw,
+        (right_x, pledge_y, right_x + right_w, pledge_y + 145),
+        18,
+        (24, 30, 47, 245),
+        (*colors["purple"], 70),
+        2,
+    )
+    draw.text(
+        (right_x + 19, pledge_y + 17),
+        "YOUR PLEDGE",
+        font=load_font(15, bold=True),
+        fill=colors["purple"],
+    )
+    pledge_lines = wrap_text(
+        draw,
+        f'“{postcard_data.get("pledge") or "I will protect one quiet moment for myself."}”',
+        pledge_font,
+        right_w - 38,
+        max_lines=3,
+    )
+    draw_lines(
+        draw,
+        pledge_lines,
+        right_x + 19,
+        pledge_y + 48,
+        pledge_font,
+        colors["text"],
+        34,
+    )
+
+    footer_y = 875
+    draw.text(
+        (118, footer_y),
+        "A mindful reflection, preserved by BeyondScreen.",
+        font=footer_font,
+        fill=colors["muted_soft"],
+    )
+    draw.text(
+        (1470, footer_y),
+        "beyond the screen",
+        font=footer_font,
+        fill=colors["teal"],
+        anchor="ra",
+    )
+
+    output = io.BytesIO()
+    image.convert("RGB").save(
+        output,
+        format="PNG",
+        optimize=True,
+    )
     return output.getvalue()
 
 
-def render_postcard_pdf(postcard):
-    output = BytesIO()
-    pdf = canvas.Canvas(output, pagesize=A5)
-    width, height = A5
-    pdf.setFillColor(HexColor("#0f172a"))
-    pdf.rect(0, 0, width, height, stroke=0, fill=1)
-    y = height - 42
-    for line in postcard_lines(postcard):
-        is_heading = line.startswith("UNSCROLL") or line.isupper()
-        pdf.setFont("Helvetica-Bold" if is_heading else "Helvetica", 13 if line.startswith("UNSCROLL") else 10)
-        pdf.setFillColor(HexColor("#67e8f9") if is_heading else HexColor("#e2e8f0"))
-        for paragraph in line.splitlines() or [""]:
-            for wrapped_line in wrap(paragraph, width=62) or [""]:
-                if y < 42:
-                    pdf.showPage()
-                    pdf.setFillColor(HexColor("#0f172a"))
-                    pdf.rect(0, 0, width, height, stroke=0, fill=1)
-                    y = height - 42
-                pdf.drawString(34, y, wrapped_line)
-                y -= 17
-        y -= 7
+
+def render_postcard_pdf(postcard_data):
+    """Render the premium BeyondScreen postcard inside a print-ready PDF."""
+    import io
+
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfgen import canvas
+
+    png_bytes = render_postcard_png(postcard_data)
+
+    page_width = 720
+    page_height = 450
+
+    output = io.BytesIO()
+    pdf = canvas.Canvas(
+        output,
+        pagesize=(page_width, page_height),
+        pageCompression=1,
+    )
+    pdf.setTitle("BeyondScreen Mindful Postcard")
+    pdf.setAuthor("BeyondScreen")
+    pdf.setSubject("A mindful digital-wellbeing reflection")
+    pdf.drawImage(
+        ImageReader(io.BytesIO(png_bytes)),
+        0,
+        0,
+        width=page_width,
+        height=page_height,
+        preserveAspectRatio=True,
+        mask="auto",
+    )
+    pdf.showPage()
     pdf.save()
     return output.getvalue()

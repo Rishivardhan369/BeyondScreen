@@ -189,11 +189,11 @@ def download_postcard(request, file_format):
     if file_format == "pdf":
         content = render_postcard_pdf(postcard_data)
         content_type = "application/pdf"
-        filename = "postcard.pdf"
+        filename = "beyondscreen-postcard.pdf"
     elif file_format == "png":
         content = render_postcard_png(postcard_data)
         content_type = "image/png"
-        filename = "postcard.png"
+        filename = "beyondscreen-postcard.png"
     else:
         messages.error(request, "Invalid format specified.")
         return redirect("core:summary")
@@ -819,11 +819,11 @@ def download_postcard_by_id(request, postcard_id, file_format):
     if file_format == "pdf":
         content = render_postcard_pdf(postcard_data)
         content_type = "application/pdf"
-        filename = f"postcard_{postcard_id}.pdf"
+        filename = f"beyondscreen-postcard-{postcard_id}.pdf"
     elif file_format == "png":
         content = render_postcard_png(postcard_data)
         content_type = "image/png"
-        filename = f"postcard_{postcard_id}.png"
+        filename = f"beyondscreen-postcard-{postcard_id}.png"
     else:
         raise Http404("Format not supported")
 
