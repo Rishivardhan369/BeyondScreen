@@ -73,8 +73,20 @@ PLEDGE_ENDS = (
 def format_screen_time(minutes):
     if minutes is None:
         return None
+
+    try:
+        minutes = int(minutes)
+    except (TypeError, ValueError):
+        return None
+
     hours, remaining_minutes = divmod(minutes, 60)
-    return f"{hours}h {remaining_minutes:02d}m" if hours else f"{remaining_minutes}m"
+    return (
+        f"{hours}h {remaining_minutes:02d}m"
+        if hours
+        else f"{remaining_minutes}m"
+    )
+
+
 
 
 def _pick_pair(starts, ends, index):
