@@ -1,184 +1,279 @@
 {% extends "base.html" %}
 {% load static %}
-{% block title %}BeyondScreen | Turn Screen Time Into Something Beautiful{% endblock %}
+
+{% block title %}BeyondScreen | Reclaim Your Time{% endblock %}
+
 {% block extra_css %}
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'css/home.css' %}">
 {% endblock %}
+
 {% block header %}{% endblock %}
+{% block footer %}{% endblock %}
+
 {% block content %}
-<!-- Navigation -->
-<nav class="navbar" id="navbar">
-    <div class="container">
-        <div class="nav-brand">
-            beyondscreen<span>.</span>
+<div class="home-page">
+  <header class="home-nav">
+    <a href="{% url 'core:home' %}" class="home-brand">
+      <span class="home-brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 48 48">
+          <circle cx="23" cy="23" r="15"></circle>
+          <path d="M30 11a14 14 0 0 1 5 20"></path>
+          <path d="M34 31l6 1-1-6"></path>
+          <path d="M16 35a14 14 0 0 1-5-20"></path>
+          <path d="M12 15 6 14l1 6"></path>
+        </svg>
+      </span>
+      <span>
+        <strong>BeyondScreen</strong>
+        <small>Your time. Reclaimed.</small>
+      </span>
+    </a>
+
+    <nav class="home-nav-links" aria-label="Primary navigation">
+      <a href="{% url 'core:home' %}" class="active">Home</a>
+      {% if user.is_authenticated %}
+        <a href="{% url 'core:dashboard' %}">Dashboard</a>
+        <a href="{% url 'core:history' %}">History</a>
+        <a href="{% url 'core:postcard_history' %}">Postcards</a>
+        <a href="{% url 'core:profile' %}">Profile</a>
+        <form action="{% url 'core:logout' %}" method="post">
+          {% csrf_token %}
+          <button type="submit">Log out</button>
+        </form>
+      {% else %}
+        <a href="{% url 'core:login' %}">Log in</a>
+        <a href="{% url 'core:register' %}" class="home-nav-cta">Create account</a>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main>
+    <section class="home-hero">
+      <div class="home-stars" aria-hidden="true"></div>
+      <div class="home-glow home-glow-gold"></div>
+      <div class="home-glow home-glow-teal"></div>
+
+      <div class="home-hero-grid">
+        <div class="home-hero-copy">
+          <span class="home-eyebrow">MINDFUL DIGITAL WELLBEING</span>
+          <h1>
+            Your screen time<br>
+            can become <em>something more.</em>
+          </h1>
+          <p>
+            Upload a Digital Wellbeing report or enter today’s screen time.
+            BeyondScreen turns the number into a clear insight, an opportunity
+            cost, and one practical next step.
+          </p>
+
+          <div class="home-benefits">
+            <span><b>01</b> Understand your time</span>
+            <span><b>02</b> See what it could become</span>
+            <span><b>03</b> Choose one better action</span>
+          </div>
+
+          {% if user.is_authenticated %}
+            <a href="{% url 'core:dashboard' %}" class="home-secondary-link">
+              View your dashboard <span>→</span>
+            </a>
+          {% endif %}
         </div>
-        <div class="nav-links" id="navLinks">
-            <a href="{% url 'core:home' %}" class="nav-link active">Home</a>
-            <a href="{% url 'core:dashboard' %}" class="nav-link">Dashboard</a>
-            <a href="{% url 'core:history' %}" class="nav-link">History</a>
-            <a href="{% url 'core:profile' %}" class="nav-link">Profile</a>
-            {% if user.is_authenticated %}
-            <form action="{% url 'core:logout' %}" method="post" class="nav-link logout-form">
-                {% csrf_token %}
-                <button type="submit" class="nav-link">Log out</button>
-            </form>
-            {% else %}
-            <a href="{% url 'core:login' %}" class="nav-link">Log in</a>
-            <a href="{% url 'core:register' %}" class="nav-link primary">Sign up</a>
+
+        <section class="home-upload-card" id="upload-report">
+          <div class="home-form-heading">
+            <div>
+              <span class="home-form-kicker">START HERE</span>
+              <h2>Create today’s insight</h2>
+              <p>Use a report, manual minutes, or both.</p>
+            </div>
+            <span class="home-private-badge">✓ Private</span>
+          </div>
+
+          <form method="post" enctype="multipart/form-data" class="home-form" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+              <div class="home-form-error">{{ form.non_field_errors }}</div>
             {% endif %}
-        </div>
-    </div>
-</nav>
 
-<!-- Hero Section -->
-<section class="hero">
-    <div class="container">
-        <div class="hero-content">
-            <div class="hero-eyebrow animate-fade-in-up delay-100">
-                Transform your digital habits
+            <div class="home-upload-zone">
+              <input
+                type="file"
+                name="{{ form.file.html_name }}"
+                id="{{ form.file.id_for_label }}"
+                accept=".csv,.pdf,.png,.jpg,.jpeg,.txt"
+              >
+              <label for="{{ form.file.id_for_label }}">
+                <span class="home-upload-icon">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 16V4"></path>
+                    <path d="m7 9 5-5 5 5"></path>
+                    <path d="M20 15v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4"></path>
+                  </svg>
+                </span>
+                <span class="home-upload-copy">
+                  <strong>Upload a Screen Time report</strong>
+                  <small id="home-file-name">PDF, PNG, JPG, CSV or TXT · up to 10 MB</small>
+                </span>
+                <span class="home-upload-button">Choose file</span>
+              </label>
             </div>
-            <h1 class="hero-title animate-fade-in-up delay-200">
-                Turn Screen Time Into <span>Something Beautiful</span>
-            </h1>
-            <p class="hero-subtitle animate-fade-in-up delay-300">
-                Upload your Digital Wellbeing report and discover what your screen time could have become.
+
+            {% if form.file.errors %}
+              <div class="home-form-error">{{ form.file.errors }}</div>
+            {% endif %}
+
+            <div class="home-divider"><span>or enter time manually</span></div>
+
+            <label class="home-field">
+              <span>Screen time today <small>minutes</small></span>
+              <div class="home-input">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <path d="M12 7v5l3 2"></path>
+                </svg>
+                <input
+                  type="number"
+                  name="{{ form.screen_time.html_name }}"
+                  id="{{ form.screen_time.id_for_label }}"
+                  value="{{ form.screen_time.value|default_if_none:'' }}"
+                  min="0"
+                  max="1440"
+                  inputmode="numeric"
+                  placeholder="e.g. 245"
+                >
+              </div>
+              {% if form.screen_time.errors %}
+                <span class="home-form-error">{{ form.screen_time.errors }}</span>
+              {% endif %}
+            </label>
+
+            <div class="home-form-grid">
+              <label class="home-field">
+                <span>How are you feeling?</span>
+                <div class="home-select">
+                  <select name="{{ form.mood.html_name }}" id="{{ form.mood.id_for_label }}" required>
+                    {% for value, label in form.fields.mood.choices %}
+                      <option value="{{ value }}" {% if form.mood.value == value %}selected{% endif %}>
+                        {{ label }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"></path></svg>
+                </div>
+                {% if form.mood.errors %}
+                  <span class="home-form-error">{{ form.mood.errors }}</span>
+                {% endif %}
+              </label>
+
+              <label class="home-field">
+                <span>Tomorrow’s intention</span>
+                <div class="home-select">
+                  <select name="{{ form.goal.html_name }}" id="{{ form.goal.id_for_label }}" required>
+                    {% for value, label in form.fields.goal.choices %}
+                      <option value="{{ value }}" {% if form.goal.value == value %}selected{% endif %}>
+                        {{ label }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"></path></svg>
+                </div>
+                {% if form.goal.errors %}
+                  <span class="home-form-error">{{ form.goal.errors }}</span>
+                {% endif %}
+              </label>
+            </div>
+
+            <button type="submit" class="home-submit">
+              Generate My Insight <span>→</span>
+            </button>
+
+            <p class="home-form-note">
+              Your report is used only to create your personal insight.
             </p>
-            <div class="hero-buttons animate-fade-in-up delay-400">
-                <a href="{% url 'core:home' %}" class="btn-primary">Upload Screen Time Report</a>
-                <a href="#how-it-works" class="btn-outline">How It Works</a>
-            </div>
-        </div>
-        <div class="hero-visual">
-            <div class="visual-container">
-                <div class="visual-glow"></div>
-                <div class="visual-circle"></div>
-                <div class="visual-ring"></div>
-                <div class="visual-dot"></div>
-                <div class="visual-dot"></div>
-                <div class="visual-dot"></div>
-                <div class="visual-dot"></div>
-                <div class="visual-dot"></div>
-                <div class="visual-line"></div>
-            </div>
-        </div>
-    </div>
-</section>
+          </form>
+        </section>
+      </div>
+    </section>
 
-<!-- Features Section -->
-<section class="features section-padding">
-    <div class="container">
-        <div class="text-center mb-5">
-            <h2 class="section-title">Why BeyondScreen</h2>
-            <p class="section-description">Transform your screen time insights into meaningful actions</p>
-        </div>
-        <div class="features-grid">
-            <div class="feature-card animate-fade-in-up delay-100">
-                <div class="feature-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m2 0a2 2 0 110-4 2 2 0 010 4zm-6 0a2 2 0 100-4 2 2 0 000 4zM3 9h18"/>
-                    </svg>
-                </div>
-                <h3 class="feature-title">Transform Insights</h3>
-                <p class="feature-description">Turn raw screen time data into beautiful, actionable insights that inspire real change.</p>
-            </div>
-            <div class="feature-card animate-fade-in-up delay-200">
-                <div class="feature-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.1 0-2 .9-2 2s1 2 2 2 2-1 2-2-1-2-2-2m0 12c-1.1 0-2 .9-2 2s1 2 2 2 2-1 2-2-1-2-2-2m0-6a2 2 0 100-4 2 2 0 000 4z"/>
-                    </svg>
-                </div>
-                <h3 class="feature-title">Beautiful Visualizations</h3>
-                <p class="feature-description">See your digital habits represented as elegant visualizations that tell your unique story.</p>
-            </div>
-            <div class="feature-card animate-fade-in-up delay-300">
-                <div class="feature-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                    </svg>
-                </div>
-                <h3 class="feature-title">Personalized Recommendations</h3>
-                <p class="feature-description">Get tailored suggestions to help you reclaim time for what truly matters in life.</p>
-            </div>
-        </div>
-    </div>
-</section>
+    <section class="home-workflow">
+      <article><span>01</span><div><strong>Bring your data</strong><p>Upload a report or enter minutes manually.</p></div></article>
+      <article><span>02</span><div><strong>Add personal context</strong><p>Your mood and intention make the result meaningful.</p></div></article>
+      <article><span>03</span><div><strong>Receive one clear direction</strong><p>Get an insight, opportunity cost and mindful next step.</p></div></article>
+    </section>
 
-<!-- How It Works Section -->
-<section id="how-it-works" class="how-it-works section-padding">
-    <div class="container">
-        <div class="text-center mb-5">
-            <h2 class="section-title">How It Works</h2>
-            <p class="section-description">Simple steps to transform your screen time into meaningful insights</p>
-        </div>
-        <div class="steps-grid">
-            <div class="step animate-fade-in-up delay-100">
-                <div class="step-number">01</div>
-                <h3 class="step-title">Upload Your Report</h3>
-                <p class="step-description">Export your Digital Wellbeing report from iOS or Android and upload it here.</p>
-            </div>
-            <div class="step animate-fade-in-up delay-200">
-                <div class="step-number">02</div>
-                <h3 class="step-title">Get Beautiful Insights</h3>
-                <p class="step-description">Our analysis transforms your data into meaningful visualizations and actionable insights.</p>
-            </div>
-            <div class="step animate-fade-in-up delay-300">
-                <div class="step-number">03</div>
-                <h3 class="step-title">Reclaim Your Time</h3>
-                <p class="section-description">Receive personalized recommendations to help you focus on what truly matters.</p>
-            </div>
-        </div>
-    </div>
-</section>
+    <section class="home-opportunity">
+      <div class="home-section-heading">
+        <span class="home-eyebrow">THE BEYONDSCREEN DIFFERENCE</span>
+        <h2>See what the time could have become.</h2>
+        <p>
+          Raw screen-time numbers rarely inspire action. BeyondScreen translates
+          them into alternatives you can actually picture.
+        </p>
+      </div>
 
-<!-- Postcard Preview Section -->
-<section class="postcard-preview section-padding">
-    <div class="container">
-        <div class="text-center mb-5">
-            <h2 class="section-title">See Your Potential</h3>
-            <p class="section-description">Preview the beautiful postcard you'll receive after analyzing your screen time</p>
-        </div>
-        <div class="postcard-container">
-            <div class="postcard-card">
-                <div class="postcard-content">
-                    <h3 class="postcard-title">Your Screen Time Story</h3>
-                    <div class="postcard-image">
-                        <!-- Visual placeholder for the postcard -->
-                        <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-style: italic;">
-                            Your personalized visualisation will appear here
-                        </div>
-                    </div>
-                    <div class="postcard-details">
-                        <div class="detail-item">
-                            <div class="detail-label">Time Recovered</div>
-                            <div class="detail-value">3h 24m</div>
-                        </div>
-                        <div class="detail-item">
-                            <div class="detail-label">Books Read</div>
-                            <div class="detail-value">2</div>
-                        </div>
-                        <div class="detail-item">
-                            <div class="detail-label">Workouts Completed</div>
-                            <div class="detail-value">5</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
+      <div class="home-opportunity-grid">
+        <article><i class="teal">▤</i><small>Reading</small><strong>80 pages</strong><p>Possible with four reclaimed hours.</p></article>
+        <article><i class="gold">⌁</i><small>Walking</small><strong>20 km</strong><p>Movement instead of passive scrolling.</p></article>
+        <article><i class="blue">◴</i><small>Deep focus</small><strong>9 sessions</strong><p>Time redirected toward meaningful work.</p></article>
+        <article><i class="purple">✦</i><small>Mindfulness</small><strong>24 sessions</strong><p>Small pauses that return attention to you.</p></article>
+      </div>
+    </section>
 
-<!-- Footer -->
-<footer class="footer">
-    <div class="container">
-        <div class="footer-content">
-            <div class="footer-logo">
-                beyondscreen<span>.</span>
-            </div>
-            <p>&copy; {{ now|date:"Y" }} BeyondScreen. All rights reserved.</p>
+    <section class="home-postcard-section">
+      <div class="home-postcard-wrap" aria-hidden="true">
+        <div class="home-postcard-back"></div>
+        <div class="home-postcard">
+          <header><span>BEYONDSCREEN</span><b>✦</b></header>
+          <small>A NOTE TO YOURSELF</small>
+          <blockquote>
+            Blue light fades softly.<br>
+            The room remembers quiet.<br>
+            Tomorrow starts clear.
+          </blockquote>
+          <div class="home-postcard-line"></div>
+          <footer><span>Mindful reflection</span><time>Today</time></footer>
         </div>
-    </div>
-</footer>
+      </div>
+
+      <div class="home-postcard-copy">
+        <span class="home-eyebrow">MORE THAN ANALYTICS</span>
+        <h2>A reflection worth returning to.</h2>
+        <p>
+          Every submission creates a personal postcard with a haiku, reflection,
+          action and pledge—so your insight feels human, not clinical.
+        </p>
+        {% if user.is_authenticated %}
+          <a href="{% url 'core:postcard_history' %}">Explore your postcards <span>→</span></a>
+        {% else %}
+          <a href="{% url 'core:register' %}">Begin your first reflection <span>→</span></a>
+        {% endif %}
+      </div>
+    </section>
+  </main>
+
+  <footer class="home-footer">
+    <a href="{% url 'core:home' %}">BeyondScreen<span>.</span></a>
+    <p>Small pauses. More of your day.</p>
+    <span>© {% now "Y" %} BeyondScreen</span>
+  </footer>
+</div>
 {% endblock %}
+
 {% block scripts %}
-<script src="{% static 'js/home.js' %}"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const input = document.getElementById("{{ form.file.id_for_label }}");
+    const label = document.getElementById("home-file-name");
+
+    if (!input || !label) return;
+
+    input.addEventListener("change", function () {
+      const file = input.files && input.files[0];
+      label.textContent = file
+        ? file.name
+        : "PDF, PNG, JPG, CSV or TXT · up to 10 MB";
+    });
+  });
+</script>
 {% endblock %}
