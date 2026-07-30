@@ -1,82 +1,260 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Today's Digital Summary | BeyondScreen{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/goal_rescue.css' %}">
+{% endblock %}
+
 {% block content %}
-<main class="result-page">
-    <nav class="site-nav result-nav" aria-label="Main navigation">
-        <a class="brand" href="{% url 'core:home' %}">beyondscreen<span>.</span></a>
-        <a class="text-link" href="{% url 'core:home' %}">← Upload Another Report</a>
+<main class="gr-page">
+    <nav class="gr-nav" aria-label="Summary navigation">
+        <a class="gr-brand" href="{% url 'core:home' %}">
+            beyondscreen<span>.</span>
+        </a>
+        <a class="gr-back-link" href="{% url 'core:home' %}">
+            ← Check another day
+        </a>
     </nav>
 
-    <section class="summary-intro reveal">
-        <p class="eyebrow">Today's Digital Summary</p>
-        <h1>Here’s a quick overview of your digital activity.</h1>
-    </section>
+    <div class="gr-shell">
+        <header class="gr-intro">
+            <span class="gr-eyebrow">TODAY'S DIGITAL SUMMARY</span>
+            <h1>See the pattern. Rescue one useful part of your time.</h1>
+            <p>
+                Your summary explains today's screen time, then turns one
+                realistic portion of it into a step connected to your goal.
+            </p>
+        </header>
 
-    <!-- Your Screen Time Snapshot -->
-    <section class="digital-snapshot ritual-section">
-        <div class="stats-grid">
-            <div class="stat-card reveal">
-                <h3>Total Screen Time</h3>
-                <p class="stat-value">{{ summary.total_screen_time }}</p>
-            </div>
-            <div class="stat-card reveal">
-                <h3>Digital Wellness Score</h3>
-                <p class="stat-value">{{ summary.wellness_score }} / 100</p>
-            </div>
-        </div>
-    </section>
+        <section class="gr-overview" aria-label="Digital activity overview">
+            <article class="gr-metric">
+                <span>Total screen time</span>
+                <strong>{{ summary.total_screen_time }}</strong>
+            </article>
 
-    <!-- What This Means -->
-    <section class="what-we-found ritual-section">
-        <div class="stats-grid">
-            <div class="stat-card reveal">
-                <h3>Wellness Category</h3>
-                <p class="stat-value">{{ summary.wellness_category }}</p>
-            </div>
-            <div class="stat-card reveal">
-                <h3>Insight</h3>
-                <p class="stat-value">{{ summary.insight }}</p>
-            </div>
-        </div>
-    </section>
+            <article class="gr-metric">
+                <span>Digital wellness score</span>
+                <strong>{{ summary.wellness_score }}<small>/100</small></strong>
+            </article>
 
-    <!-- Beyond the Screen (Opportunity Cost) - Hero Section -->
-    <section class="opportunity-cost-hero ritual-section" style="text-align: center; padding: 3rem 1.5rem; background-color: #f8f9fa; border-radius: 16px; margin: 2rem 0;">
-        <h2 class="section-title" style="margin-bottom: 1.5rem; color: #2c3e50;">Beyond the Screen</h2>
-        <div class="opportunity-display" style="display: flex; flex-wrap: wrap; justify-content: center; gap: 2rem; margin-bottom: 2rem;">
-            {% for key, value in summary.opportunity_cost.items %}
-            <div class="opportunity-item" style="text-align: center; min-width: 120px;">
-                <div style="font-size: 3rem; margin-bottom: 0.5rem;">
-                    {% if key == 'reading_pages' %}📚{% elif key == 'walking_km' %}🚶{% elif key == 'gym_sessions' %}💪{% elif key == 'pomodoro_sessions' %}🍅{% elif key == 'meditation_sessions' %}🧘{% elif key == 'sleep_hours' %}😴{% endif %}
-                </div>
-                <div class="opportunity-value" style="font-size: 2.2rem; font-weight: bold; color: #2c3e50; line-height: 1.2;">{{ value }}</div>
-                <div class="opportunity-label" style="font-size: 1.1rem; color: #7f8c8d; margin-top: 0.5rem;">
-                    {% if key == 'reading_pages' %}Pages read{% elif key == 'walking_km' %}Walked km{% elif key == 'gym_sessions' %}Gym sessions{% elif key == 'pomodoro_sessions' %}Pomodoro sessions{% elif key == 'meditation_sessions' %}Meditation sessions{% elif key == 'sleep_hours' %}Sleep hours{% endif %}
-                </div>
+            <article class="gr-metric">
+                <span>Wellness category</span>
+                <strong>{{ summary.wellness_category }}</strong>
+            </article>
+        </section>
+
+        <section class="gr-insight">
+            <div>
+                <span class="gr-section-label">WHAT THIS MEANS</span>
+                <h2>A clear reading of today</h2>
             </div>
-            {% endfor %}
-        </div>
-        <p style="font-size: 1.2rem; color: #34495e; max-width: 600px; margin: 0 auto; line-height: 1.6;">
-            What this time could have become:
-        </p>
-    </section>
+            <p>{{ summary.insight }}</p>
+        </section>
 
-    <!-- Your Next Step -->
-    <section class="recommendation ritual-section">
-        <div class="stat-card reveal" style="text-align: center;">
-            <h3>Your Next Step</h3>
-            <p class="stat-value" style="font-size: 1.4rem; line-height: 1.6; color: #2c3e50;">{{ summary.recommendation }}</p>
-        </div>
-    </section>
+        <section class="gr-rescue" aria-labelledby="goal-rescue-title">
+            {% with rescue=summary.goal_rescue %}
+                {% if rescue.status == "ready" %}
+                    <div class="gr-rescue-heading">
+                        <div>
+                            <span class="gr-rescue-badge">GOAL RESCUE</span>
+                            <h2 id="goal-rescue-title">
+                                Redirect {{ rescue.action_minutes }}
+                                minute{{ rescue.action_minutes|pluralize }}
+                                toward what matters.
+                            </h2>
+                            <p>
+                                Goal Rescue selected one action from your
+                                Goal DNA—not a random productivity suggestion.
+                            </p>
+                        </div>
 
-    <!-- Moving Forward -->
-    <section class="encouragement ritual-section">
-        <div class="stat-card reveal" style="text-align: center; background-color: #ecf0f1; border-left: 4px solid #3498db; padding: 1.5rem;">
-            <h3>Moving Forward</h3>
-            <p class="stat-value" style="font-size: 1.3rem; font-style: italic; color: #2c3e50; line-height: 1.7;">{{ summary.motivational }}</p>
-        </div>
-    </section>
+                        <span class="gr-pending-badge">NOT COMPLETED YET</span>
+                    </div>
+
+                    <div class="gr-rescue-layout">
+                        <aside class="gr-goal-card">
+                            <span>Your primary goal</span>
+                            <h3>{{ rescue.goal_title }}</h3>
+                            <p>{{ rescue.goal_reason }}</p>
+
+                            {% if rescue.current_focus %}
+                                <div class="gr-focus">
+                                    <span>Current focus</span>
+                                    <strong>{{ rescue.current_focus }}</strong>
+                                </div>
+                            {% endif %}
+                        </aside>
+
+                        <article class="gr-action-card">
+                            <div class="gr-action-topline">
+                                <span>{{ rescue.action_size_label }}</span>
+                                <small>{{ rescue.action_context }}</small>
+                            </div>
+
+                            <h3>{{ rescue.action_title }}</h3>
+
+                            <div class="gr-action-results">
+                                <div>
+                                    <span>Time needed</span>
+                                    <strong>
+                                        {{ rescue.action_minutes }}
+                                        minute{{ rescue.action_minutes|pluralize }}
+                                    </strong>
+                                </div>
+                                <div>
+                                    <span>Progress created</span>
+                                    <strong>{{ rescue.progress_phrase }}</strong>
+                                </div>
+                            </div>
+
+                            <p class="gr-selection-reason">
+                                {{ rescue.selection_reason }}
+                            </p>
+                        </article>
+                    </div>
+
+                    <div class="gr-rescue-note">
+                        <span aria-hidden="true">✓</span>
+                        <p>
+                            This is only your recommended next action.
+                            Progress is recorded later only after you confirm
+                            that you completed it.
+                        </p>
+                    </div>
+
+                {% elif rescue.status == "no_goal" %}
+                    <div class="gr-empty-state">
+                        <span class="gr-rescue-badge">GOAL RESCUE</span>
+                        <h2 id="goal-rescue-title">
+                            Your time needs a destination.
+                        </h2>
+                        <p>
+                            Create one primary goal and three versions of a
+                            useful action. Your next summary can then recommend
+                            something connected to your real priorities.
+                        </p>
+                        <a href="{% url 'core:goal_onboarding' %}"
+                           class="gr-primary-button">
+                            Create My Primary Goal
+                        </a>
+                    </div>
+
+                {% elif rescue.status == "sign_in" %}
+                    <div class="gr-empty-state">
+                        <span class="gr-rescue-badge">GOAL RESCUE</span>
+                        <h2 id="goal-rescue-title">
+                            Sign in to connect screen time with a personal goal.
+                        </h2>
+                        <p>
+                            Your Goal DNA is private to your account, so
+                            BeyondScreen needs you to sign in before choosing
+                            a goal-aligned action.
+                        </p>
+                        <a href="{% url 'core:login' %}"
+                           class="gr-primary-button">
+                            Log In
+                        </a>
+                    </div>
+
+                {% elif rescue.status == "no_screen_time" %}
+                    <div class="gr-empty-state">
+                        <span class="gr-rescue-badge">GOAL RESCUE</span>
+                        <h2 id="goal-rescue-title">
+                            Add today's screen time to receive a Goal Rescue.
+                        </h2>
+                        <p>
+                            Your primary goal is ready. BeyondScreen only
+                            needs a screen-time value to choose the right
+                            Small, Regular or Bigger Step.
+                        </p>
+                        <a href="{% url 'core:home' %}"
+                           class="gr-primary-button">
+                            Add Screen Time
+                        </a>
+                    </div>
+
+                {% else %}
+                    <div class="gr-empty-state">
+                        <span class="gr-rescue-badge">GOAL RESCUE</span>
+                        <h2 id="goal-rescue-title">
+                            Your goal needs its three action steps.
+                        </h2>
+                        <p>
+                            Goal Rescue could not find a complete Small,
+                            Regular and Bigger Step for this goal.
+                        </p>
+                    </div>
+                {% endif %}
+            {% endwith %}
+        </section>
+
+
+        <section class="gr-possibilities">
+            {% with rescue=summary.goal_rescue %}
+                {% if rescue.status == "ready" %}
+                    <div class="gr-possibilities-heading">
+                        <div>
+                            <span class="gr-section-label">YOUR GOAL DNA</span>
+                            <h2>
+                                Three ways this time could move your goal
+                                forward
+                            </h2>
+                        </div>
+                        <p>
+                            These are the actions you created for
+                            <strong>{{ rescue.goal_title }}</strong>.
+                            Choose the step that fits your available time
+                            and energy today.
+                        </p>
+                    </div>
+
+                    <div class="gr-goal-action-grid">
+                        {% for action in rescue.goal_actions %}
+                            <article class="gr-goal-option{% if action.is_selected %} gr-goal-option-selected{% endif %}">
+                                <div class="gr-goal-option-heading">
+                                    <div>
+                                        <span>{{ action.size_label }}</span>
+                                        <small>{{ action.context }}</small>
+                                    </div>
+
+                                    {% if action.is_selected %}
+                                        <b>Recommended today</b>
+                                    {% endif %}
+                                </div>
+
+                                <h3>{{ action.title }}</h3>
+
+                                <div class="gr-goal-option-details">
+                                    <div>
+                                        <span>Time needed</span>
+                                        <strong>
+                                            {{ action.minutes }}
+                                            minute{{ action.minutes|pluralize }}
+                                        </strong>
+                                    </div>
+                                    <div>
+                                        <span>Moves your goal by</span>
+                                        <strong>
+                                            {{ action.progress_phrase }}
+                                        </strong>
+                                    </div>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+        </section>
+
+        <section class="gr-forward">
+            <div>
+                <span class="gr-section-label">GENERAL DIGITAL GUIDANCE</span>
+                <h2>{{ summary.recommendation }}</h2>
+            </div>
+            <blockquote>{{ summary.motivational }}</blockquote>
+        </section>
+    </div>
 </main>
 {% endblock %}

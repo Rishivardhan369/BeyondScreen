@@ -618,3 +618,228 @@ def render_postcard_pdf(postcard_data):
     pdf.showPage()
     pdf.save()
     return output.getvalue()
+
+
+# GOAL_RESCUE_FOUNDATION
+def _goal_rescue_number(value):
+    """Return a Decimal-like value without unnecessary trailing zeroes."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+
+    if number.is_integer():
+        return str(int(number))
+
+    return f"{number:.2f}".rstrip("0").rstrip(".")
+
+
+def _goal_rescue_progress_phrase(progress_unit, progress_value):
+    value = _goal_rescue_number(progress_value)
+
+    try:
+        numeric_value = float(progress_value)
+    except (TypeError, ValueError):
+        numeric_value = None
+
+    singular = numeric_value == 1
+
+    if progress_unit == "minutes":
+        return (
+            f"{value} focused minute"
+            if singular
+            else f"{value} focused minutes"
+        )
+
+    if progress_unit == "sessions":
+        return (
+            "1 session completed"
+            if singular
+            else f"{value} sessions completed"
+        )
+
+    if progress_unit == "questions":
+        return (
+            "1 question solved"
+            if singular
+            else f"{value} questions solved"
+        )
+
+    if progress_unit == "pages":
+        return (
+            "1 page completed"
+            if singular
+            else f"{value} pages completed"
+        )
+
+    if progress_unit == "tasks":
+        return (
+            "1 task completed"
+            if singular
+            else f"{value} tasks completed"
+        )
+
+    if progress_unit == "workouts":
+        return (
+            "1 workout completed"
+            if singular
+            else f"{value} workouts completed"
+        )
+
+    return f"{value} {progress_unit}".strip()
+
+
+
+def build_goal_rescue(user, screen_time_minutes):
+    """
+    Match a realistic slice of today's screen time to one Goal DNA action.
+
+    The response also includes the complete three-step Goal DNA ladder so
+    the Summary can show what the user's time could have moved forward.
+    Goal Rescue recommends actions only; it never records completion.
+    """
+    try:
+        minutes = max(0, int(screen_time_minutes))
+    except (TypeError, ValueError):
+        minutes = 0
+
+    if not getattr(user, "is_authenticated", False):
+        return {
+            "status": "sign_in",
+            "screen_time_minutes": minutes,
+        }
+
+    from .models import UserGoal
+
+    goal = (
+        UserGoal.objects.filter(
+            user=user,
+            status=UserGoal.STATUS_ACTIVE,
+            is_primary=True,
+        )
+        .prefetch_related("actions")
+        .first()
+    )
+
+    if goal is None:
+        return {
+            "status": "no_goal",
+            "screen_time_minutes": minutes,
+        }
+
+    actions = sorted(
+        goal.actions.all(),
+        key=lambda action: action.duration_minutes,
+    )
+
+    if not actions:
+        return {
+            "status": "incomplete_goal",
+            "goal_title": goal.title,
+            "screen_time_minutes": minutes,
+        }
+
+    if minutes <= 0:
+        return {
+            "status": "no_screen_time",
+            "goal_title": goal.title,
+            "screen_time_minutes": minutes,
+        }
+
+    smallest_action = actions[0]
+    realistic_slice = max(1, round(minutes * 0.10))
+    rescue_budget = max(
+        smallest_action.duration_minutes,
+        realistic_slice,
+    )
+
+    eligible_actions = [
+        action
+        for action in actions
+        if action.duration_minutes <= rescue_budget
+    ]
+
+    if eligible_actions:
+        selected_action = eligible_actions[-1]
+        selection_reason = (
+            "This is the largest step in your Goal DNA that fits a "
+            "small, realistic slice of today's screen time."
+        )
+    else:
+        selected_action = smallest_action
+        selection_reason = (
+            "This is the smallest meaningful step in your Goal DNA, "
+            "so it is the safest place to begin."
+        )
+
+    size_details = {
+        "minimum": {
+            "label": "Small Step",
+            "context": "For a difficult or busy day",
+        },
+        "standard": {
+            "label": "Regular Step",
+            "context": "For a normal day",
+        },
+        "deep": {
+            "label": "Bigger Step",
+            "context": "When you have more time and energy",
+        },
+    }
+
+    goal_actions = []
+
+    for action in actions:
+        detail = size_details.get(
+            action.size,
+            {
+                "label": action.get_size_display(),
+                "context": "A step that moves your goal forward",
+            },
+        )
+
+        goal_actions.append(
+            {
+                "id": action.id,
+                "title": action.title,
+                "minutes": action.duration_minutes,
+                "size": action.size,
+                "size_label": detail["label"],
+                "context": detail["context"],
+                "progress_phrase": _goal_rescue_progress_phrase(
+                    goal.progress_unit,
+                    action.progress_value,
+                ),
+                "is_selected": action.id == selected_action.id,
+            }
+        )
+
+    selected_detail = size_details.get(
+        selected_action.size,
+        {
+            "label": selected_action.get_size_display(),
+            "context": "A step that moves your goal forward",
+        },
+    )
+
+    return {
+        "status": "ready",
+        "goal_title": goal.title,
+        "goal_reason": goal.why_it_matters,
+        "current_focus": goal.current_focus,
+        "action_id": selected_action.id,
+        "action_title": selected_action.title,
+        "action_minutes": selected_action.duration_minutes,
+        "action_size": selected_action.size,
+        "action_size_label": selected_detail["label"],
+        "action_context": selected_detail["context"],
+        "progress_phrase": _goal_rescue_progress_phrase(
+            goal.progress_unit,
+            selected_action.progress_value,
+        ),
+        "selection_reason": selection_reason,
+        "screen_time_minutes": minutes,
+        "screen_time_display": format_screen_time(minutes),
+        "goal_actions": goal_actions,
+        "is_completed": False,
+    }

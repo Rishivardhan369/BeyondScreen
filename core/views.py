@@ -25,6 +25,7 @@ from .forms import (
     UserProfileForm,
 )
 from .services import (
+    build_goal_rescue,
     format_screen_time,
     generate_postcard,
     render_postcard_pdf,
@@ -317,6 +318,7 @@ def home(request):
                 "sleep_hours": int(minutes / 60),
             }
             request.session["summary_data"] = {
+                "screen_time_minutes": minutes,
                 "total_screen_time": total_screen_time_display,
                 "wellness_score": wellness_score,
                 "wellness_category": category,
@@ -344,13 +346,33 @@ def home(request):
     return render(request, "home.html", {"form": form})
 
 
+
 def summary(request):
     summary_data = request.session.get("summary_data")
+
     if not summary_data:
-        messages.info(request, "No summary data available. Please generate a postcard first.")
+        messages.info(
+            request,
+            "No summary data available. Please generate a postcard first.",
+        )
         return redirect("core:home")
 
-    return render(request, "summary.html", {"summary": summary_data})
+    display_summary = dict(summary_data)
+    screen_time_minutes = display_summary.get(
+        "screen_time_minutes",
+        0,
+    )
+    display_summary["goal_rescue"] = build_goal_rescue(
+        request.user,
+        screen_time_minutes,
+    )
+
+    return render(
+        request,
+        "summary.html",
+        {"summary": display_summary},
+    )
+
 
 
 def download_postcard(request, file_format):
