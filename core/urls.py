@@ -5,6 +5,8 @@ app_name = "core"
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("goals/new/", views.goal_onboarding, name="goal_onboarding"),
+    path("goals/confirm/", views.goal_confirmation, name="goal_confirmation"),
     path("summary/", views.summary, name="summary"),
     path("postcard/download/<str:file_format>/", views.download_postcard, name="download_postcard"),
     # Dashboard

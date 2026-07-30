@@ -5,12 +5,25 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib import messages
 from django.http import HttpResponse, Http404
 from django.db.models import Avg, Q
+from django.db import transaction
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 import os
 from django.conf import settings
-from .models import Postcard, DigitalSummary, UserProfile
-from .forms import PostcardForm, SignUpForm, UserLoginForm, UserProfileForm
+from .models import (
+    DigitalSummary,
+    GoalAction,
+    Postcard,
+    UserGoal,
+    UserProfile,
+)
+from .forms import (
+    GoalDNAForm,
+    PostcardForm,
+    SignUpForm,
+    UserLoginForm,
+    UserProfileForm,
+)
 from .services import (
     format_screen_time,
     generate_postcard,
@@ -18,7 +31,167 @@ from .services import (
     render_postcard_png,
 )
 from services.screen_time_parser import parse_screen_time_report
-from datetime import date
+from datetime import date, time
+
+
+@login_required
+def goal_onboarding(request):
+    existing_primary = UserGoal.objects.filter(
+        user=request.user,
+        status=UserGoal.STATUS_ACTIVE,
+        is_primary=True,
+    ).exists()
+
+    if existing_primary:
+        messages.info(
+            request,
+            "Your primary goal is already active.",
+        )
+        return redirect("core:dashboard")
+
+    if request.method == "POST":
+        form = GoalDNAForm(request.POST)
+        if form.is_valid():
+            request.session["pending_goal_dna"] = (
+                form.to_session_data()
+            )
+            return redirect("core:goal_confirmation")
+    else:
+        form = GoalDNAForm()
+
+    return render(
+        request,
+        "goals/onboarding.html",
+        {"form": form},
+    )
+
+
+@login_required
+
+@login_required
+def goal_confirmation(request):
+    pending_goal = request.session.get("pending_goal_dna")
+
+    if not pending_goal:
+        messages.info(
+            request,
+            "Create your primary goal before confirming it.",
+        )
+        return redirect("core:goal_onboarding")
+
+    if request.method == "POST":
+        existing_primary = UserGoal.objects.filter(
+            user=request.user,
+            status=UserGoal.STATUS_ACTIVE,
+            is_primary=True,
+        ).exists()
+
+        if existing_primary:
+            request.session.pop("pending_goal_dna", None)
+            messages.info(
+                request,
+                "Your primary goal is already active.",
+            )
+            return redirect("core:dashboard")
+
+        with transaction.atomic():
+            goal = UserGoal(
+                user=request.user,
+                title=pending_goal["title"],
+                why_it_matters=pending_goal[
+                    "why_it_matters"
+                ],
+                current_focus=pending_goal.get(
+                    "current_focus",
+                    "",
+                ),
+                progress_unit=pending_goal[
+                    "progress_unit"
+                ],
+                weekly_target=pending_goal[
+                    "weekly_target"
+                ],
+                preferred_days=pending_goal.get(
+                    "preferred_days",
+                    [],
+                ),
+                preferred_time=(
+                    time.fromisoformat(
+                        pending_goal["preferred_time"]
+                    )
+                    if pending_goal.get("preferred_time")
+                    else None
+                ),
+                deadline=(
+                    date.fromisoformat(
+                        pending_goal["deadline"]
+                    )
+                    if pending_goal.get("deadline")
+                    else None
+                ),
+                is_primary=True,
+                status=UserGoal.STATUS_ACTIVE,
+            )
+            goal.full_clean()
+            goal.save()
+
+            for size in (
+                GoalAction.SIZE_MINIMUM,
+                GoalAction.SIZE_STANDARD,
+                GoalAction.SIZE_DEEP,
+            ):
+                action_data = pending_goal["actions"][size]
+                action = GoalAction(
+                    goal=goal,
+                    size=size,
+                    title=action_data["title"],
+                    duration_minutes=action_data[
+                        "duration_minutes"
+                    ],
+                    progress_value=action_data[
+                        "progress_value"
+                    ],
+                )
+                action.full_clean()
+                action.save()
+
+        request.session.pop("pending_goal_dna", None)
+        messages.success(
+            request,
+            "Your primary goal is now active.",
+        )
+        return redirect("core:dashboard")
+
+    display_goal = pending_goal.copy()
+
+    preferred_time = pending_goal.get("preferred_time")
+    if preferred_time:
+        parsed_time = time.fromisoformat(preferred_time)
+        display_goal["preferred_time_display"] = (
+            parsed_time.strftime("%I:%M %p").lstrip("0")
+        )
+    else:
+        display_goal["preferred_time_display"] = (
+            "Any time that works"
+        )
+
+    deadline = pending_goal.get("deadline")
+    if deadline:
+        parsed_deadline = date.fromisoformat(deadline)
+        display_goal["deadline_display"] = (
+            f"{parsed_deadline.day} "
+            f"{parsed_deadline.strftime('%B %Y')}"
+        )
+    else:
+        display_goal["deadline_display"] = (
+            "No deadline selected"
+        )
+
+    return render(
+        request,
+        "goals/confirmation.html",
+        {"goal": display_goal},
+    )
 
 
 def home(request):

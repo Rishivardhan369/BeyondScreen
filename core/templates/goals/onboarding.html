@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Create Your Goal | BeyondScreen{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/goal_dna.css' %}">
+{% endblock %}
+
+{% block content %}
+<main class="gd-page">
+    <section class="gd-shell">
+        <div class="gd-intro">
+            <span class="gd-kicker">CREATE YOUR PRIMARY GOAL</span>
+            <h1>What do you want to move forward in your life?</h1>
+            <p>
+                Write one goal in your own words. BeyondScreen will later
+                help you redirect small parts of your screen time toward it.
+            </p>
+        </div>
+
+        <form method="post" class="gd-form" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+            <div class="gd-alert">
+                {{ form.non_field_errors }}
+            </div>
+            {% endif %}
+
+            <section class="gd-panel">
+                <div class="gd-panel-heading">
+                    <span>01</span>
+                    <div>
+                        <h2>Tell us what matters to you</h2>
+                        <p>
+                            There are no predefined goals. Use your own words.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="gd-field gd-field-wide">
+                    <label for="{{ form.title.id_for_label }}">
+                        What do you want to achieve?
+                    </label>
+                    {{ form.title }}
+                    <small>
+                        Example: Improve my coding skills, become fitter,
+                        finish a personal project, or learn guitar.
+                    </small>
+                    {{ form.title.errors }}
+                </div>
+
+                <div class="gd-field gd-field-wide">
+                    <label for="{{ form.why_it_matters.id_for_label }}">
+                        Why is this important to you?
+                    </label>
+                    {{ form.why_it_matters }}
+                    <small>
+                        This helps BeyondScreen keep future suggestions
+                        connected to your real reason.
+                    </small>
+                    {{ form.why_it_matters.errors }}
+                </div>
+
+                <div class="gd-field gd-field-wide">
+                    <label for="{{ form.current_focus.id_for_label }}">
+                        What part of this goal are you working on right now?
+                    </label>
+                    {{ form.current_focus }}
+                    <small>Optional. You can change this later.</small>
+                    {{ form.current_focus.errors }}
+                </div>
+            </section>
+
+            <section class="gd-panel">
+                <div class="gd-panel-heading">
+                    <span>02</span>
+                    <div>
+                        <h2>How will you recognize progress?</h2>
+                        <p>
+                            Choose one simple measurement that makes sense
+                            for this goal.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="gd-grid-two">
+                    <div class="gd-field">
+                        <label for="{{ form.progress_unit.id_for_label }}">
+                            How would you like to measure progress?
+                        </label>
+                        {{ form.progress_unit }}
+                        {{ form.progress_unit.errors }}
+                    </div>
+
+                    <div class="gd-field gd-custom-unit" hidden>
+                        <label for="{{ form.custom_progress_unit.id_for_label }}">
+                            Name your measurement
+                        </label>
+                        {{ form.custom_progress_unit }}
+                        {{ form.custom_progress_unit.errors }}
+                    </div>
+
+                    <div class="gd-field">
+                        <label
+                            for="{{ form.weekly_target.id_for_label }}"
+                            data-weekly-target-label
+                        >
+                            What is your weekly aim?
+                        </label>
+                        {{ form.weekly_target }}
+                        <small data-weekly-target-help>
+                            Choose a realistic amount you would feel proud
+                            to complete in one week.
+                        </small>
+                        {{ form.weekly_target.errors }}
+                    </div>
+                </div>
+            </section>
+
+            <section class="gd-panel">
+                <div class="gd-panel-heading">
+                    <span>03</span>
+                    <div>
+                        <h2>
+                            How can you move this same goal forward on
+                            different kinds of days?
+                        </h2>
+                        <p>
+                            All three steps below must support the goal you
+                            entered above. They are not three unrelated
+                            activities.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="gd-guidance">
+                    <strong>Example for “Improve my coding skills”</strong>
+                    <span>Small: solve 1 easy problem</span>
+                    <span>Regular: solve 3 problems</span>
+                    <span>Bigger: complete a full practice set</span>
+                </div>
+
+                <div class="gd-action-grid">
+                    <article class="gd-action-card">
+                        <span class="gd-action-badge">Small Step</span>
+                        <h3>For a difficult or busy day</h3>
+                        <p class="gd-card-help">
+                            Choose something so small that you can still make
+                            progress with little time or energy.
+                        </p>
+
+                        <div class="gd-field">
+                            <label for="{{ form.minimum_action_title.id_for_label }}">
+                                What will you do?
+                            </label>
+                            {{ form.minimum_action_title }}
+                            {{ form.minimum_action_title.errors }}
+                        </div>
+
+                        <div class="gd-field">
+                            <label for="{{ form.minimum_action_minutes.id_for_label }}">
+                                How long will it take?
+                            </label>
+                            <div class="gd-input-suffix">
+                                {{ form.minimum_action_minutes }}
+                                <span>minutes</span>
+                            </div>
+                            {{ form.minimum_action_minutes.errors }}
+                        </div>
+
+                        <div class="gd-field gd-progress-field"
+                             data-progress-field="minimum">
+                            <label for="{{ form.minimum_action_progress.id_for_label }}"
+                                   data-progress-label>
+                                What will you complete?
+                            </label>
+                            {{ form.minimum_action_progress }}
+                            <small data-progress-help>
+                                Enter how much progress this step creates.
+                            </small>
+                            {{ form.minimum_action_progress.errors }}
+                        </div>
+                    </article>
+
+                    <article class="gd-action-card gd-action-card-featured">
+                        <span class="gd-action-badge">Regular Step</span>
+                        <h3>For a normal day</h3>
+                        <p class="gd-card-help">
+                            Choose the action you would realistically do on
+                            an ordinary day.
+                        </p>
+
+                        <div class="gd-field">
+                            <label for="{{ form.standard_action_title.id_for_label }}">
+                                What will you do?
+                            </label>
+                            {{ form.standard_action_title }}
+                            {{ form.standard_action_title.errors }}
+                        </div>
+
+                        <div class="gd-field">
+                            <label for="{{ form.standard_action_minutes.id_for_label }}">
+                                How long will it take?
+                            </label>
+                            <div class="gd-input-suffix">
+                                {{ form.standard_action_minutes }}
+                                <span>minutes</span>
+                            </div>
+                            {{ form.standard_action_minutes.errors }}
+                        </div>
+
+                        <div class="gd-field gd-progress-field"
+                             data-progress-field="standard">
+                            <label for="{{ form.standard_action_progress.id_for_label }}"
+                                   data-progress-label>
+                                What will you complete?
+                            </label>
+                            {{ form.standard_action_progress }}
+                            <small data-progress-help>
+                                Enter how much progress this step creates.
+                            </small>
+                            {{ form.standard_action_progress.errors }}
+                        </div>
+                    </article>
+
+                    <article class="gd-action-card">
+                        <span class="gd-action-badge">Bigger Step</span>
+                        <h3>When you have more time and energy</h3>
+                        <p class="gd-card-help">
+                            Choose a larger action that creates meaningful
+                            progress without becoming unrealistic.
+                        </p>
+
+                        <div class="gd-field">
+                            <label for="{{ form.deep_action_title.id_for_label }}">
+                                What will you do?
+                            </label>
+                            {{ form.deep_action_title }}
+                            {{ form.deep_action_title.errors }}
+                        </div>
+
+                        <div class="gd-field">
+                            <label for="{{ form.deep_action_minutes.id_for_label }}">
+                                How long will it take?
+                            </label>
+                            <div class="gd-input-suffix">
+                                {{ form.deep_action_minutes }}
+                                <span>minutes</span>
+                            </div>
+                            {{ form.deep_action_minutes.errors }}
+                        </div>
+
+                        <div class="gd-field gd-progress-field"
+                             data-progress-field="deep">
+                            <label for="{{ form.deep_action_progress.id_for_label }}"
+                                   data-progress-label>
+                                What will you complete?
+                            </label>
+                            {{ form.deep_action_progress }}
+                            <small data-progress-help>
+                                Enter how much progress this step creates.
+                            </small>
+                            {{ form.deep_action_progress.errors }}
+                        </div>
+                    </article>
+                </div>
+
+                <div class="gd-explanation">
+                    <strong>Why do we ask for three versions?</strong>
+                    <p>
+                        Later, Goal Rescue will choose the small, regular or
+                        bigger step based on your available time and how you
+                        are feeling that day.
+                    </p>
+                </div>
+            </section>
+
+            <section class="gd-panel">
+                <div class="gd-panel-heading">
+                    <span>04</span>
+                    <div>
+                        <h2>
+                            When are you most likely to work on this goal?
+                        </h2>
+                        <p>
+                            This is optional. It guides future suggestions
+                            without locking you into a schedule.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="gd-field gd-field-wide">
+                    <span class="gd-label">Which days usually work best?</span>
+                    <div class="gd-days">
+                        {{ form.preferred_days }}
+                    </div>
+                    {{ form.preferred_days.errors }}
+                </div>
+
+                <div class="gd-grid-two">
+                    <div class="gd-field">
+                        <label for="{{ form.preferred_time.id_for_label }}">
+                            What time usually works best?
+                        </label>
+                        {{ form.preferred_time }}
+                        {{ form.preferred_time.errors }}
+                    </div>
+
+                    <div class="gd-field">
+                        <label for="{{ form.deadline.id_for_label }}">
+                            Do you have a deadline?
+                        </label>
+                        {{ form.deadline }}
+                        <small>Optional.</small>
+                        {{ form.deadline.errors }}
+                    </div>
+                </div>
+            </section>
+
+            <div class="gd-submit-row">
+                <p>
+                    You will review everything before this goal becomes
+                    active.
+                </p>
+                <button type="submit" class="gd-primary-button">
+                    Review My Goal
+                </button>
+            </div>
+        </form>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'js/goal_dna.js' %}" defer></script>
+{% endblock %}
