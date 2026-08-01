@@ -309,14 +309,6 @@ def home(request):
                 total_screen_time_display = f"{mins}m"
 
             # Store summary data in session
-            opportunity_cost = {
-                "reading_pages": int(minutes * (20 / 60)),
-                "walking_km": int(minutes * (5 / 60)),
-                "gym_sessions": int(minutes / 60),
-                "pomodoro_sessions": int(minutes / 25),
-                "meditation_sessions": int(minutes / 10),
-                "sleep_hours": int(minutes / 60),
-            }
             request.session["summary_data"] = {
                 "screen_time_minutes": minutes,
                 "total_screen_time": total_screen_time_display,
@@ -325,7 +317,6 @@ def home(request):
                 "insight": insight,
                 "recommendation": recommendation,
                 "motivational": motivational,
-                "opportunity_cost": opportunity_cost,
             }
 
             # If user is authenticated, save a DigitalSummary record
@@ -476,21 +467,20 @@ def dashboard(request):
             int(latest_summary.screen_time_minutes or 0),
         )
 
-        opportunity_cost = {
-            "reading_pages": int(latest_minutes * (20 / 60)),
-            "walking_km": int(latest_minutes * (5 / 60)),
-            "gym_sessions": int(latest_minutes / 60),
-            "pomodoro_sessions": int(latest_minutes / 25),
-            "meditation_sessions": int(latest_minutes / 10),
-            "sleep_hours": int(latest_minutes / 60),
-        }
-
         dashboard_summary = {
             "total_screen_time": format_minutes(latest_minutes),
             "recommendation": build_recommendation(latest_minutes),
-            "opportunity_cost": opportunity_cost,
+            "goal_rescue": build_goal_rescue(
+                request.user,
+                latest_minutes,
+            ),
         }
     else:
+        session_minutes = session_summary.get(
+            "screen_time_minutes",
+            0,
+        )
+
         dashboard_summary = {
             "total_screen_time": session_summary.get(
                 "total_screen_time",
@@ -500,16 +490,9 @@ def dashboard(request):
                 "recommendation",
                 "Upload your first report to receive a recommendation.",
             ),
-            "opportunity_cost": session_summary.get(
-                "opportunity_cost",
-                {
-                    "reading_pages": 0,
-                    "walking_km": 0,
-                    "gym_sessions": 0,
-                    "pomodoro_sessions": 0,
-                    "meditation_sessions": 0,
-                    "sleep_hours": 0,
-                },
+            "goal_rescue": build_goal_rescue(
+                request.user,
+                session_minutes,
             ),
         }
 
@@ -847,7 +830,10 @@ def history(request):
                 "wellness_tone": wellness_tone,
                 "category": summary_item.category,
                 "insight": summary_item.insight,
-                "opportunity_cost": summary_item.opportunity_cost,
+                "goal_rescue": build_goal_rescue(
+                    request.user,
+                    summary_item.screen_time_minutes,
+                ),
             }
         )
 
@@ -989,7 +975,28 @@ def view_summary(request, summary_id):
         id=summary_id,
         user=request.user,
     )
-    return render(request, "view_summary.html", {"summary": summary})
+
+    screen_time_minutes = max(
+        0,
+        int(summary.screen_time_minutes or 0),
+    )
+
+    context = {
+        "summary": summary,
+        "total_screen_time": format_screen_time(
+            screen_time_minutes,
+        ),
+        "goal_rescue": build_goal_rescue(
+            request.user,
+            screen_time_minutes,
+        ),
+    }
+
+    return render(
+        request,
+        "view_summary.html",
+        context,
+    )
 
 @login_required
 def download_postcard_by_id(request, postcard_id, file_format):

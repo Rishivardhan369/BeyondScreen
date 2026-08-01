@@ -1,45 +1,227 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}Digital Summary - {{ summary.created_at|date:"M d, Y" }} - BeyondScreen{% endblock %}
+{% block title %}
+Digital Wellness & Goal Rescue · {{ summary.created_at|date:"M d, Y" }} · BeyondScreen
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/view_summary.css' %}">
+{% endblock %}
 
 {% block content %}
-<main class="result-page">
-    <nav class="site-nav result-nav" aria-label="Main navigation">
-        <a class="brand" href="{% url 'core:home' %}">beyondscreen<span>.</span></a>
-        <a class="text-link" href="{% url 'core:history' %}">← Back to History</a>
-    </nav>
+<main class="historical-summary-page">
+    <section class="historical-summary-shell">
+        <header class="historical-summary-header">
+            <a class="historical-back-link" href="{% url 'core:history' %}">
+                <span aria-hidden="true">←</span>
+                Back to History
+            </a>
 
-    <section class="summary-intro reveal">
-        <p class="eyebrow">Historical Digital Summary</p>
-        <h1>Digital Wellness Analysis from {{ summary.created_at|date:"M d, Y" }}</h1>
-    </section>
+            <div class="historical-heading">
+                <span class="historical-eyebrow">
+                    HISTORICAL DIGITAL SUMMARY
+                </span>
 
-    <section class="stats-section">
-        <div class="stats-grid">
-            <!-- Total Screen Time -->
-            <div class="stat-card reveal">
-                <h3>Total Screen Time</h3>
-                <p class="stat-value">{{ total_screen_time }}</p>
+                <h1>
+                    Digital Wellness
+                    <span>&amp; Goal Rescue</span>
+                </h1>
+
+                <p>
+                    A preserved view of your screen-time pattern and the
+                    goal-aligned action BeyondScreen recommended on
+                    {{ summary.created_at|date:"F d, Y" }}.
+                </p>
             </div>
 
-            <!-- Digital Wellness Score -->
-            <div class="stat-card reveal">
-                <h3>Digital Wellness Score</h3>
-                <p class="stat-value">{{ summary.wellness_score }} / 100</p>
+            <div class="historical-report-meta">
+                <span>{{ summary.created_at|date:"M d, Y" }}</span>
+                <span>{{ summary.created_at|date:"g:i A" }}</span>
+            </div>
+        </header>
+
+        <section class="historical-metrics" aria-label="Digital wellness metrics">
+            <article class="historical-metric-card">
+                <span>Total screen time</span>
+                <strong>{{ total_screen_time }}</strong>
+                <small>Recorded for this report</small>
+            </article>
+
+            <article class="historical-metric-card">
+                <span>Wellness score</span>
+                <strong>
+                    {{ summary.wellness_score }}
+                    <small>/100</small>
+                </strong>
+                <small>Your digital balance score</small>
+            </article>
+
+            <article class="historical-metric-card">
+                <span>Wellness category</span>
+                <strong>{{ summary.category }}</strong>
+                <small>How this day was classified</small>
+            </article>
+        </section>
+
+        <section class="historical-insight-card">
+            <div>
+                <span class="historical-section-label">WHAT THIS REPORT MEANT</span>
+                <h2>A clear reading of that day</h2>
             </div>
 
-            <!-- Wellness Category -->
-            <div class="stat-card reveal">
-                <h3>Wellness Category</h3>
-                <p class="stat-value">{{ summary.category }}</p>
-            </div>
+            <p>{{ summary.insight }}</p>
+        </section>
 
-            <!-- Insight -->
-            <div class="stat-card reveal">
-                <h3>Insight</h3>
-                <p class="stat-value">{{ summary.insight }}</p>
-            </div>
-        </div>
+        {% with rescue=goal_rescue %}
+            <section class="historical-rescue-card" aria-labelledby="historical-rescue-title">
+                {% if rescue.status == "ready" %}
+                    <div class="historical-rescue-topline">
+                        <div>
+                            <span class="historical-rescue-badge">HISTORICAL GOAL RESCUE</span>
+
+                            <h2 id="historical-rescue-title">
+                                Redirect {{ rescue.action_minutes }}
+                                minute{{ rescue.action_minutes|pluralize }}
+                                toward {{ rescue.goal_title }}.
+                            </h2>
+
+                            <p>
+                                Goal Rescue selected one action from your Goal DNA
+                                using this report’s screen time.
+                            </p>
+                        </div>
+
+                        <span class="historical-pending-badge">
+                            RECOMMENDATION ONLY
+                        </span>
+                    </div>
+
+                    <div class="historical-rescue-highlight">
+                        <div class="historical-rescue-icon" aria-hidden="true">
+                            ↗
+                        </div>
+
+                        <div class="historical-rescue-action">
+                            <span>{{ rescue.action_size_label }}</span>
+                            <h3>{{ rescue.action_title }}</h3>
+                            <p>{{ rescue.action_context }}</p>
+                        </div>
+
+                        <div class="historical-rescue-progress">
+                            <span>Moves your goal by</span>
+                            <strong>{{ rescue.progress_phrase }}</strong>
+                        </div>
+                    </div>
+
+                    <div class="historical-rescue-reason">
+                        <span>Why this step</span>
+                        <p>{{ rescue.selection_reason }}</p>
+                    </div>
+
+                {% elif rescue.status == "no_goal" %}
+                    <div class="historical-empty-state">
+                        <span class="historical-rescue-badge">HISTORICAL GOAL RESCUE</span>
+                        <h2 id="historical-rescue-title">
+                            Create your Goal DNA to unlock this report’s action.
+                        </h2>
+                        <p>
+                            The report is preserved, but BeyondScreen needs an
+                            active primary goal before it can recommend a
+                            meaningful next step.
+                        </p>
+                        <a href="{% url 'core:goal_onboarding' %}">
+                            Create my Goal DNA
+                        </a>
+                    </div>
+
+                {% elif rescue.status == "incomplete_goal" %}
+                    <div class="historical-empty-state">
+                        <span class="historical-rescue-badge">HISTORICAL GOAL RESCUE</span>
+                        <h2 id="historical-rescue-title">
+                            Your goal needs its three action steps.
+                        </h2>
+                        <p>
+                            Add Small, Regular and Bigger Steps before Goal
+                            Rescue can match this report to an action.
+                        </p>
+                    </div>
+
+                {% else %}
+                    <div class="historical-empty-state">
+                        <span class="historical-rescue-badge">HISTORICAL GOAL RESCUE</span>
+                        <h2 id="historical-rescue-title">
+                            No Goal Rescue action is available for this report.
+                        </h2>
+                        <p>
+                            Complete your Goal DNA and add valid screen-time data
+                            to receive a recommendation.
+                        </p>
+                    </div>
+                {% endif %}
+            </section>
+
+            {% if rescue.status == "ready" %}
+                <section class="historical-goal-dna">
+                    <div class="historical-section-heading">
+                        <div>
+                            <span class="historical-section-label">YOUR GOAL DNA</span>
+                            <h2>Three ways this time could move your goal forward</h2>
+                        </div>
+
+                        <p>
+                            The recommended step is highlighted, but all three
+                            actions remain available based on your time and energy.
+                        </p>
+                    </div>
+
+                    <div class="historical-goal-grid">
+                        {% for action in rescue.goal_actions %}
+                            <article class="historical-goal-option{% if action.is_selected %} historical-goal-option-selected{% endif %}">
+                                <div class="historical-goal-option-topline">
+                                    <div>
+                                        <span>{{ action.size_label }}</span>
+                                        <small>{{ action.context }}</small>
+                                    </div>
+
+                                    {% if action.is_selected %}
+                                        <b>Recommended</b>
+                                    {% endif %}
+                                </div>
+
+                                <h3>{{ action.title }}</h3>
+
+                                <div class="historical-goal-option-details">
+                                    <div>
+                                        <span>Time needed</span>
+                                        <strong>
+                                            {{ action.minutes }}
+                                            minute{{ action.minutes|pluralize }}
+                                        </strong>
+                                    </div>
+
+                                    <div>
+                                        <span>Goal progress</span>
+                                        <strong>{{ action.progress_phrase }}</strong>
+                                    </div>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    </div>
+                </section>
+            {% endif %}
+        {% endwith %}
+
+        <footer class="historical-summary-footer">
+            <a href="{% url 'core:history' %}">
+                ← Return to Digital History
+            </a>
+
+            <a href="{% url 'core:home' %}" class="historical-primary-link">
+                Add a new report
+                <span aria-hidden="true">→</span>
+            </a>
+        </footer>
     </section>
 </main>
 {% endblock %}

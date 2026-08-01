@@ -93,12 +93,12 @@
         <span>Overview</span>
       </a>
 
-      <a href="{% url 'core:dashboard' %}#opportunity-cost" class="sidebar-link">
+      <a href="{% url 'core:dashboard' %}#goal-rescue" class="sidebar-link">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="9"></circle>
           <path d="M12 7v5l3 2"></path>
         </svg>
-        <span>Opportunity Cost</span>
+        <span>Goal Rescue</span>
       </a>
 
       <a href="{% url 'core:dashboard' %}#today-focus" class="sidebar-link">
@@ -356,23 +356,40 @@
                   <h3>{{ report.screen_time }} of screen time</h3>
                   <p>{{ report.insight|truncatewords:24 }}</p>
 
-                  <div class="history-opportunity-row">
-                    <span>
-                      <b>â–¤</b>
-                      {{ report.opportunity_cost.reading_pages }} pages
-                    </span>
-                    <span>
-                      <b>âŒ</b>
-                      {{ report.opportunity_cost.walking_km }} km
-                    </span>
-                    <span>
-                      <b>â—´</b>
-                      {{ report.opportunity_cost.pomodoro_sessions }} focus
-                    </span>
-                    <span>
-                      <b>âœ¦</b>
-                      {{ report.opportunity_cost.meditation_sessions }} mindful
-                    </span>
+                                    <div class="opportunity-summary" style="margin-top: 8px; font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 8px;">
+                    {% with rescue=report.goal_rescue %}
+                      {% if rescue.status == "ready" %}
+                        <div class="opportunity-item" style="display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 12px;">
+                          <span class="opportunity-icon">🎯</span>
+                          <span class="opportunity-label">
+                            {{ rescue.action_size_label }}: {{ rescue.action_title }}
+                          </span>
+                        </div>
+
+                        <div class="opportunity-item" style="display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 12px;">
+                          <span class="opportunity-icon">⏱</span>
+                          <span class="opportunity-label">
+                            {{ rescue.action_minutes }}
+                            minute{{ rescue.action_minutes|pluralize }}
+                          </span>
+                        </div>
+
+                        <div class="opportunity-item" style="display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 12px;">
+                          <span class="opportunity-icon">↗</span>
+                          <span class="opportunity-label">
+                            {{ rescue.progress_phrase }}
+                          </span>
+                        </div>
+
+                      {% elif rescue.status == "no_goal" %}
+                        <div class="opportunity-item" style="display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 12px;">
+                          <span class="opportunity-icon">◎</span>
+                          <span class="opportunity-label">
+                            Create a primary goal to receive Goal Rescue recommendations.
+                          </span>
+                        </div>
+                      {% endif %}
+                    {% endwith %}
                   </div>
                 </div>
 

@@ -88,12 +88,12 @@
         <span>Overview</span>
       </a>
 
-      <a href="#opportunity-cost" class="sidebar-link">
+      <a href="#goal-rescue" class="sidebar-link">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="9"></circle>
           <path d="M12 7v5l3 2"></path>
         </svg>
-        <span>Opportunity Cost</span>
+        <span>Goal Rescue</span>
       </a>
 
       <a href="#today-focus" class="sidebar-link">
@@ -209,7 +209,7 @@
             {{ dashboard_summary.total_screen_time|default:"0m" }}
           </strong>
           on your devices today.
-          See what that time <em>could have become.</em>
+          See how part of that time can <em>move your goal forward.</em>
         </p>
 
         <a href="{% url 'core:summary' %}" class="bs-primary-button">
@@ -241,66 +241,70 @@
         </div>
       </div>
 
-      <div class="bs-hero-opportunity" id="opportunity-cost">
-        <h2>That time could have become</h2>
+            <div class="bs-hero-opportunity" id="goal-rescue">
+                <h2>Your Goal DNA</h2>
 
-        <div class="bs-opportunity-list">
-          <div class="bs-opportunity-row">
-            <span class="bs-opportunity-icon bs-icon-cyan">▤</span>
-            <div>
-              <strong>
-                {{ dashboard_summary.opportunity_cost.reading_pages|default:"0" }}
-                Pages
-              </strong>
-              <small>Reading</small>
-            </div>
-          </div>
+                {% with rescue=dashboard_summary.goal_rescue %}
+                  {% if rescue.status == "ready" %}
+                    <div class="bs-opportunity-list">
+                      {% for action in rescue.goal_actions %}
+                        <div class="bs-opportunity-row">
+                          <span class="bs-opportunity-icon {% if action.is_selected %}bs-icon-teal{% elif action.size == 'minimum' %}bs-icon-cyan{% elif action.size == 'standard' %}bs-icon-gold{% else %}bs-icon-purple{% endif %}">
+                            {% if action.is_selected %}
+                              ✓
+                            {% elif action.size == "minimum" %}
+                              1
+                            {% elif action.size == "standard" %}
+                              2
+                            {% else %}
+                              3
+                            {% endif %}
+                          </span>
 
-          <div class="bs-opportunity-row">
-            <span class="bs-opportunity-icon bs-icon-gold">⌁</span>
-            <div>
-              <strong>
-                {{ dashboard_summary.opportunity_cost.walking_km|default:"0" }}
-                km
-              </strong>
-              <small>Walking</small>
-            </div>
-          </div>
+                          <div>
+                            <strong>
+                              {{ action.size_label }} · {{ action.minutes }} min
+                            </strong>
+                            <small>
+                              {{ action.title }}
+                              {% if action.is_selected %}
+                                — Recommended today
+                              {% endif %}
+                            </small>
+                          </div>
+                        </div>
+                      {% endfor %}
+                    </div>
 
-          <div class="bs-opportunity-row">
-            <span class="bs-opportunity-icon bs-icon-teal">◴</span>
-            <div>
-              <strong>
-                {{ dashboard_summary.opportunity_cost.pomodoro_sessions|default:"0" }}
-                Sessions
-              </strong>
-              <small>Pomodoros</small>
-            </div>
-          </div>
+                  {% elif rescue.status == "no_goal" %}
+                    <div class="bs-opportunity-list">
+                      <div class="bs-opportunity-row">
+                        <span class="bs-opportunity-icon bs-icon-gold">+</span>
+                        <div>
+                          <strong>Create your primary goal</strong>
+                          <small>
+                            Goal Rescue needs your Goal DNA before it can recommend
+                            a meaningful action.
+                          </small>
+                        </div>
+                      </div>
+                    </div>
 
-          <div class="bs-opportunity-row">
-            <span class="bs-opportunity-icon bs-icon-blue">☾</span>
-            <div>
-              <strong>
-                {{ dashboard_summary.opportunity_cost.sleep_hours|default:"0" }}
-                Hours
-              </strong>
-              <small>Sleep</small>
-            </div>
-          </div>
-
-          <div class="bs-opportunity-row">
-            <span class="bs-opportunity-icon bs-icon-purple">✦</span>
-            <div>
-              <strong>
-                {{ dashboard_summary.opportunity_cost.meditation_sessions|default:"0" }}
-                Sessions
-              </strong>
-              <small>Meditation</small>
-            </div>
-          </div>
-        </div>
-      </div>
+                  {% else %}
+                    <div class="bs-opportunity-list">
+                      <div class="bs-opportunity-row">
+                        <span class="bs-opportunity-icon bs-icon-cyan">◎</span>
+                        <div>
+                          <strong>Add a new screen-time report</strong>
+                          <small>
+                            BeyondScreen will use it to select the right goal step.
+                          </small>
+                        </div>
+                      </div>
+                    </div>
+                  {% endif %}
+                {% endwith %}
+              </div>
     </section>
 
     <section class="bs-dashboard-grid">
