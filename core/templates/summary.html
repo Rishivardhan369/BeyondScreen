@@ -70,7 +70,15 @@
                             </p>
                         </div>
 
-                        <span class="gr-pending-badge">NOT COMPLETED YET</span>
+                        {% if rescue.is_completed %}
+                            <span class="gr-completed-heading-badge">
+                                COMPLETED
+                            </span>
+                        {% else %}
+                            <span class="gr-pending-badge">
+                                NOT COMPLETED YET
+                            </span>
+                        {% endif %}
                     </div>
 
                     <div class="gr-rescue-layout">
@@ -115,14 +123,63 @@
                         </article>
                     </div>
 
-                    <div class="gr-rescue-note">
-                        <span aria-hidden="true">✓</span>
-                        <p>
-                            This is only your recommended next action.
-                            Progress is recorded later only after you confirm
-                            that you completed it.
-                        </p>
-                    </div>
+                    {% if rescue.summary_id %}
+                        {% if rescue.is_completed %}
+                            <div class="gr-completed-state">
+                                <div class="gr-completed-state-icon"
+                                     aria-hidden="true">
+                                    ✓
+                                </div>
+
+                                <div>
+                                    <span>MOMENTUM LEDGER</span>
+                                    <h3>Added to your completed progress</h3>
+                                    <p>
+                                        This action was recorded on
+                                        {{ rescue.completed_at|date:"M d, Y" }}
+                                        at
+                                        {{ rescue.completed_at|date:"g:i A" }}.
+                                    </p>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="gr-completion-panel">
+                                <div>
+                                    <span class="gr-completion-label">
+                                        MOMENTUM LEDGER
+                                    </span>
+                                    <h3>Did you complete this action?</h3>
+                                    <p>
+                                        Only actions you confirm as completed
+                                        become real progress in BeyondScreen.
+                                    </p>
+                                </div>
+
+                                <form method="post"
+                                      action="{% url 'core:complete_goal_rescue' %}"
+                                      class="gr-complete-form">
+                                    {% csrf_token %}
+                                    <input type="hidden"
+                                           name="summary_id"
+                                           value="{{ rescue.summary_id }}">
+
+                                    <button type="submit"
+                                            class="gr-complete-button">
+                                        Mark as completed
+                                        <span aria-hidden="true">→</span>
+                                    </button>
+                                </form>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="gr-rescue-note">
+                            <span aria-hidden="true">✓</span>
+                            <p>
+                                Generate a signed-in report to record this
+                                recommended action in Momentum Ledger.
+                            </p>
+                        </div>
+                    {% endif %}
 
                 {% elif rescue.status == "no_goal" %}
                     <div class="gr-empty-state">

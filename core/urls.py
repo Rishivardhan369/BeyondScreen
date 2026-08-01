@@ -8,6 +8,11 @@ urlpatterns = [
     path("goals/new/", views.goal_onboarding, name="goal_onboarding"),
     path("goals/confirm/", views.goal_confirmation, name="goal_confirmation"),
     path("summary/", views.summary, name="summary"),
+    path(
+        "momentum/complete/",
+        views.complete_goal_rescue,
+        name="complete_goal_rescue",
+    ),
     path("postcard/download/<str:file_format>/", views.download_postcard, name="download_postcard"),
     # Dashboard
     path("dashboard/", views.dashboard, name="dashboard"),

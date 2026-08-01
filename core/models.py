@@ -175,6 +175,64 @@ class GoalAction(models.Model):
     def __str__(self):
         return f"{self.goal.title} — {self.get_size_display()}"
 
+
+class MomentumEntry(models.Model):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="momentum_entries",
+    )
+    goal = models.ForeignKey(
+        UserGoal,
+        on_delete=models.SET_NULL,
+        related_name="momentum_entries",
+        blank=True,
+        null=True,
+    )
+    action = models.ForeignKey(
+        GoalAction,
+        on_delete=models.SET_NULL,
+        related_name="momentum_entries",
+        blank=True,
+        null=True,
+    )
+    digital_summary = models.OneToOneField(
+        DigitalSummary,
+        on_delete=models.CASCADE,
+        related_name="momentum_entry",
+    )
+    action_title = models.CharField(max_length=200)
+    action_size = models.CharField(
+        max_length=20,
+        choices=GoalAction.SIZE_CHOICES,
+    )
+    duration_minutes = models.PositiveSmallIntegerField()
+    progress_value = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+    )
+    progress_unit = models.CharField(max_length=80)
+    completed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-completed_at"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(duration_minutes__gt=0),
+                name="momentum_duration_gt_zero",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(progress_value__gt=0),
+                name="momentum_progress_gt_zero",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.user.username}: {self.action_title} "
+            f"on {self.completed_at:%Y-%m-%d}"
+        )
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:

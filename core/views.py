@@ -13,6 +13,7 @@ from django.conf import settings
 from .models import (
     DigitalSummary,
     GoalAction,
+    MomentumEntry,
     Postcard,
     UserGoal,
     UserProfile,
@@ -33,6 +34,8 @@ from .services import (
 )
 from services.screen_time_parser import parse_screen_time_report
 from datetime import date, time
+from django.db import IntegrityError, transaction
+from django.views.decorators.http import require_POST
 
 
 @login_required
@@ -321,13 +324,17 @@ def home(request):
 
             # If user is authenticated, save a DigitalSummary record
             if request.user.is_authenticated:
-                DigitalSummary.objects.create(
+                digital_summary = DigitalSummary.objects.create(
                     user=request.user,
                     screen_time_minutes=minutes,
                     wellness_score=wellness_score,
                     category=category,
                     insight=insight,
                 )
+                request.session["summary_data"]["summary_id"] = (
+                    digital_summary.id
+                )
+                request.session.modified = True
 
             messages.success(request, "Postcard generated!")
             return redirect("core:summary")
@@ -336,6 +343,78 @@ def home(request):
 
     return render(request, "home.html", {"form": form})
 
+
+
+@login_required
+@require_POST
+def complete_goal_rescue(request):
+    summary_id = request.POST.get("summary_id")
+
+    try:
+        summary_id = int(summary_id)
+    except (TypeError, ValueError):
+        messages.error(
+            request,
+            "That Goal Rescue could not be identified.",
+        )
+        return redirect("core:summary")
+
+    digital_summary = get_object_or_404(
+        DigitalSummary,
+        id=summary_id,
+        user=request.user,
+    )
+
+    rescue = build_goal_rescue(
+        request.user,
+        digital_summary.screen_time_minutes,
+    )
+
+    if rescue.get("status") != "ready":
+        messages.error(
+            request,
+            "Complete your Goal DNA before recording progress.",
+        )
+        return redirect("core:summary")
+
+    action = get_object_or_404(
+        GoalAction.objects.select_related("goal"),
+        id=rescue["action_id"],
+        goal__user=request.user,
+    )
+
+    defaults = {
+        "user": request.user,
+        "goal": action.goal,
+        "action": action,
+        "action_title": action.title,
+        "action_size": action.size,
+        "duration_minutes": action.duration_minutes,
+        "progress_value": action.progress_value,
+        "progress_unit": action.goal.progress_unit,
+    }
+
+    try:
+        with transaction.atomic():
+            _, created = MomentumEntry.objects.get_or_create(
+                digital_summary=digital_summary,
+                defaults=defaults,
+            )
+    except IntegrityError:
+        created = False
+
+    if created:
+        messages.success(
+            request,
+            "Completed action added to your Momentum Ledger.",
+        )
+    else:
+        messages.info(
+            request,
+            "This Goal Rescue is already in your Momentum Ledger.",
+        )
+
+    return redirect("core:summary")
 
 
 def summary(request):
@@ -353,16 +432,46 @@ def summary(request):
         "screen_time_minutes",
         0,
     )
-    display_summary["goal_rescue"] = build_goal_rescue(
+
+    goal_rescue = build_goal_rescue(
         request.user,
         screen_time_minutes,
     )
+
+    summary_id = display_summary.get("summary_id")
+
+    if (
+        request.user.is_authenticated
+        and goal_rescue.get("status") == "ready"
+        and summary_id
+    ):
+        digital_summary = DigitalSummary.objects.filter(
+            id=summary_id,
+            user=request.user,
+        ).first()
+
+        if digital_summary is not None:
+            goal_rescue["summary_id"] = digital_summary.id
+
+            momentum_entry = MomentumEntry.objects.filter(
+                digital_summary=digital_summary,
+                user=request.user,
+            ).first()
+
+            if momentum_entry is not None:
+                goal_rescue["is_completed"] = True
+                goal_rescue["completed_at"] = (
+                    momentum_entry.completed_at
+                )
+
+    display_summary["goal_rescue"] = goal_rescue
 
     return render(
         request,
         "summary.html",
         {"summary": display_summary},
     )
+
 
 
 
