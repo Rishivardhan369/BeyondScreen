@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Goal DNA | BeyondScreen{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'css/goal_dna_management.css' %}">
+{% endblock %}
+
+{% block header %}
+<header class="top-nav">
+  <div class="top-nav-inner">
+    <div class="welcome-copy">
+      <strong>
+        Your Goal DNA,
+        {{ request.user.first_name|default:request.user.username }}
+      </strong>
+      <small>The goals and action steps guiding every Goal Rescue</small>
+    </div>
+
+    <div class="goal-dna-top-context">
+      <span aria-hidden="true">◎</span>
+      Read-only overview
+    </div>
+
+    <div class="top-actions">
+      <a href="{% url 'core:home' %}" class="upload-button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 16V4"></path>
+          <path d="m7 9 5-5 5 5"></path>
+          <path d="M20 15v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4"></path>
+        </svg>
+        Upload New Report
+      </a>
+    </div>
+  </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <a href="{% url 'core:home' %}" class="brand-link">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48">
+            <circle cx="23" cy="23" r="15"></circle>
+            <path d="M30 11a14 14 0 0 1 5 20"></path>
+            <path d="M34 31l6 1-1-6"></path>
+            <path d="M16 35a14 14 0 0 1-5-20"></path>
+            <path d="M12 15 6 14l1 6"></path>
+          </svg>
+        </span>
+
+        <span class="brand-text">
+          <strong>BeyondScreen</strong>
+          <small>Your time. Reclaimed.</small>
+        </span>
+      </a>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Dashboard navigation">
+      <a href="{% url 'core:dashboard' %}" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m3 11 9-8 9 8"></path>
+          <path d="M5 10v10h14V10"></path>
+          <path d="M9 20v-6h6v6"></path>
+        </svg>
+        <span>Overview</span>
+      </a>
+
+      <a href="{% url 'core:goal_dna_management' %}"
+         class="sidebar-link active"
+         aria-current="page">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"></circle>
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 3v3"></path>
+          <path d="M12 18v3"></path>
+        </svg>
+        <span>Goal DNA</span>
+      </a>
+
+      <a href="{% url 'core:dashboard' %}#today-focus"
+         class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8"></circle>
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 2v2"></path>
+          <path d="M12 20v2"></path>
+        </svg>
+        <span>Today's Focus</span>
+      </a>
+
+      <a href="{% url 'core:momentum_ledger' %}"
+         class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 19V9"></path>
+          <path d="M10 19V5"></path>
+          <path d="M16 19v-7"></path>
+          <path d="M22 19H2"></path>
+        </svg>
+        <span>Progress</span>
+      </a>
+
+      <a href="{% url 'core:history' %}" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+          <path d="M3 4v5h5"></path>
+          <path d="M12 7v5l3 2"></path>
+        </svg>
+        <span>History</span>
+      </a>
+
+      <a href="{% url 'core:profile' %}" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="8" r="4"></circle>
+          <path d="M4 21a8 8 0 0 1 16 0"></path>
+        </svg>
+        <span>Profile</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="reclaimed-card">
+      <div class="reclaimed-heading">
+        <span>◎</span>
+        <strong>Your goals guide the rescue</strong>
+      </div>
+
+      <p>
+        Goal Rescue chooses from the action ladder defined here.
+      </p>
+
+      <div class="reclaimed-time">
+        <strong>{{ active_goal_count }}/3</strong>
+        <small>active goal slots in use</small>
+      </div>
+
+      <a href="{% url 'core:dashboard' %}#goal-rescue">
+        View Goal Rescue
+      </a>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar">
+        {{ request.user.username|first|upper }}
+      </div>
+
+      <div class="user-details">
+        <strong>
+          {{ request.user.first_name|default:request.user.username }}
+        </strong>
+        <small>{{ request.user.email|default:"BeyondScreen member" }}</small>
+      </div>
+
+      <form action="{% url 'core:logout' %}" method="post">
+        {% csrf_token %}
+        <button type="submit" aria-label="Log out">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10 17l5-5-5-5"></path>
+            <path d="M15 12H3"></path>
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+          </svg>
+        </button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="main-content bs-dashboard goal-dna-main">
+    <div class="goal-dna-shell">
+      <section class="goal-dna-hero" aria-labelledby="goal-dna-title">
+        <div class="goal-dna-glow goal-dna-glow-gold"></div>
+        <div class="goal-dna-glow goal-dna-glow-teal"></div>
+
+        <div class="goal-dna-hero-copy">
+          <span class="goal-dna-eyebrow">YOUR GOAL DNA</span>
+          <h1 id="goal-dna-title">
+            Define what matters.<br>
+            Let every rescue <span>serve it.</span>
+          </h1>
+          <p>
+            Your Goal DNA gives BeyondScreen the context to turn
+            digital drift into an action that genuinely moves your
+            life forward.
+          </p>
+        </div>
+
+        <div class="goal-dna-visual" aria-hidden="true">
+          <div class="goal-dna-ring goal-dna-ring-one"></div>
+          <div class="goal-dna-ring goal-dna-ring-two"></div>
+          <div class="goal-dna-core">
+            <span>DNA</span>
+            <strong>{{ active_goal_count }}</strong>
+            <small>active goal{{ active_goal_count|pluralize }}</small>
+          </div>
+        </div>
+
+        <div class="goal-dna-hero-note">
+          <span aria-hidden="true">↗</span>
+          <div>
+            <strong>{{ available_goal_slots }} open goal slot{{ available_goal_slots|pluralize }}</strong>
+            <small>
+              BeyondScreen supports up to three active goals,
+              with one primary goal guiding Goal Rescue.
+            </small>
+          </div>
+        </div>
+      </section>
+
+      {% if primary_goal %}
+        <section class="goal-dna-primary-card">
+          <header class="goal-dna-primary-heading">
+            <div>
+              <span class="goal-dna-primary-badge">PRIMARY GOAL · ACTIVE</span>
+              <h2>{{ primary_goal.title }}</h2>
+              <p>{{ primary_goal.why_it_matters }}</p>
+            </div>
+
+            <div class="goal-dna-target">
+              <span>Weekly target</span>
+              <strong>
+                {{ primary_goal.weekly_target }}
+                {{ primary_goal.progress_unit }}
+              </strong>
+              <small>Progress measured each Monday–Sunday</small>
+            </div>
+          </header>
+
+          <div class="goal-dna-details">
+            <article>
+              <span>Current focus</span>
+              <strong>
+                {{ primary_goal.current_focus|default:"No specific focus set" }}
+              </strong>
+            </article>
+
+            <article>
+              <span>Preferred days</span>
+              <strong>
+                {% if primary_goal.preferred_days %}
+                  {{ primary_goal.preferred_days|join:", " }}
+                {% else %}
+                  Any day that works
+                {% endif %}
+              </strong>
+            </article>
+
+            <article>
+              <span>Preferred time</span>
+              <strong>
+                {% if primary_goal.preferred_time %}
+                  {{ primary_goal.preferred_time|time:"g:i A" }}
+                {% else %}
+                  Any time that works
+                {% endif %}
+              </strong>
+            </article>
+
+            <article>
+              <span>Deadline</span>
+              <strong>
+                {% if primary_goal.deadline %}
+                  {{ primary_goal.deadline|date:"M d, Y" }}
+                {% else %}
+                  No deadline
+                {% endif %}
+              </strong>
+            </article>
+          </div>
+        </section>
+
+        <section class="goal-dna-action-section">
+          <header class="goal-dna-section-heading">
+            <div>
+              <span class="goal-dna-section-kicker">ACTION LADDER</span>
+              <h2>Three ways to move this goal forward</h2>
+              <p>
+                Goal Rescue selects the step that fits the time
+                available in each report.
+              </p>
+            </div>
+
+            <span class="goal-dna-action-count">
+              {{ primary_goal.configured_action_count }}/3 configured
+            </span>
+          </header>
+
+          <div class="goal-dna-action-grid">
+            {% for action in primary_goal.actions %}
+              <article class="goal-dna-action-card goal-dna-action-{{ action.tone }}">
+                <div class="goal-dna-action-topline">
+                  <span class="goal-dna-action-number">{{ action.number }}</span>
+                  <div>
+                    <strong>{{ action.label }}</strong>
+                    <small>{{ action.context }}</small>
+                  </div>
+                </div>
+
+                {% if action.is_configured %}
+                  <h3>{{ action.title }}</h3>
+
+                  <div class="goal-dna-action-metrics">
+                    <div>
+                      <span>Time needed</span>
+                      <strong>
+                        {{ action.duration_minutes }}
+                        minute{{ action.duration_minutes|pluralize }}
+                      </strong>
+                    </div>
+
+                    <div>
+                      <span>Goal progress</span>
+                      <strong>{{ action.progress_display }}</strong>
+                    </div>
+                  </div>
+                {% else %}
+                  <div class="goal-dna-action-missing">
+                    This action step has not been configured.
+                  </div>
+                {% endif %}
+              </article>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="goal-dna-readonly-note">
+          <span aria-hidden="true">◎</span>
+          <div>
+            <strong>Goal DNA Management Phase 1</strong>
+            <p>
+              This page is currently read-only. Editing, pausing,
+              completing and changing the primary goal will be added
+              as separate verified checkpoints.
+            </p>
+          </div>
+        </section>
+      {% else %}
+        <section class="goal-dna-empty">
+          <div class="goal-dna-empty-icon" aria-hidden="true">◎</div>
+          <span class="goal-dna-section-kicker">NO PRIMARY GOAL</span>
+          <h2>Your Goal DNA starts with one meaningful direction.</h2>
+          <p>
+            Create a primary goal and define its Small, Regular and
+            Bigger Steps so Goal Rescue can recommend actions that
+            are personal to you.
+          </p>
+          <a href="{% url 'core:goal_onboarding' %}">
+            Create my Goal DNA
+            <span aria-hidden="true">→</span>
+          </a>
+        </section>
+      {% endif %}
+
+      {% if additional_goals %}
+        <section class="goal-dna-additional">
+          <header class="goal-dna-section-heading">
+            <div>
+              <span class="goal-dna-section-kicker">ADDITIONAL ACTIVE GOALS</span>
+              <h2>Other directions you are building</h2>
+              <p>
+                These goals remain active but do not currently guide
+                the primary Goal Rescue recommendation.
+              </p>
+            </div>
+          </header>
+
+          <div class="goal-dna-additional-grid">
+            {% for goal in additional_goals %}
+              <article>
+                <div class="goal-dna-additional-topline">
+                  <span>ACTIVE GOAL</span>
+                  <b>{{ goal.configured_action_count }}/3 steps</b>
+                </div>
+
+                <h3>{{ goal.title }}</h3>
+                <p>{{ goal.why_it_matters|truncatewords:25 }}</p>
+
+                <div class="goal-dna-additional-footer">
+                  <span>Weekly target</span>
+                  <strong>
+                    {{ goal.weekly_target }} {{ goal.progress_unit }}
+                  </strong>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+    </div>
+  </main>
+</div>
+{% endblock %}

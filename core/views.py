@@ -40,6 +40,167 @@ from django.utils import timezone
 
 
 @login_required
+def goal_dna_management(request):
+    def compact_number(value):
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return "0"
+
+        if number.is_integer():
+            return str(int(number))
+
+        return f"{number:.2f}".rstrip("0").rstrip(".")
+
+    day_labels = {
+        "monday": "Monday",
+        "tuesday": "Tuesday",
+        "wednesday": "Wednesday",
+        "thursday": "Thursday",
+        "friday": "Friday",
+        "saturday": "Saturday",
+        "sunday": "Sunday",
+    }
+
+    action_definitions = {
+        GoalAction.SIZE_MINIMUM: {
+            "label": "Small Step",
+            "context": "For a difficult or busy day",
+            "number": "01",
+            "tone": "small",
+        },
+        GoalAction.SIZE_STANDARD: {
+            "label": "Regular Step",
+            "context": "For a normal day",
+            "number": "02",
+            "tone": "regular",
+        },
+        GoalAction.SIZE_DEEP: {
+            "label": "Bigger Step",
+            "context": "For more time and energy",
+            "number": "03",
+            "tone": "bigger",
+        },
+    }
+
+    def build_goal_display(goal):
+        actions_by_size = {
+            action.size: action
+            for action in goal.actions.all()
+        }
+
+        action_cards = []
+
+        for size in (
+            GoalAction.SIZE_MINIMUM,
+            GoalAction.SIZE_STANDARD,
+            GoalAction.SIZE_DEEP,
+        ):
+            action = actions_by_size.get(size)
+            definition = action_definitions[size]
+
+            if action is None:
+                action_cards.append(
+                    {
+                        **definition,
+                        "is_configured": False,
+                    }
+                )
+                continue
+
+            action_cards.append(
+                {
+                    **definition,
+                    "is_configured": True,
+                    "title": action.title,
+                    "duration_minutes": action.duration_minutes,
+                    "progress_display": (
+                        f"{compact_number(action.progress_value)} "
+                        f"{goal.progress_unit}"
+                    ).strip(),
+                }
+            )
+
+        preferred_days = [
+            day_labels.get(day, str(day).title())
+            for day in (goal.preferred_days or [])
+        ]
+
+        return {
+            "id": goal.id,
+            "title": goal.title,
+            "why_it_matters": goal.why_it_matters,
+            "current_focus": goal.current_focus,
+            "progress_unit": goal.progress_unit,
+            "weekly_target": compact_number(
+                goal.weekly_target
+            ),
+            "preferred_days": preferred_days,
+            "preferred_time": goal.preferred_time,
+            "deadline": goal.deadline,
+            "actions": action_cards,
+            "configured_action_count": sum(
+                1
+                for item in action_cards
+                if item["is_configured"]
+            ),
+            "created_at": goal.created_at,
+            "updated_at": goal.updated_at,
+        }
+
+    active_goals = list(
+        UserGoal.objects.filter(
+            user=request.user,
+            status=UserGoal.STATUS_ACTIVE,
+        )
+        .prefetch_related("actions")
+        .order_by("-is_primary", "-updated_at")
+    )
+
+    primary_goal_model = next(
+        (
+            goal
+            for goal in active_goals
+            if goal.is_primary
+        ),
+        None,
+    )
+
+    additional_goal_models = [
+        goal
+        for goal in active_goals
+        if not goal.is_primary
+    ]
+
+    primary_goal = (
+        build_goal_display(primary_goal_model)
+        if primary_goal_model is not None
+        else None
+    )
+
+    additional_goals = [
+        build_goal_display(goal)
+        for goal in additional_goal_models
+    ]
+
+    context = {
+        "primary_goal": primary_goal,
+        "additional_goals": additional_goals,
+        "active_goal_count": len(active_goals),
+        "available_goal_slots": max(
+            0,
+            3 - len(active_goals),
+        ),
+    }
+
+    return render(
+        request,
+        "goals/management.html",
+        context,
+    )
+
+
+@login_required
 def goal_onboarding(request):
     existing_primary = UserGoal.objects.filter(
         user=request.user,
