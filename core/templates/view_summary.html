@@ -125,6 +125,22 @@ Digital Wellness & Goal Rescue · {{ summary.created_at|date:"M d, Y" }} · Beyo
                         <p>{{ rescue.selection_reason }}</p>
                     </div>
 
+                {% elif rescue.status == "paused_goal" %}
+                    <div class="historical-empty-state">
+                        <span class="historical-rescue-badge">HISTORICAL GOAL RESCUE</span>
+                        <h2 id="historical-rescue-title">
+                            Your primary goal is currently paused.
+                        </h2>
+                        <p>
+                            This report remains preserved. Resume
+                            {{ rescue.goal_title }} from Goal DNA before
+                            generating a new recommendation from it.
+                        </p>
+                        <a href="{% url 'core:goal_dna_management' %}">
+                            Review my Goal DNA
+                        </a>
+                    </div>
+
                 {% elif rescue.status == "no_goal" %}
                     <div class="historical-empty-state">
                         <span class="historical-rescue-badge">HISTORICAL GOAL RESCUE</span>

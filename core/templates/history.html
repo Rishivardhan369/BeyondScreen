@@ -411,6 +411,12 @@
                             {{ rescue.progress_phrase }}
                           </span>
 
+                        {% elif rescue.status == "paused_goal" %}
+                          <span class="history-rescue-chip">
+                            <b>Ⅱ</b>
+                            Primary goal paused — recommendation unavailable.
+                          </span>
+
                         {% elif rescue.status == "no_goal" %}
                           <span class="history-rescue-chip">
                             <b>◎</b>

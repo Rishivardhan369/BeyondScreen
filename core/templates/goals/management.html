@@ -229,11 +229,25 @@
                 <small>Progress measured each Monday–Sunday</small>
               </div>
 
-              <a href="{% url 'core:goal_dna_edit' %}"
-                 class="goal-dna-edit-button">
-                Edit Goal DNA
-                <span aria-hidden="true">→</span>
-              </a>
+              <div class="goal-dna-control-row">
+                <a href="{% url 'core:goal_dna_edit' %}"
+                   class="goal-dna-edit-button">
+                  Edit Goal DNA
+                  <span aria-hidden="true">→</span>
+                </a>
+
+                <form
+                  method="post"
+                  action="{% url 'core:pause_primary_goal' primary_goal.id %}"
+                  class="goal-dna-status-form"
+                  onsubmit="return confirm('Pause this goal? Goal Rescue will stop recommending its actions until you resume it.');"
+                >
+                  {% csrf_token %}
+                  <button type="submit" class="goal-dna-pause-button">
+                    Pause Goal
+                  </button>
+                </form>
+              </div>
             </div>
           </header>
 
@@ -346,19 +360,99 @@
           </div>
         </section>
       {% else %}
-        <section class="goal-dna-empty">
-          <div class="goal-dna-empty-icon" aria-hidden="true">◎</div>
-          <span class="goal-dna-section-kicker">NO PRIMARY GOAL</span>
-          <h2>Your Goal DNA starts with one meaningful direction.</h2>
-          <p>
-            Create a primary goal and define its Small, Regular and
-            Bigger Steps so Goal Rescue can recommend actions that
-            are personal to you.
-          </p>
-          <a href="{% url 'core:goal_onboarding' %}">
-            Create my Goal DNA
-            <span aria-hidden="true">→</span>
-          </a>
+        {% if paused_goals %}
+          <section class="goal-dna-paused-banner">
+            <span aria-hidden="true">Ⅱ</span>
+            <div>
+              <span class="goal-dna-section-kicker">GOAL RESCUE PAUSED</span>
+              <h2>Your Goal DNA is taking a deliberate pause.</h2>
+              <p>
+                Nothing was deleted. Your goal, action ladder and
+                completed Momentum history remain preserved. Resume
+                the goal below when you are ready for recommendations
+                again.
+              </p>
+            </div>
+          </section>
+        {% else %}
+          <section class="goal-dna-empty">
+            <div class="goal-dna-empty-icon" aria-hidden="true">◎</div>
+            <span class="goal-dna-section-kicker">NO PRIMARY GOAL</span>
+            <h2>Your Goal DNA starts with one meaningful direction.</h2>
+            <p>
+              Create a primary goal and define its Small, Regular and
+              Bigger Steps so Goal Rescue can recommend actions that
+              are personal to you.
+            </p>
+            <a href="{% url 'core:goal_onboarding' %}">
+              Create my Goal DNA
+              <span aria-hidden="true">→</span>
+            </a>
+          </section>
+        {% endif %}
+      {% endif %}
+
+      {% if paused_goals %}
+        <section class="goal-dna-paused">
+          <header class="goal-dna-section-heading">
+            <div>
+              <span class="goal-dna-section-kicker">PAUSED GOAL DNA</span>
+              <h2>Preserved until you are ready</h2>
+              <p>
+                Paused goals keep every setting and action step but
+                do not produce new Goal Rescue recommendations.
+              </p>
+            </div>
+          </header>
+
+          <div class="goal-dna-paused-grid">
+            {% for goal in paused_goals %}
+              <article class="goal-dna-paused-card">
+                <div class="goal-dna-paused-copy">
+                  <span>PAUSED PRIMARY GOAL</span>
+                  <h3>{{ goal.title }}</h3>
+                  <p>{{ goal.why_it_matters|truncatewords:28 }}</p>
+
+                  <div class="goal-dna-paused-meta">
+                    <span>
+                      {{ goal.weekly_target }}
+                      {{ goal.progress_unit }} weekly
+                    </span>
+                    <span>
+                      {{ goal.configured_action_count }}/3 steps preserved
+                    </span>
+                  </div>
+                </div>
+
+                <div class="goal-dna-paused-actions">
+                  {% if goal.can_resume %}
+                    <form
+                      method="post"
+                      action="{% url 'core:resume_primary_goal' goal.id %}"
+                      class="goal-dna-status-form"
+                    >
+                      {% csrf_token %}
+                      <button type="submit" class="goal-dna-resume-button">
+                        Resume Goal
+                        <span aria-hidden="true">→</span>
+                      </button>
+                    </form>
+                  {% else %}
+                    <button
+                      type="button"
+                      class="goal-dna-resume-button"
+                      disabled
+                    >
+                      Resume unavailable
+                    </button>
+                    <p class="goal-dna-resume-unavailable">
+                      Pause the current active primary goal first.
+                    </p>
+                  {% endif %}
+                </div>
+              </article>
+            {% endfor %}
+          </div>
         </section>
       {% endif %}
 

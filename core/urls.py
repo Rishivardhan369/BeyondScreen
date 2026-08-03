@@ -15,6 +15,16 @@ urlpatterns = [
         views.goal_dna_edit,
         name="goal_dna_edit",
     ),
+    path(
+        "goals/<int:goal_id>/pause/",
+        views.pause_primary_goal,
+        name="pause_primary_goal",
+    ),
+    path(
+        "goals/<int:goal_id>/resume/",
+        views.resume_primary_goal,
+        name="resume_primary_goal",
+    ),
     path("goals/new/", views.goal_onboarding, name="goal_onboarding"),
     path("goals/confirm/", views.goal_confirmation, name="goal_confirmation"),
     path("summary/", views.summary, name="summary"),

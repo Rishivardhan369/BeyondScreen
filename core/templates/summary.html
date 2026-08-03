@@ -181,6 +181,23 @@
                         </div>
                     {% endif %}
 
+                {% elif rescue.status == "paused_goal" %}
+                    <div class="gr-empty-state">
+                        <span class="gr-rescue-badge">GOAL RESCUE</span>
+                        <h2 id="goal-rescue-title">
+                            Your goal is paused, not gone.
+                        </h2>
+                        <p>
+                            {{ rescue.goal_title }} and its three action
+                            steps remain preserved. Resume it before asking
+                            BeyondScreen for a new goal-aligned action.
+                        </p>
+                        <a href="{% url 'core:goal_dna_management' %}"
+                           class="gr-primary-button">
+                            Review My Goal DNA
+                        </a>
+                    </div>
+
                 {% elif rescue.status == "no_goal" %}
                     <div class="gr-empty-state">
                         <span class="gr-rescue-badge">GOAL RESCUE</span>

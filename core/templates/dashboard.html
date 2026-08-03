@@ -276,6 +276,21 @@
                       {% endfor %}
                     </div>
 
+                  {% elif rescue.status == "paused_goal" %}
+                    <div class="bs-opportunity-list">
+                      <div class="bs-opportunity-row">
+                        <span class="bs-opportunity-icon bs-icon-gold">Ⅱ</span>
+                        <div>
+                          <strong>Your primary goal is paused</strong>
+                          <small>
+                            {{ rescue.goal_title }} remains preserved.
+                            Resume it from Goal DNA when you want new
+                            recommendations.
+                          </small>
+                        </div>
+                      </div>
+                    </div>
+
                   {% elif rescue.status == "no_goal" %}
                     <div class="bs-opportunity-list">
                       <div class="bs-opportunity-row">

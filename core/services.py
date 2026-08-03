@@ -722,6 +722,24 @@ def build_goal_rescue(user, screen_time_minutes):
     )
 
     if goal is None:
+        paused_goal = (
+            UserGoal.objects.filter(
+                user=user,
+                status=UserGoal.STATUS_PAUSED,
+                is_primary=True,
+            )
+            .order_by("-updated_at")
+            .first()
+        )
+
+        if paused_goal is not None:
+            return {
+                "status": "paused_goal",
+                "goal_id": paused_goal.id,
+                "goal_title": paused_goal.title,
+                "screen_time_minutes": minutes,
+            }
+
         return {
             "status": "no_goal",
             "screen_time_minutes": minutes,

@@ -144,6 +144,8 @@ def goal_dna_management(request):
                 for item in action_cards
                 if item["is_configured"]
             ),
+            "is_primary": goal.is_primary,
+            "status": goal.status,
             "created_at": goal.created_at,
             "updated_at": goal.updated_at,
         }
@@ -172,6 +174,16 @@ def goal_dna_management(request):
         if not goal.is_primary
     ]
 
+    paused_goal_models = list(
+        UserGoal.objects.filter(
+            user=request.user,
+            status=UserGoal.STATUS_PAUSED,
+            is_primary=True,
+        )
+        .prefetch_related("actions")
+        .order_by("-updated_at")
+    )
+
     primary_goal = (
         build_goal_display(primary_goal_model)
         if primary_goal_model is not None
@@ -183,9 +195,24 @@ def goal_dna_management(request):
         for goal in additional_goal_models
     ]
 
+    can_resume_paused_goal = (
+        primary_goal_model is None
+        and len(active_goals) < 3
+    )
+
+    paused_goals = []
+
+    for goal in paused_goal_models:
+        display_goal = build_goal_display(goal)
+        display_goal["can_resume"] = (
+            can_resume_paused_goal
+        )
+        paused_goals.append(display_goal)
+
     context = {
         "primary_goal": primary_goal,
         "additional_goals": additional_goals,
+        "paused_goals": paused_goals,
         "active_goal_count": len(active_goals),
         "available_goal_slots": max(
             0,
@@ -352,6 +379,142 @@ def goal_dna_edit(request):
             "goal": primary_goal,
         },
     )
+
+
+@login_required
+@require_POST
+def pause_primary_goal(request, goal_id):
+    goal = get_object_or_404(
+        UserGoal,
+        id=goal_id,
+        user=request.user,
+        is_primary=True,
+    )
+
+    if goal.status != UserGoal.STATUS_ACTIVE:
+        messages.info(
+            request,
+            "This goal is not currently active.",
+        )
+        return redirect("core:goal_dna_management")
+
+    with transaction.atomic():
+        locked_goal = UserGoal.objects.select_for_update().get(
+            id=goal.id,
+            user=request.user,
+        )
+        locked_goal.status = UserGoal.STATUS_PAUSED
+        locked_goal.full_clean()
+        locked_goal.save(
+            update_fields=["status", "updated_at"],
+        )
+
+    messages.success(
+        request,
+        "Your primary goal has been paused.",
+    )
+    return redirect("core:goal_dna_management")
+
+
+@login_required
+@require_POST
+def resume_primary_goal(request, goal_id):
+    from django.core.exceptions import ValidationError
+
+    goal = get_object_or_404(
+        UserGoal,
+        id=goal_id,
+        user=request.user,
+        is_primary=True,
+    )
+
+    if goal.status != UserGoal.STATUS_PAUSED:
+        messages.info(
+            request,
+            "This goal is not currently paused.",
+        )
+        return redirect("core:goal_dna_management")
+
+    try:
+        with transaction.atomic():
+            locked_goal = (
+                UserGoal.objects.select_for_update().get(
+                    id=goal.id,
+                    user=request.user,
+                )
+            )
+
+            has_active_primary = (
+                UserGoal.objects.select_for_update()
+                .filter(
+                    user=request.user,
+                    status=UserGoal.STATUS_ACTIVE,
+                    is_primary=True,
+                )
+                .exclude(id=locked_goal.id)
+                .exists()
+            )
+
+            if has_active_primary:
+                messages.error(
+                    request,
+                    (
+                        "Pause the current active primary goal "
+                        "before resuming this one."
+                    ),
+                )
+                return redirect(
+                    "core:goal_dna_management"
+                )
+
+            active_goal_count = (
+                UserGoal.objects.select_for_update()
+                .filter(
+                    user=request.user,
+                    status=UserGoal.STATUS_ACTIVE,
+                )
+                .exclude(id=locked_goal.id)
+                .count()
+            )
+
+            if active_goal_count >= 3:
+                messages.error(
+                    request,
+                    (
+                        "You already have three active goals. "
+                        "Pause one before resuming this goal."
+                    ),
+                )
+                return redirect(
+                    "core:goal_dna_management"
+                )
+
+            locked_goal.is_primary = True
+            locked_goal.status = UserGoal.STATUS_ACTIVE
+            locked_goal.full_clean()
+            locked_goal.save(
+                update_fields=[
+                    "is_primary",
+                    "status",
+                    "updated_at",
+                ],
+            )
+
+    except (IntegrityError, ValidationError):
+        messages.error(
+            request,
+            (
+                "This goal could not be resumed because another "
+                "active primary goal already exists."
+            ),
+        )
+        return redirect("core:goal_dna_management")
+
+    messages.success(
+        request,
+        "Your primary goal is active again.",
+    )
+    return redirect("core:goal_dna_management")
 
 
 @login_required
@@ -687,9 +850,19 @@ def complete_goal_rescue(request):
     )
 
     if rescue.get("status") != "ready":
+        if rescue.get("status") == "paused_goal":
+            error_message = (
+                "Resume your primary goal before recording "
+                "new progress."
+            )
+        else:
+            error_message = (
+                "Complete your Goal DNA before recording progress."
+            )
+
         messages.error(
             request,
-            "Complete your Goal DNA before recording progress.",
+            error_message,
         )
         return redirect("core:summary")
 
