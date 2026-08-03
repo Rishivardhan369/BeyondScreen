@@ -25,6 +25,11 @@ urlpatterns = [
         views.resume_primary_goal,
         name="resume_primary_goal",
     ),
+    path(
+        "goals/<int:goal_id>/complete/",
+        views.complete_primary_goal,
+        name="complete_primary_goal",
+    ),
     path("goals/new/", views.goal_onboarding, name="goal_onboarding"),
     path("goals/confirm/", views.goal_confirmation, name="goal_confirmation"),
     path("summary/", views.summary, name="summary"),

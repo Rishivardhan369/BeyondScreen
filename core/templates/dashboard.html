@@ -291,6 +291,21 @@
                       </div>
                     </div>
 
+                  {% elif rescue.status == "completed_goal" %}
+                    <div class="bs-opportunity-list">
+                      <div class="bs-opportunity-row">
+                        <span class="bs-opportunity-icon bs-icon-teal">✓</span>
+                        <div>
+                          <strong>Your primary goal is complete</strong>
+                          <small>
+                            {{ rescue.goal_title }} remains preserved.
+                            Start a new primary goal when you are ready
+                            for the next Goal Rescue.
+                          </small>
+                        </div>
+                      </div>
+                    </div>
+
                   {% elif rescue.status == "no_goal" %}
                     <div class="bs-opportunity-list">
                       <div class="bs-opportunity-row">

@@ -146,6 +146,11 @@ def goal_dna_management(request):
             ),
             "is_primary": goal.is_primary,
             "status": goal.status,
+            "completed_at": (
+                goal.updated_at
+                if goal.status == UserGoal.STATUS_COMPLETED
+                else None
+            ),
             "created_at": goal.created_at,
             "updated_at": goal.updated_at,
         }
@@ -184,6 +189,15 @@ def goal_dna_management(request):
         .order_by("-updated_at")
     )
 
+    completed_goal_models = list(
+        UserGoal.objects.filter(
+            user=request.user,
+            status=UserGoal.STATUS_COMPLETED,
+        )
+        .prefetch_related("actions")
+        .order_by("-updated_at")
+    )
+
     primary_goal = (
         build_goal_display(primary_goal_model)
         if primary_goal_model is not None
@@ -209,10 +223,16 @@ def goal_dna_management(request):
         )
         paused_goals.append(display_goal)
 
+    completed_goals = [
+        build_goal_display(goal)
+        for goal in completed_goal_models
+    ]
+
     context = {
         "primary_goal": primary_goal,
         "additional_goals": additional_goals,
         "paused_goals": paused_goals,
+        "completed_goals": completed_goals,
         "active_goal_count": len(active_goals),
         "available_goal_slots": max(
             0,
@@ -513,6 +533,40 @@ def resume_primary_goal(request, goal_id):
     messages.success(
         request,
         "Your primary goal is active again.",
+    )
+    return redirect("core:goal_dna_management")
+
+
+@login_required
+@require_POST
+def complete_primary_goal(request, goal_id):
+    with transaction.atomic():
+        goal = get_object_or_404(
+            UserGoal.objects.select_for_update(),
+            id=goal_id,
+            user=request.user,
+            is_primary=True,
+        )
+
+        if goal.status != UserGoal.STATUS_ACTIVE:
+            messages.info(
+                request,
+                "Only an active primary goal can be completed.",
+            )
+            return redirect("core:goal_dna_management")
+
+        goal.status = UserGoal.STATUS_COMPLETED
+        goal.full_clean()
+        goal.save(
+            update_fields=["status", "updated_at"],
+        )
+
+    messages.success(
+        request,
+        (
+            "Goal completed. Its Goal DNA and Momentum "
+            "history remain preserved."
+        ),
     )
     return redirect("core:goal_dna_management")
 
@@ -853,6 +907,11 @@ def complete_goal_rescue(request):
         if rescue.get("status") == "paused_goal":
             error_message = (
                 "Resume your primary goal before recording "
+                "new progress."
+            )
+        elif rescue.get("status") == "completed_goal":
+            error_message = (
+                "Create a new primary goal before recording "
                 "new progress."
             )
         else:

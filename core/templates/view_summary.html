@@ -141,6 +141,22 @@ Digital Wellness & Goal Rescue · {{ summary.created_at|date:"M d, Y" }} · Beyo
                         </a>
                     </div>
 
+                {% elif rescue.status == "completed_goal" %}
+                    <div class="historical-empty-state">
+                        <span class="historical-rescue-badge">HISTORICAL GOAL RESCUE</span>
+                        <h2 id="historical-rescue-title">
+                            This primary goal has been completed.
+                        </h2>
+                        <p>
+                            {{ rescue.goal_title }} and this report remain
+                            preserved. Start a new primary goal before
+                            generating another goal-aligned recommendation.
+                        </p>
+                        <a href="{% url 'core:goal_onboarding' %}">
+                            Start my next goal
+                        </a>
+                    </div>
+
                 {% elif rescue.status == "no_goal" %}
                     <div class="historical-empty-state">
                         <span class="historical-rescue-badge">HISTORICAL GOAL RESCUE</span>

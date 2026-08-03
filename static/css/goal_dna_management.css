@@ -1130,3 +1130,222 @@
     width: 100%;
   }
 }
+
+/* GOAL_DNA_MANAGEMENT_PHASE_FOUR */
+
+.goal-dna-control-row .goal-dna-edit-button {
+  grid-column: 1 / -1;
+}
+
+.goal-dna-complete-button {
+  display: inline-flex;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 15px;
+  color: #ffd9d5;
+  background: rgba(232, 100, 94, 0.065);
+  border: 1px solid rgba(232, 100, 94, 0.22);
+  border-radius: 11px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.goal-dna-complete-button:hover {
+  color: #ffffff;
+  background: rgba(232, 100, 94, 0.11);
+  border-color: rgba(232, 100, 94, 0.38);
+}
+
+.goal-dna-completed-banner {
+  display: flex;
+  min-height: 270px;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  margin-top: 16px;
+  padding: 36px;
+  background:
+    radial-gradient(
+      circle at 18% 42%,
+      rgba(57, 221, 213, 0.09),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 86% 18%,
+      rgba(239, 174, 67, 0.055),
+      transparent 26%
+    ),
+    rgba(8, 21, 34, 0.96);
+  border: 1px solid rgba(57, 221, 213, 0.18);
+  border-radius: 20px;
+}
+
+.goal-dna-completed-banner > span {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  flex: 0 0 72px;
+  place-items: center;
+  color: #06191a;
+  background:
+    linear-gradient(
+      145deg,
+      #79f7ef,
+      var(--goal-dna-teal)
+    );
+  border: 1px solid rgba(173, 255, 250, 0.52);
+  border-radius: 50%;
+  box-shadow: 0 16px 40px rgba(57, 221, 213, 0.16);
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.goal-dna-completed-banner h2 {
+  margin: 8px 0 7px;
+  color: var(--goal-dna-text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 29px;
+  font-weight: 500;
+}
+
+.goal-dna-completed-banner p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--goal-dna-muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.goal-dna-new-goal-button {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  margin-top: 18px;
+  padding: 0 17px;
+  color: #06191a;
+  background: var(--goal-dna-teal);
+  border: 1px solid rgba(151, 255, 249, 0.4);
+  border-radius: 11px;
+  font-size: 10px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.goal-dna-new-goal-button:hover {
+  transform: translateY(-1px);
+}
+
+.goal-dna-completed {
+  margin-top: 16px;
+  padding: 24px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(13, 28, 40, 0.98),
+      rgba(7, 18, 29, 0.98)
+    );
+  border: 1px solid rgba(57, 221, 213, 0.14);
+  border-radius: 20px;
+}
+
+.goal-dna-completed-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.goal-dna-completed-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 21px;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(57, 221, 213, 0.035),
+      rgba(255, 255, 255, 0.018)
+    );
+  border: 1px solid rgba(57, 221, 213, 0.11);
+  border-radius: 15px;
+}
+
+.goal-dna-completed-copy > span {
+  color: var(--goal-dna-teal);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+}
+
+.goal-dna-completed-copy h3 {
+  margin: 9px 0 6px;
+  color: #f2f7f7;
+  font-size: 17px;
+}
+
+.goal-dna-completed-copy p {
+  max-width: 760px;
+  margin: 0;
+  color: #8f9dae;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.goal-dna-completed-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 13px;
+}
+
+.goal-dna-completed-meta span {
+  padding: 6px 9px;
+  color: #9cabb8;
+  background: rgba(5, 15, 25, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 999px;
+  font-size: 8px;
+}
+
+.goal-dna-completed-link {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 14px;
+  color: var(--goal-dna-teal);
+  background: rgba(57, 221, 213, 0.055);
+  border: 1px solid rgba(57, 221, 213, 0.15);
+  border-radius: 10px;
+  font-size: 9px;
+  font-weight: 760;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.goal-dna-completed-link:hover {
+  background: rgba(57, 221, 213, 0.09);
+}
+
+@media (max-width: 760px) {
+  .goal-dna-completed-banner {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .goal-dna-completed-card {
+    grid-template-columns: 1fr;
+  }
+
+  .goal-dna-completed-link {
+    width: 100%;
+  }
+}

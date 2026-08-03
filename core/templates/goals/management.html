@@ -247,6 +247,18 @@
                     Pause Goal
                   </button>
                 </form>
+
+                <form
+                  method="post"
+                  action="{% url 'core:complete_primary_goal' primary_goal.id %}"
+                  class="goal-dna-status-form"
+                  onsubmit="return confirm('Mark this goal as completed? Goal Rescue will stop recommending its actions. Your Goal DNA and Momentum history will remain preserved, but this phase does not include restoring completed goals.');"
+                >
+                  {% csrf_token %}
+                  <button type="submit" class="goal-dna-complete-button">
+                    Complete Goal
+                  </button>
+                </form>
               </div>
             </div>
           </header>
@@ -374,6 +386,25 @@
               </p>
             </div>
           </section>
+        {% elif completed_goals %}
+          <section class="goal-dna-completed-banner">
+            <span aria-hidden="true">✓</span>
+            <div>
+              <span class="goal-dna-section-kicker">GOAL COMPLETED</span>
+              <h2>You completed a meaningful chapter.</h2>
+              <p>
+                The finished Goal DNA, its action ladder and every
+                completed Momentum entry remain preserved. Create a
+                fresh primary goal whenever you are ready for the next
+                direction.
+              </p>
+              <a href="{% url 'core:goal_onboarding' %}"
+                 class="goal-dna-new-goal-button">
+                Start New Primary Goal
+                <span aria-hidden="true">→</span>
+              </a>
+            </div>
+          </section>
         {% else %}
           <section class="goal-dna-empty">
             <div class="goal-dna-empty-icon" aria-hidden="true">◎</div>
@@ -450,6 +481,53 @@
                     </p>
                   {% endif %}
                 </div>
+              </article>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+
+      {% if completed_goals %}
+        <section class="goal-dna-completed">
+          <header class="goal-dna-section-heading">
+            <div>
+              <span class="goal-dna-section-kicker">COMPLETED GOAL DNA</span>
+              <h2>Progress that remains part of your story</h2>
+              <p>
+                Completed goals no longer guide new recommendations,
+                but their settings, action steps and Momentum history
+                remain preserved.
+              </p>
+            </div>
+          </header>
+
+          <div class="goal-dna-completed-grid">
+            {% for goal in completed_goals %}
+              <article class="goal-dna-completed-card">
+                <div class="goal-dna-completed-copy">
+                  <span>COMPLETED GOAL</span>
+                  <h3>{{ goal.title }}</h3>
+                  <p>{{ goal.why_it_matters|truncatewords:28 }}</p>
+
+                  <div class="goal-dna-completed-meta">
+                    <span>
+                      Completed {{ goal.completed_at|date:"M d, Y" }}
+                    </span>
+                    <span>
+                      {{ goal.configured_action_count }}/3 steps preserved
+                    </span>
+                    <span>
+                      {{ goal.weekly_target }}
+                      {{ goal.progress_unit }} weekly target
+                    </span>
+                  </div>
+                </div>
+
+                <a href="{% url 'core:momentum_ledger' %}?goal={{ goal.id }}"
+                   class="goal-dna-completed-link">
+                  View Preserved Progress
+                  <span aria-hidden="true">→</span>
+                </a>
               </article>
             {% endfor %}
           </div>

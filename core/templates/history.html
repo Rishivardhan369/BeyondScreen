@@ -417,6 +417,12 @@
                             Primary goal paused — recommendation unavailable.
                           </span>
 
+                        {% elif rescue.status == "completed_goal" %}
+                          <span class="history-rescue-chip">
+                            <b>✓</b>
+                            Primary goal completed — create a new goal for future rescues.
+                          </span>
+
                         {% elif rescue.status == "no_goal" %}
                           <span class="history-rescue-chip">
                             <b>◎</b>

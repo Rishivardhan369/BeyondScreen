@@ -198,6 +198,24 @@
                         </a>
                     </div>
 
+                {% elif rescue.status == "completed_goal" %}
+                    <div class="gr-empty-state">
+                        <span class="gr-rescue-badge">GOAL RESCUE</span>
+                        <h2 id="goal-rescue-title">
+                            This goal is complete. Your progress remains.
+                        </h2>
+                        <p>
+                            {{ rescue.goal_title }}, its action ladder and
+                            every completed Momentum entry remain preserved.
+                            Create a fresh primary goal to receive new
+                            goal-aligned recommendations.
+                        </p>
+                        <a href="{% url 'core:goal_onboarding' %}"
+                           class="gr-primary-button">
+                            Start My Next Goal
+                        </a>
+                    </div>
+
                 {% elif rescue.status == "no_goal" %}
                     <div class="gr-empty-state">
                         <span class="gr-rescue-badge">GOAL RESCUE</span>

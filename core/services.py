@@ -740,6 +740,25 @@ def build_goal_rescue(user, screen_time_minutes):
                 "screen_time_minutes": minutes,
             }
 
+        completed_goal = (
+            UserGoal.objects.filter(
+                user=user,
+                status=UserGoal.STATUS_COMPLETED,
+                is_primary=True,
+            )
+            .order_by("-updated_at")
+            .first()
+        )
+
+        if completed_goal is not None:
+            return {
+                "status": "completed_goal",
+                "goal_id": completed_goal.id,
+                "goal_title": completed_goal.title,
+                "completed_at": completed_goal.updated_at,
+                "screen_time_minutes": minutes,
+            }
+
         return {
             "status": "no_goal",
             "screen_time_minutes": minutes,
