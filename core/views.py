@@ -500,6 +500,297 @@ def download_postcard(request, file_format):
 
 
 @login_required
+def momentum_ledger(request):
+    def compact_number(value):
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return "0"
+
+        if number.is_integer():
+            return str(int(number))
+
+        return f"{number:.2f}".rstrip("0").rstrip(".")
+
+    def format_minutes(minutes):
+        try:
+            minutes = max(0, int(minutes))
+        except (TypeError, ValueError):
+            minutes = 0
+
+        hours, remaining_minutes = divmod(minutes, 60)
+
+        if hours and remaining_minutes:
+            return f"{hours}h {remaining_minutes:02d}m"
+
+        if hours:
+            return f"{hours}h"
+
+        return f"{remaining_minutes}m"
+
+    def local_completed_at(entry):
+        completed_at = entry.completed_at
+
+        if timezone.is_aware(completed_at):
+            return timezone.localtime(completed_at)
+
+        return completed_at
+
+    action_size_labels = {
+        GoalAction.SIZE_MINIMUM: "Small Step",
+        GoalAction.SIZE_STANDARD: "Regular Step",
+        GoalAction.SIZE_DEEP: "Bigger Step",
+    }
+
+    all_entries = list(
+        MomentumEntry.objects.filter(
+            user=request.user,
+        )
+        .select_related(
+            "goal",
+            "action",
+            "digital_summary",
+        )
+        .order_by("-completed_at")
+    )
+
+    total_completed_actions = len(all_entries)
+    total_reclaimed_minutes = sum(
+        entry.duration_minutes
+        for entry in all_entries
+    )
+    goals_advanced = len(
+        {
+            entry.goal_id
+            for entry in all_entries
+            if entry.goal_id is not None
+        }
+    )
+
+    today = timezone.localdate()
+    week_start = today - timedelta(days=today.weekday())
+
+    this_week_entries = [
+        entry
+        for entry in all_entries
+        if local_completed_at(entry).date() >= week_start
+    ]
+
+    primary_goal = UserGoal.objects.filter(
+        user=request.user,
+        status=UserGoal.STATUS_ACTIVE,
+        is_primary=True,
+    ).first()
+
+    if primary_goal is not None:
+        primary_week_entries = [
+            entry
+            for entry in this_week_entries
+            if entry.goal_id == primary_goal.id
+        ]
+
+        weekly_progress_value = sum(
+            (
+                entry.progress_value
+                for entry in primary_week_entries
+            ),
+            0,
+        )
+        weekly_target_value = primary_goal.weekly_target
+
+        if weekly_target_value > 0:
+            weekly_progress_percent = min(
+                100,
+                round(
+                    float(
+                        weekly_progress_value
+                        / weekly_target_value
+                        * 100
+                    )
+                ),
+            )
+        else:
+            weekly_progress_percent = 0
+    else:
+        weekly_progress_value = 0
+        weekly_target_value = 0
+        weekly_progress_percent = 0
+
+    goal_options = list(
+        UserGoal.objects.filter(
+            user=request.user,
+            momentum_entries__isnull=False,
+        )
+        .distinct()
+        .order_by("-is_primary", "title")
+    )
+    valid_goal_ids = {
+        goal.id
+        for goal in goal_options
+    }
+
+    selected_goal = request.GET.get("goal", "all").strip()
+    selected_size = request.GET.get("size", "all").strip()
+    selected_period = request.GET.get("period", "all").strip()
+
+    if selected_goal != "all":
+        try:
+            selected_goal_id = int(selected_goal)
+        except (TypeError, ValueError):
+            selected_goal = "all"
+            selected_goal_id = None
+        else:
+            if selected_goal_id not in valid_goal_ids:
+                selected_goal = "all"
+                selected_goal_id = None
+    else:
+        selected_goal_id = None
+
+    valid_sizes = {
+        GoalAction.SIZE_MINIMUM,
+        GoalAction.SIZE_STANDARD,
+        GoalAction.SIZE_DEEP,
+    }
+
+    if selected_size not in valid_sizes:
+        selected_size = "all"
+
+    valid_periods = {
+        "all",
+        "week",
+        "month",
+        "30days",
+    }
+
+    if selected_period not in valid_periods:
+        selected_period = "all"
+
+    filtered_entries = all_entries
+
+    if selected_goal_id is not None:
+        filtered_entries = [
+            entry
+            for entry in filtered_entries
+            if entry.goal_id == selected_goal_id
+        ]
+
+    if selected_size != "all":
+        filtered_entries = [
+            entry
+            for entry in filtered_entries
+            if entry.action_size == selected_size
+        ]
+
+    if selected_period == "week":
+        period_start = week_start
+    elif selected_period == "month":
+        period_start = today.replace(day=1)
+    elif selected_period == "30days":
+        period_start = today - timedelta(days=29)
+    else:
+        period_start = None
+
+    if period_start is not None:
+        filtered_entries = [
+            entry
+            for entry in filtered_entries
+            if local_completed_at(entry).date() >= period_start
+        ]
+
+    timeline_groups = []
+
+    for entry in filtered_entries:
+        completed_at = local_completed_at(entry)
+        completed_date = completed_at.date()
+
+        entry_data = {
+            "summary_id": entry.digital_summary_id,
+            "action_title": entry.action_title,
+            "action_size_label": action_size_labels.get(
+                entry.action_size,
+                "Goal Step",
+            ),
+            "duration_minutes": entry.duration_minutes,
+            "progress_display": (
+                f"{compact_number(entry.progress_value)} "
+                f"{entry.progress_unit}"
+            ).strip(),
+            "goal_title": (
+                entry.goal.title
+                if entry.goal is not None
+                else "Previous goal"
+            ),
+            "completed_at": completed_at,
+        }
+
+        if (
+            not timeline_groups
+            or timeline_groups[-1]["date"] != completed_date
+        ):
+            timeline_groups.append(
+                {
+                    "date": completed_date,
+                    "entries": [],
+                }
+            )
+
+        timeline_groups[-1]["entries"].append(entry_data)
+
+    filters_active = any(
+        (
+            selected_goal != "all",
+            selected_size != "all",
+            selected_period != "all",
+        )
+    )
+
+    context = {
+        "ledger_summary": {
+            "has_entries": bool(all_entries),
+            "total_completed_actions": total_completed_actions,
+            "total_reclaimed_time": format_minutes(
+                total_reclaimed_minutes
+            ),
+            "goals_advanced": goals_advanced,
+            "this_week_actions": len(this_week_entries),
+        },
+        "weekly_progress": {
+            "has_primary_goal": primary_goal is not None,
+            "goal_title": (
+                primary_goal.title
+                if primary_goal is not None
+                else ""
+            ),
+            "progress_value": compact_number(
+                weekly_progress_value
+            ),
+            "target_value": compact_number(
+                weekly_target_value
+            ),
+            "progress_unit": (
+                primary_goal.progress_unit
+                if primary_goal is not None
+                else ""
+            ),
+            "percent": weekly_progress_percent,
+        },
+        "timeline_groups": timeline_groups,
+        "filtered_entry_count": len(filtered_entries),
+        "goal_options": goal_options,
+        "selected_goal": selected_goal,
+        "selected_size": selected_size,
+        "selected_period": selected_period,
+        "filters_active": filters_active,
+    }
+
+    return render(
+        request,
+        "momentum_ledger.html",
+        context,
+    )
+
+
+@login_required
 def dashboard(request):
     def get_created_value(item):
         return (

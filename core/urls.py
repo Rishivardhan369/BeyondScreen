@@ -9,6 +9,11 @@ urlpatterns = [
     path("goals/confirm/", views.goal_confirmation, name="goal_confirmation"),
     path("summary/", views.summary, name="summary"),
     path(
+        "momentum/",
+        views.momentum_ledger,
+        name="momentum_ledger",
+    ),
+    path(
         "momentum/complete/",
         views.complete_goal_rescue,
         name="complete_goal_rescue",

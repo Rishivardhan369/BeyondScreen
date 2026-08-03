@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Momentum Ledger | BeyondScreen{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'css/momentum_ledger.css' %}">
+{% endblock %}
+
+{% block header %}
+<header class="top-nav">
+  <div class="top-nav-inner">
+    <div class="welcome-copy">
+      <strong>
+        Momentum Ledger,
+        {{ request.user.first_name|default:request.user.username }}
+      </strong>
+      <small>Every completed Goal Rescue, preserved as real progress</small>
+    </div>
+
+    <div class="momentum-top-context">
+      <span aria-hidden="true">✓</span>
+      Only confirmed actions count
+    </div>
+
+    <div class="top-actions">
+      <a href="{% url 'core:home' %}" class="upload-button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 16V4"></path>
+          <path d="m7 9 5-5 5 5"></path>
+          <path d="M20 15v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4"></path>
+        </svg>
+        Upload New Report
+      </a>
+    </div>
+  </div>
+</header>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <a href="{% url 'core:home' %}" class="brand-link">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 48">
+            <circle cx="23" cy="23" r="15"></circle>
+            <path d="M30 11a14 14 0 0 1 5 20"></path>
+            <path d="M34 31l6 1-1-6"></path>
+            <path d="M16 35a14 14 0 0 1-5-20"></path>
+            <path d="M12 15 6 14l1 6"></path>
+          </svg>
+        </span>
+
+        <span class="brand-text">
+          <strong>BeyondScreen</strong>
+          <small>Your time. Reclaimed.</small>
+        </span>
+      </a>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Dashboard navigation">
+      <a href="{% url 'core:dashboard' %}" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m3 11 9-8 9 8"></path>
+          <path d="M5 10v10h14V10"></path>
+          <path d="M9 20v-6h6v6"></path>
+        </svg>
+        <span>Overview</span>
+      </a>
+
+      <a href="{% url 'core:dashboard' %}#goal-rescue" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M12 7v5l3 2"></path>
+        </svg>
+        <span>Goal Rescue</span>
+      </a>
+
+      <a href="{% url 'core:dashboard' %}#today-focus" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8"></circle>
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 2v2"></path>
+          <path d="M12 20v2"></path>
+        </svg>
+        <span>Today's Focus</span>
+      </a>
+
+      <a href="{% url 'core:momentum_ledger' %}"
+         class="sidebar-link active"
+         aria-current="page">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 19V9"></path>
+          <path d="M10 19V5"></path>
+          <path d="M16 19v-7"></path>
+          <path d="M22 19H2"></path>
+        </svg>
+        <span>Progress</span>
+      </a>
+
+      <a href="{% url 'core:history' %}" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+          <path d="M3 4v5h5"></path>
+          <path d="M12 7v5l3 2"></path>
+        </svg>
+        <span>History</span>
+      </a>
+
+      <a href="{% url 'core:profile' %}" class="sidebar-link">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="8" r="4"></circle>
+          <path d="M4 21a8 8 0 0 1 16 0"></path>
+        </svg>
+        <span>Profile</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-spacer"></div>
+
+    <div class="reclaimed-card">
+      <div class="reclaimed-heading">
+        <span>✓</span>
+        <strong>Real progress lives here</strong>
+      </div>
+
+      <p>
+        Every entry represents an action you actually completed.
+      </p>
+
+      <div class="reclaimed-time">
+        <strong>{{ ledger_summary.total_reclaimed_time }}</strong>
+        <small>lifetime reclaimed time</small>
+      </div>
+
+      <a href="{% url 'core:dashboard' %}#momentum-ledger">
+        Dashboard Summary
+      </a>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar">
+        {{ request.user.username|first|upper }}
+      </div>
+
+      <div class="user-details">
+        <strong>
+          {{ request.user.first_name|default:request.user.username }}
+        </strong>
+        <small>{{ request.user.email|default:"BeyondScreen member" }}</small>
+      </div>
+
+      <form action="{% url 'core:logout' %}" method="post">
+        {% csrf_token %}
+        <button type="submit" aria-label="Log out">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10 17l5-5-5-5"></path>
+            <path d="M15 12H3"></path>
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+          </svg>
+        </button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="main-content bs-dashboard momentum-main">
+    <div class="momentum-shell">
+      <section class="momentum-hero" aria-labelledby="momentum-title">
+        <div class="momentum-hero-glow momentum-glow-gold"></div>
+        <div class="momentum-hero-glow momentum-glow-teal"></div>
+
+        <div class="momentum-hero-copy">
+          <span class="momentum-eyebrow">MOMENTUM LEDGER</span>
+          <h1 id="momentum-title">
+            Proof that your time<br>
+            became <span>progress.</span>
+          </h1>
+          <p>
+            Recommendations disappear. Completed actions remain.
+            This is the permanent timeline of the screen time you
+            redirected toward goals that matter to you.
+          </p>
+        </div>
+
+        <div class="momentum-orbit-visual" aria-label="Lifetime completions">
+          <div class="momentum-orbit momentum-orbit-one"></div>
+          <div class="momentum-orbit momentum-orbit-two"></div>
+
+          <div class="momentum-orbit-core">
+            <span aria-hidden="true">✓</span>
+            <strong>{{ ledger_summary.total_completed_actions }}</strong>
+            <small>
+              completed action{{ ledger_summary.total_completed_actions|pluralize }}
+            </small>
+          </div>
+        </div>
+
+        <div class="momentum-hero-note">
+          <span aria-hidden="true">↗</span>
+          <div>
+            <strong>{{ ledger_summary.this_week_actions }} this week</strong>
+            <small>
+              Confirm an action only after you genuinely finish it.
+            </small>
+          </div>
+        </div>
+      </section>
+
+      <section class="momentum-stats" aria-label="Lifetime Momentum totals">
+        <article>
+          <span class="momentum-stat-icon momentum-stat-teal">✓</span>
+          <div>
+            <small>Completed Actions</small>
+            <strong>{{ ledger_summary.total_completed_actions }}</strong>
+            <p>Confirmed across your entire ledger</p>
+          </div>
+        </article>
+
+        <article>
+          <span class="momentum-stat-icon momentum-stat-gold">◷</span>
+          <div>
+            <small>Time Reclaimed</small>
+            <strong>{{ ledger_summary.total_reclaimed_time }}</strong>
+            <p>Turned into meaningful action</p>
+          </div>
+        </article>
+
+        <article>
+          <span class="momentum-stat-icon momentum-stat-blue">◎</span>
+          <div>
+            <small>Goals Advanced</small>
+            <strong>{{ ledger_summary.goals_advanced }}</strong>
+            <p>Goals with confirmed progress</p>
+          </div>
+        </article>
+      </section>
+
+      {% if weekly_progress.has_primary_goal %}
+        <section class="momentum-weekly-card">
+          <div class="momentum-weekly-heading">
+            <div>
+              <span>PRIMARY GOAL · THIS WEEK</span>
+              <h2>{{ weekly_progress.goal_title }}</h2>
+              <p>
+                Progress comes only from completed Momentum entries
+                recorded since Monday.
+              </p>
+            </div>
+
+            <strong>{{ weekly_progress.percent }}%</strong>
+          </div>
+
+          <div class="momentum-weekly-track"
+               role="progressbar"
+               aria-valuemin="0"
+               aria-valuemax="100"
+               aria-valuenow="{{ weekly_progress.percent }}">
+            <span style="--momentum-weekly-progress: {{ weekly_progress.percent }}%;"></span>
+          </div>
+
+          <div class="momentum-weekly-footer">
+            <strong>
+              {{ weekly_progress.progress_value }}
+              {{ weekly_progress.progress_unit }}
+            </strong>
+            <span>
+              of {{ weekly_progress.target_value }}
+              {{ weekly_progress.progress_unit }} completed
+            </span>
+          </div>
+        </section>
+      {% endif %}
+
+      <section class="momentum-ledger-panel">
+        <header class="momentum-panel-heading">
+          <div>
+            <span class="momentum-section-kicker">COMPLETION TIMELINE</span>
+            <h2>Your full Momentum history</h2>
+            <p>
+              Filter the actions you completed by goal, step size,
+              or completion period.
+            </p>
+          </div>
+
+          <span class="momentum-result-count">
+            {{ filtered_entry_count }}
+            entr{{ filtered_entry_count|pluralize:"y,ies" }}
+          </span>
+        </header>
+
+        <form method="get" class="momentum-filter-bar">
+          <label>
+            <span>Goal</span>
+            <select name="goal">
+              <option value="all"
+                      {% if selected_goal == "all" %}selected{% endif %}>
+                All goals
+              </option>
+
+              {% for goal in goal_options %}
+                <option value="{{ goal.id }}"
+                        {% if selected_goal == goal.id|stringformat:"s" %}selected{% endif %}>
+                  {{ goal.title }}
+                </option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label>
+            <span>Step size</span>
+            <select name="size">
+              <option value="all"
+                      {% if selected_size == "all" %}selected{% endif %}>
+                All steps
+              </option>
+              <option value="minimum"
+                      {% if selected_size == "minimum" %}selected{% endif %}>
+                Small Step
+              </option>
+              <option value="standard"
+                      {% if selected_size == "standard" %}selected{% endif %}>
+                Regular Step
+              </option>
+              <option value="deep"
+                      {% if selected_size == "deep" %}selected{% endif %}>
+                Bigger Step
+              </option>
+            </select>
+          </label>
+
+          <label>
+            <span>Date range</span>
+            <select name="period">
+              <option value="all"
+                      {% if selected_period == "all" %}selected{% endif %}>
+                All time
+              </option>
+              <option value="week"
+                      {% if selected_period == "week" %}selected{% endif %}>
+                This week
+              </option>
+              <option value="month"
+                      {% if selected_period == "month" %}selected{% endif %}>
+                This month
+              </option>
+              <option value="30days"
+                      {% if selected_period == "30days" %}selected{% endif %}>
+                Last 30 days
+              </option>
+            </select>
+          </label>
+
+          <button type="submit">Apply filters</button>
+
+          <a href="{% url 'core:momentum_ledger' %}">
+            Reset
+          </a>
+        </form>
+
+        {% if timeline_groups %}
+          <div class="momentum-timeline">
+            {% for group in timeline_groups %}
+              <section class="momentum-day-group">
+                <header class="momentum-day-heading">
+                  <div class="momentum-day-marker">
+                    <span>{{ group.date|date:"M" }}</span>
+                    <strong>{{ group.date|date:"d" }}</strong>
+                  </div>
+
+                  <div>
+                    <h3>{{ group.date|date:"l" }}</h3>
+                    <p>{{ group.date|date:"F d, Y" }}</p>
+                  </div>
+                </header>
+
+                <div class="momentum-day-entries">
+                  {% for entry in group.entries %}
+                    <article class="momentum-entry-card">
+                      <div class="momentum-entry-check" aria-hidden="true">
+                        ✓
+                      </div>
+
+                      <div class="momentum-entry-main">
+                        <div class="momentum-entry-topline">
+                          <span>{{ entry.action_size_label }}</span>
+                          <time>
+                            {{ entry.completed_at|date:"g:i A" }}
+                          </time>
+                        </div>
+
+                        <h4>{{ entry.action_title }}</h4>
+                        <p>{{ entry.goal_title }}</p>
+                      </div>
+
+                      <div class="momentum-entry-metrics">
+                        <div>
+                          <span>Goal progress</span>
+                          <strong>{{ entry.progress_display }}</strong>
+                        </div>
+
+                        <div>
+                          <span>Reclaimed time</span>
+                          <strong>
+                            {{ entry.duration_minutes }}
+                            minute{{ entry.duration_minutes|pluralize }}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <a href="{% url 'core:view_summary' entry.summary_id %}">
+                        View report
+                        <span aria-hidden="true">→</span>
+                      </a>
+                    </article>
+                  {% endfor %}
+                </div>
+              </section>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="momentum-empty-state">
+            <div class="momentum-empty-icon" aria-hidden="true">✓</div>
+
+            {% if ledger_summary.has_entries and filters_active %}
+              <span class="momentum-section-kicker">NO MATCHING ENTRIES</span>
+              <h3>No completed actions match these filters.</h3>
+              <p>
+                Reset the filters to return to your full Momentum timeline.
+              </p>
+              <a href="{% url 'core:momentum_ledger' %}">
+                Reset filters
+              </a>
+            {% else %}
+              <span class="momentum-section-kicker">YOUR FIRST ENTRY AWAITS</span>
+              <h3>Complete one Goal Rescue action to begin.</h3>
+              <p>
+                Generate a signed-in report, finish the recommended
+                action, and mark it completed from the Summary.
+              </p>
+              <a href="{% url 'core:home' %}">
+                Create a new report
+              </a>
+            {% endif %}
+          </div>
+        {% endif %}
+      </section>
+    </div>
+  </main>
+</div>
+{% endblock %}
