@@ -108,7 +108,7 @@
         <span>Today's Focus</span>
       </a>
 
-      <a href="#weekly-progress" class="sidebar-link">
+      <a href="#momentum-ledger" class="sidebar-link">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M4 19V9"></path>
           <path d="M10 19V5"></path>
@@ -480,6 +480,153 @@
         </a>
       </article>
 
+    </section>
+
+    <section class="bs-momentum-section" id="momentum-ledger">
+      <header class="bs-momentum-header">
+        <div>
+          <span class="bs-momentum-eyebrow">MOMENTUM LEDGER</span>
+          <h2>Completed actions, not good intentions.</h2>
+          <p>
+            Only the Goal Rescue steps you confirmed as completed
+            become progress here.
+          </p>
+        </div>
+
+        {% if momentum_summary.has_entries %}
+          <span class="bs-momentum-status">
+            {{ momentum_summary.total_completed_actions }}
+            completed
+          </span>
+        {% endif %}
+      </header>
+
+      {% if momentum_summary.has_entries %}
+        <div class="bs-momentum-layout">
+          <div class="bs-momentum-overview">
+            <div class="bs-momentum-stats">
+              <article>
+                <span>Completed actions</span>
+                <strong>
+                  {{ momentum_summary.total_completed_actions }}
+                </strong>
+                <small>Confirmed in your ledger</small>
+              </article>
+
+              <article>
+                <span>Time reclaimed</span>
+                <strong>
+                  {{ momentum_summary.total_reclaimed_time }}
+                </strong>
+                <small>Turned into goal progress</small>
+              </article>
+
+              <article>
+                <span>This week</span>
+                <strong>
+                  {{ momentum_summary.this_week_actions }}
+                </strong>
+                <small>Completed goal steps</small>
+              </article>
+            </div>
+
+            {% if momentum_summary.primary_goal_title %}
+              <article class="bs-momentum-goal-progress">
+                <div class="bs-momentum-goal-topline">
+                  <div>
+                    <span>PRIMARY GOAL · THIS WEEK</span>
+                    <h3>
+                      {{ momentum_summary.primary_goal_title }}
+                    </h3>
+                  </div>
+
+                  <strong>
+                    {{ momentum_summary.weekly_progress_percent }}%
+                  </strong>
+                </div>
+
+                <div class="bs-momentum-progress-track"
+                     role="progressbar"
+                     aria-valuemin="0"
+                     aria-valuemax="100"
+                     aria-valuenow="{{ momentum_summary.weekly_progress_percent }}">
+                  <span style="--bs-momentum-progress: {{ momentum_summary.weekly_progress_percent }}%;"></span>
+                </div>
+
+                <p>
+                  <strong>
+                    {{ momentum_summary.weekly_progress }}
+                    {{ momentum_summary.progress_unit }}
+                  </strong>
+                  completed toward a weekly target of
+                  {{ momentum_summary.weekly_target }}
+                  {{ momentum_summary.progress_unit }}.
+                </p>
+              </article>
+            {% endif %}
+          </div>
+
+          <div class="bs-momentum-recent">
+            <div class="bs-momentum-recent-heading">
+              <div>
+                <span>RECENT COMPLETIONS</span>
+                <h3>Your latest real progress</h3>
+              </div>
+
+              <small>Newest first</small>
+            </div>
+
+            <div class="bs-momentum-entry-list">
+              {% for entry in momentum_summary.recent_entries %}
+                <article class="bs-momentum-entry">
+                  <div class="bs-momentum-entry-date">
+                    <span>{{ entry.completed_at|date:"M" }}</span>
+                    <strong>{{ entry.completed_at|date:"d" }}</strong>
+                  </div>
+
+                  <div class="bs-momentum-entry-copy">
+                    <span>{{ entry.action_size_label }}</span>
+                    <h4>{{ entry.action_title }}</h4>
+                    <p>{{ entry.goal_title }}</p>
+                  </div>
+
+                  <div class="bs-momentum-entry-result">
+                    <strong>{{ entry.progress_display }}</strong>
+                    <small>
+                      {{ entry.duration_minutes }}
+                      minute{{ entry.duration_minutes|pluralize }}
+                    </small>
+                  </div>
+
+                  <span class="bs-momentum-check"
+                        aria-label="Completed">
+                    ✓
+                  </span>
+                </article>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      {% else %}
+        <div class="bs-momentum-empty">
+          <div class="bs-momentum-empty-icon" aria-hidden="true">
+            ✓
+          </div>
+
+          <div>
+            <h3>Your ledger is ready for its first completion.</h3>
+            <p>
+              Generate a signed-in report, follow its Goal Rescue
+              action, and confirm it only after you finish.
+            </p>
+          </div>
+
+          <a href="{% url 'core:home' %}">
+            Create a new report
+            <span aria-hidden="true">→</span>
+          </a>
+        </div>
+      {% endif %}
     </section>
 
   </div>

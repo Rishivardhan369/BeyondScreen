@@ -2971,3 +2971,450 @@ footer {
 .sidebar .sidebar-user {
   flex: 0 0 auto;
 }
+
+/* MOMENTUM_LEDGER_DASHBOARD_PHASE_TWO */
+
+#momentum-ledger {
+  scroll-margin-top: calc(var(--topbar-height) + 18px);
+}
+
+.bs-momentum-section {
+  position: relative;
+  margin-top: 17px;
+  padding: 25px;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(57, 221, 213, 0.075),
+      transparent 32%
+    ),
+    linear-gradient(
+      145deg,
+      rgba(8, 21, 35, 0.99),
+      rgba(5, 15, 26, 0.99)
+    );
+  border: 1px solid rgba(57, 221, 213, 0.19);
+  border-radius: 18px;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.23),
+    inset 0 1px rgba(255, 255, 255, 0.025);
+}
+
+.bs-momentum-section::before {
+  position: absolute;
+  top: 0;
+  left: 8%;
+  width: 36%;
+  height: 1px;
+  content: "";
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      rgba(57, 221, 213, 0.7),
+      transparent
+    );
+}
+
+.bs-momentum-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+  margin-bottom: 22px;
+}
+
+.bs-momentum-header > div {
+  max-width: 680px;
+}
+
+.bs-momentum-eyebrow,
+.bs-momentum-goal-topline span,
+.bs-momentum-recent-heading span {
+  color: var(--dashboard-teal);
+  font-size: 9px;
+  font-weight: 780;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.bs-momentum-header h2 {
+  margin: 7px 0 7px;
+  color: #f3efe7;
+  font-family:
+    "Playfair Display",
+    Georgia,
+    serif;
+  font-size: 24px;
+  font-weight: 550;
+  letter-spacing: -0.02em;
+}
+
+.bs-momentum-header p {
+  margin: 0;
+  color: var(--dashboard-muted);
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.bs-momentum-status {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  padding: 0 11px;
+  color: var(--dashboard-teal);
+  background: rgba(57, 221, 213, 0.065);
+  border: 1px solid rgba(57, 221, 213, 0.2);
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bs-momentum-layout {
+  display: grid;
+  grid-template-columns:
+    minmax(350px, 0.94fr)
+    minmax(430px, 1.06fr);
+  gap: 16px;
+}
+
+.bs-momentum-overview,
+.bs-momentum-recent {
+  min-width: 0;
+}
+
+.bs-momentum-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.bs-momentum-stats article {
+  display: flex;
+  min-height: 116px;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 15px;
+  background: rgba(5, 15, 25, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 12px;
+}
+
+.bs-momentum-stats span,
+.bs-momentum-stats small {
+  color: #8996a8;
+  font-size: 8px;
+  font-weight: 650;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.bs-momentum-stats strong {
+  color: #ffffff;
+  font-size: 25px;
+  font-weight: 560;
+  letter-spacing: -0.04em;
+}
+
+.bs-momentum-goal-progress {
+  margin-top: 10px;
+  padding: 17px;
+  background:
+    linear-gradient(
+      120deg,
+      rgba(57, 221, 213, 0.075),
+      rgba(5, 15, 25, 0.5)
+    );
+  border: 1px solid rgba(57, 221, 213, 0.16);
+  border-radius: 12px;
+}
+
+.bs-momentum-goal-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.bs-momentum-goal-topline h3 {
+  margin: 6px 0 0;
+  color: #edf2f4;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.bs-momentum-goal-topline > strong {
+  color: var(--dashboard-teal);
+  font-size: 22px;
+  font-weight: 570;
+}
+
+.bs-momentum-progress-track {
+  height: 8px;
+  margin-top: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.065);
+  border-radius: 999px;
+}
+
+.bs-momentum-progress-track span {
+  display: block;
+  width: var(--bs-momentum-progress, 0%);
+  height: 100%;
+  background:
+    linear-gradient(
+      90deg,
+      #25a9aa,
+      var(--dashboard-teal)
+    );
+  border-radius: inherit;
+  box-shadow: 0 0 13px rgba(57, 221, 213, 0.38);
+}
+
+.bs-momentum-goal-progress p {
+  margin: 11px 0 0;
+  color: #8f9daf;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.bs-momentum-goal-progress p strong {
+  color: #dfe6e9;
+  font-weight: 680;
+}
+
+.bs-momentum-recent {
+  padding: 17px;
+  background: rgba(5, 15, 25, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 13px;
+}
+
+.bs-momentum-recent-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.bs-momentum-recent-heading h3 {
+  margin: 6px 0 0;
+  color: #edf1f3;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.bs-momentum-recent-heading small {
+  color: #7f8c9c;
+  font-size: 8px;
+}
+
+.bs-momentum-entry-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.bs-momentum-entry {
+  display: grid;
+  min-height: 67px;
+  grid-template-columns:
+    44px
+    minmax(0, 1fr)
+    minmax(105px, auto)
+    28px;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.bs-momentum-entry:last-child {
+  border-bottom: 0;
+}
+
+.bs-momentum-entry-date {
+  display: flex;
+  width: 42px;
+  height: 44px;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  border: 1px solid rgba(57, 221, 213, 0.18);
+  border-radius: 9px;
+}
+
+.bs-momentum-entry-date span {
+  color: var(--dashboard-teal);
+  font-size: 7px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.bs-momentum-entry-date strong {
+  color: #f1f4f5;
+  font-size: 16px;
+  font-weight: 550;
+}
+
+.bs-momentum-entry-copy {
+  min-width: 0;
+}
+
+.bs-momentum-entry-copy > span {
+  color: var(--dashboard-gold);
+  font-size: 7px;
+  font-weight: 760;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.bs-momentum-entry-copy h4,
+.bs-momentum-entry-copy p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bs-momentum-entry-copy h4 {
+  margin: 3px 0;
+  color: #e6ebed;
+  font-size: 10px;
+  font-weight: 630;
+}
+
+.bs-momentum-entry-copy p {
+  margin: 0;
+  color: #7f8c9c;
+  font-size: 8px;
+}
+
+.bs-momentum-entry-result {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  text-align: right;
+}
+
+.bs-momentum-entry-result strong {
+  color: var(--dashboard-teal);
+  font-size: 9px;
+  font-weight: 680;
+}
+
+.bs-momentum-entry-result small {
+  margin-top: 4px;
+  color: #7f8c9c;
+  font-size: 8px;
+}
+
+.bs-momentum-check {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  color: var(--dashboard-teal);
+  background: rgba(57, 221, 213, 0.075);
+  border: 1px solid rgba(57, 221, 213, 0.17);
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.bs-momentum-empty {
+  display: grid;
+  min-height: 125px;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 17px;
+  padding: 19px;
+  background: rgba(5, 15, 25, 0.57);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 13px;
+}
+
+.bs-momentum-empty-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  color: var(--dashboard-teal);
+  background: rgba(57, 221, 213, 0.075);
+  border: 1px solid rgba(57, 221, 213, 0.17);
+  border-radius: 14px;
+  font-size: 18px;
+}
+
+.bs-momentum-empty h3 {
+  margin: 0 0 5px;
+  color: #edf1f3;
+  font-size: 13px;
+}
+
+.bs-momentum-empty p {
+  max-width: 650px;
+  margin: 0;
+  color: #8996a8;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.bs-momentum-empty a {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 18px;
+  padding: 0 13px;
+  color: var(--dashboard-teal);
+  border: 1px solid rgba(57, 221, 213, 0.22);
+  border-radius: 9px;
+  font-size: 9px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.bs-momentum-empty a:hover {
+  background: rgba(57, 221, 213, 0.055);
+}
+
+@media (max-width: 1120px) {
+  .bs-momentum-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .bs-momentum-section {
+    padding: 18px;
+  }
+
+  .bs-momentum-header,
+  .bs-momentum-empty {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .bs-momentum-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .bs-momentum-entry {
+    grid-template-columns:
+      42px
+      minmax(0, 1fr)
+      27px;
+  }
+
+  .bs-momentum-entry-result {
+    display: none;
+  }
+
+  .bs-momentum-empty a {
+    justify-content: center;
+  }
+}

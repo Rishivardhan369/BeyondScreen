@@ -33,9 +33,10 @@ from .services import (
     render_postcard_png,
 )
 from services.screen_time_parser import parse_screen_time_report
-from datetime import date, time
+from datetime import date, time, timedelta
 from django.db import IntegrityError, transaction
 from django.views.decorators.http import require_POST
+from django.utils import timezone
 
 
 @login_required
@@ -742,7 +743,150 @@ def dashboard(request):
             }
         )
 
+
+    def compact_momentum_number(value):
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return "0"
+
+        if number.is_integer():
+            return str(int(number))
+
+        return f"{number:.2f}".rstrip("0").rstrip(".")
+
+    def momentum_entry_date(entry):
+        completed_at = entry.completed_at
+
+        if timezone.is_aware(completed_at):
+            return timezone.localtime(completed_at).date()
+
+        return completed_at.date()
+
+    momentum_entries = list(
+        MomentumEntry.objects.filter(
+            user=request.user,
+        ).select_related(
+            "goal",
+            "action",
+            "digital_summary",
+        )
+    )
+
+    total_completed_actions = len(momentum_entries)
+    total_reclaimed_minutes = sum(
+        entry.duration_minutes
+        for entry in momentum_entries
+    )
+
+    today = timezone.localdate()
+    week_start = today - timedelta(days=today.weekday())
+
+    this_week_entries = [
+        entry
+        for entry in momentum_entries
+        if momentum_entry_date(entry) >= week_start
+    ]
+
+    primary_goal = UserGoal.objects.filter(
+        user=request.user,
+        status=UserGoal.STATUS_ACTIVE,
+        is_primary=True,
+    ).first()
+
+    if primary_goal is not None:
+        primary_week_entries = [
+            entry
+            for entry in this_week_entries
+            if entry.goal_id == primary_goal.id
+        ]
+
+        weekly_progress_value = sum(
+            (
+                entry.progress_value
+                for entry in primary_week_entries
+            ),
+            0,
+        )
+        weekly_target_value = primary_goal.weekly_target
+
+        if weekly_target_value > 0:
+            weekly_progress_percent = min(
+                100,
+                round(
+                    float(
+                        weekly_progress_value
+                        / weekly_target_value
+                        * 100
+                    )
+                ),
+            )
+        else:
+            weekly_progress_percent = 0
+    else:
+        weekly_progress_value = 0
+        weekly_target_value = 0
+        weekly_progress_percent = 0
+
+    action_size_labels = {
+        GoalAction.SIZE_MINIMUM: "Small Step",
+        GoalAction.SIZE_STANDARD: "Regular Step",
+        GoalAction.SIZE_DEEP: "Bigger Step",
+    }
+
+    recent_momentum_entries = []
+
+    for entry in momentum_entries[:4]:
+        recent_momentum_entries.append(
+            {
+                "action_title": entry.action_title,
+                "action_size_label": action_size_labels.get(
+                    entry.action_size,
+                    "Goal Step",
+                ),
+                "duration_minutes": entry.duration_minutes,
+                "progress_display": (
+                    f"{compact_momentum_number(entry.progress_value)} "
+                    f"{entry.progress_unit}"
+                ).strip(),
+                "goal_title": (
+                    entry.goal.title
+                    if entry.goal is not None
+                    else "Previous goal"
+                ),
+                "completed_at": entry.completed_at,
+            }
+        )
+
+    momentum_summary = {
+        "has_entries": bool(momentum_entries),
+        "total_completed_actions": total_completed_actions,
+        "total_reclaimed_time": format_minutes(
+            total_reclaimed_minutes
+        ),
+        "this_week_actions": len(this_week_entries),
+        "primary_goal_title": (
+            primary_goal.title
+            if primary_goal is not None
+            else ""
+        ),
+        "weekly_progress": compact_momentum_number(
+            weekly_progress_value
+        ),
+        "weekly_target": compact_momentum_number(
+            weekly_target_value
+        ),
+        "progress_unit": (
+            primary_goal.progress_unit
+            if primary_goal is not None
+            else ""
+        ),
+        "weekly_progress_percent": weekly_progress_percent,
+        "recent_entries": recent_momentum_entries,
+    }
+
     context = {
+        "momentum_summary": momentum_summary,
         "recent_postcards": recent_postcards,
         "recent_summaries": recent_summaries,
         "recent_reports": recent_reports,
@@ -754,6 +898,7 @@ def dashboard(request):
     }
 
     return render(request, "dashboard.html", context)
+
 
 
 @login_required
