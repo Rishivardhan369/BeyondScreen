@@ -199,6 +199,160 @@ def goal_dna_management(request):
         context,
     )
 
+@login_required
+def goal_dna_edit(request):
+    primary_goal = (
+        UserGoal.objects.filter(
+            user=request.user,
+            status=UserGoal.STATUS_ACTIVE,
+            is_primary=True,
+        )
+        .prefetch_related("actions")
+        .first()
+    )
+
+    if primary_goal is None:
+        messages.info(
+            request,
+            "Create your primary goal before editing it.",
+        )
+        return redirect("core:goal_onboarding")
+
+    actions_by_size = {
+        action.size: action
+        for action in primary_goal.actions.all()
+    }
+
+    standard_progress_units = {
+        value
+        for value, _label in GoalDNAForm.PROGRESS_UNIT_CHOICES
+        if value and value != "custom"
+    }
+
+    def whole_number(value):
+        if value is None:
+            return None
+
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return value
+
+    initial = {
+        "progress_unit": (
+            primary_goal.progress_unit
+            if primary_goal.progress_unit in standard_progress_units
+            else "custom"
+        ),
+        "custom_progress_unit": (
+            ""
+            if primary_goal.progress_unit in standard_progress_units
+            else primary_goal.progress_unit
+        ),
+        "weekly_target": whole_number(
+            primary_goal.weekly_target
+        ),
+        "preferred_days": list(
+            primary_goal.preferred_days or []
+        ),
+    }
+
+    for size in (
+        GoalAction.SIZE_MINIMUM,
+        GoalAction.SIZE_STANDARD,
+        GoalAction.SIZE_DEEP,
+    ):
+        action = actions_by_size.get(size)
+
+        if action is None:
+            continue
+
+        initial[f"{size}_action_title"] = action.title
+        initial[f"{size}_action_minutes"] = (
+            action.duration_minutes
+        )
+        initial[f"{size}_action_progress"] = whole_number(
+            action.progress_value
+        )
+
+    if request.method == "POST":
+        form = GoalDNAForm(
+            request.POST,
+            instance=primary_goal,
+        )
+
+        if form.is_valid():
+            with transaction.atomic():
+                updated_goal = form.save(commit=False)
+                updated_goal.user = request.user
+                updated_goal.is_primary = True
+                updated_goal.status = UserGoal.STATUS_ACTIVE
+                updated_goal.full_clean()
+                updated_goal.save()
+
+                for size in (
+                    GoalAction.SIZE_MINIMUM,
+                    GoalAction.SIZE_STANDARD,
+                    GoalAction.SIZE_DEEP,
+                ):
+                    action, _created = (
+                        GoalAction.objects.get_or_create(
+                            goal=updated_goal,
+                            size=size,
+                            defaults={
+                                "title": form.cleaned_data[
+                                    f"{size}_action_title"
+                                ],
+                                "duration_minutes": (
+                                    form.cleaned_data[
+                                        f"{size}_action_minutes"
+                                    ]
+                                ),
+                                "progress_value": (
+                                    form.cleaned_data[
+                                        f"{size}_action_progress"
+                                    ]
+                                ),
+                            },
+                        )
+                    )
+
+                    action.title = form.cleaned_data[
+                        f"{size}_action_title"
+                    ]
+                    action.duration_minutes = (
+                        form.cleaned_data[
+                            f"{size}_action_minutes"
+                        ]
+                    )
+                    action.progress_value = (
+                        form.cleaned_data[
+                            f"{size}_action_progress"
+                        ]
+                    )
+                    action.full_clean()
+                    action.save()
+
+            messages.success(
+                request,
+                "Your Goal DNA has been updated.",
+            )
+            return redirect("core:goal_dna_management")
+    else:
+        form = GoalDNAForm(
+            instance=primary_goal,
+            initial=initial,
+        )
+
+    return render(
+        request,
+        "goals/edit.html",
+        {
+            "form": form,
+            "goal": primary_goal,
+        },
+    )
+
 
 @login_required
 def goal_onboarding(request):

@@ -21,7 +21,7 @@
 
     <div class="goal-dna-top-context">
       <span aria-hidden="true">◎</span>
-      Read-only overview
+      Goal settings
     </div>
 
     <div class="top-actions">
@@ -219,13 +219,21 @@
               <p>{{ primary_goal.why_it_matters }}</p>
             </div>
 
-            <div class="goal-dna-target">
-              <span>Weekly target</span>
-              <strong>
-                {{ primary_goal.weekly_target }}
-                {{ primary_goal.progress_unit }}
-              </strong>
-              <small>Progress measured each Monday–Sunday</small>
+            <div class="goal-dna-primary-controls">
+              <div class="goal-dna-target">
+                <span>Weekly target</span>
+                <strong>
+                  {{ primary_goal.weekly_target }}
+                  {{ primary_goal.progress_unit }}
+                </strong>
+                <small>Progress measured each Monday–Sunday</small>
+              </div>
+
+              <a href="{% url 'core:goal_dna_edit' %}"
+                 class="goal-dna-edit-button">
+                Edit Goal DNA
+                <span aria-hidden="true">→</span>
+              </a>
             </div>
           </header>
 
@@ -327,13 +335,13 @@
         </section>
 
         <section class="goal-dna-readonly-note">
-          <span aria-hidden="true">◎</span>
+          <span aria-hidden="true">↻</span>
           <div>
-            <strong>Goal DNA Management Phase 1</strong>
+            <strong>Edits guide future Goal Rescue recommendations</strong>
             <p>
-              This page is currently read-only. Editing, pausing,
-              completing and changing the primary goal will be added
-              as separate verified checkpoints.
+              Updating this goal or its action ladder does not rewrite
+              completed Momentum Ledger entries. Your past progress keeps
+              the original action snapshot recorded at completion.
             </p>
           </div>
         </section>

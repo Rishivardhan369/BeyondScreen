@@ -10,6 +10,11 @@ urlpatterns = [
         views.goal_dna_management,
         name="goal_dna_management",
     ),
+    path(
+        "goals/edit/",
+        views.goal_dna_edit,
+        name="goal_dna_edit",
+    ),
     path("goals/new/", views.goal_onboarding, name="goal_onboarding"),
     path("goals/confirm/", views.goal_confirmation, name="goal_confirmation"),
     path("summary/", views.summary, name="summary"),
