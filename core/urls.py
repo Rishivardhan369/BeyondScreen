@@ -30,6 +30,16 @@ urlpatterns = [
         views.complete_primary_goal,
         name="complete_primary_goal",
     ),
+    path(
+        "goals/add/",
+        views.additional_goal_onboarding,
+        name="additional_goal_onboarding",
+    ),
+    path(
+        "goals/add/confirm/",
+        views.additional_goal_confirmation,
+        name="additional_goal_confirmation",
+    ),
     path("goals/new/", views.goal_onboarding, name="goal_onboarding"),
     path("goals/confirm/", views.goal_confirmation, name="goal_confirmation"),
     path("summary/", views.summary, name="summary"),

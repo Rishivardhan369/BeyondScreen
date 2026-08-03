@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Review Additional Goal | BeyondScreen{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/goal_dna.css' %}">
+{% endblock %}
+
+{% block content %}
+<main class="gd-page">
+    <section class="gd-shell gd-confirm-shell">
+        <div class="gd-intro">
+            <span class="gd-kicker">REVIEW YOUR ADDITIONAL GOAL</span>
+            <h1>Does this clearly describe another direction that matters?</h1>
+            <p>
+                Review it before activation. It will join your active goals
+                without replacing the primary goal that guides Goal Rescue.
+            </p>
+        </div>
+
+        <section class="gd-summary-card">
+            <div class="gd-summary-primary">
+                <span>Your additional goal</span>
+                <h2>{{ goal.title }}</h2>
+
+                <div class="gd-summary-reason">
+                    <strong>Why this matters to you</strong>
+                    <p>{{ goal.why_it_matters }}</p>
+                </div>
+            </div>
+
+            <div class="gd-summary-grid">
+                <div>
+                    <span>Your weekly aim</span>
+                    <strong>
+                        {% if goal.progress_unit == "minutes" %}
+                            Spend {{ goal.weekly_target }} minute{{ goal.weekly_target|pluralize }} on this goal each week
+                        {% elif goal.progress_unit == "sessions" %}
+                            Complete {{ goal.weekly_target }} session{{ goal.weekly_target|pluralize }} each week
+                        {% elif goal.progress_unit == "questions" %}
+                            Solve {{ goal.weekly_target }} question{{ goal.weekly_target|pluralize }} each week
+                        {% elif goal.progress_unit == "pages" %}
+                            Complete {{ goal.weekly_target }} page{{ goal.weekly_target|pluralize }} each week
+                        {% elif goal.progress_unit == "tasks" %}
+                            Complete {{ goal.weekly_target }} task{{ goal.weekly_target|pluralize }} each week
+                        {% elif goal.progress_unit == "workouts" %}
+                            Complete {{ goal.weekly_target }} workout{{ goal.weekly_target|pluralize }} each week
+                        {% else %}
+                            Complete {{ goal.weekly_target }} {{ goal.progress_unit_label|default:goal.progress_unit }} each week
+                        {% endif %}
+                    </strong>
+                </div>
+
+                <div>
+                    <span>What you are working on now</span>
+                    <strong>
+                        {{ goal.current_focus|default:"Not specified yet" }}
+                    </strong>
+                </div>
+
+                <div>
+                    <span>When you prefer to work</span>
+                    <strong>{{ goal.preferred_time_display }}</strong>
+                </div>
+
+                <div>
+                    <span>Your deadline</span>
+                    <strong>{{ goal.deadline_display }}</strong>
+                </div>
+            </div>
+        </section>
+
+        <section class="gd-panel">
+            <div class="gd-panel-heading">
+                <span>03</span>
+                <div>
+                    <h2>Three ways to move the same goal forward</h2>
+                    <p>
+                        BeyondScreen will later choose the version that fits
+                        your available time and energy.
+                    </p>
+                </div>
+            </div>
+
+            <div class="gd-action-grid">
+                {% for size, action in goal.actions.items %}
+                <article class="gd-action-card{% if size == 'standard' %} gd-action-card-featured{% endif %}">
+                    {% if size == "minimum" %}
+                        <span class="gd-action-badge">Small Step</span>
+                        <h3>For a difficult or busy day</h3>
+                    {% elif size == "standard" %}
+                        <span class="gd-action-badge">Regular Step</span>
+                        <h3>For a normal day</h3>
+                    {% else %}
+                        <span class="gd-action-badge">Bigger Step</span>
+                        <h3>When you have more time and energy</h3>
+                    {% endif %}
+
+                    <p class="gd-action-title">{{ action.title }}</p>
+
+                    <dl class="gd-action-details">
+                        <div>
+                            <dt>Time needed</dt>
+                            <dd>
+                                {{ action.duration_minutes }}
+                                minute{{ action.duration_minutes|pluralize }}
+                            </dd>
+                        </div>
+
+                        <div>
+                            <dt>Progress made</dt>
+                            <dd>
+                                {% if goal.progress_unit == "minutes" %}
+                                    {{ action.progress_value }}
+                                    minute{{ action.progress_value|pluralize }}
+                                    focused on your goal
+                                {% elif goal.progress_unit == "sessions" %}
+                                    One completed session
+                                {% elif goal.progress_unit == "questions" %}
+                                    {{ action.progress_value }}
+                                    question{{ action.progress_value|pluralize }}
+                                    solved
+                                {% elif goal.progress_unit == "pages" %}
+                                    {{ action.progress_value }}
+                                    page{{ action.progress_value|pluralize }}
+                                    completed
+                                {% elif goal.progress_unit == "tasks" %}
+                                    {{ action.progress_value }}
+                                    task{{ action.progress_value|pluralize }}
+                                    completed
+                                {% elif goal.progress_unit == "workouts" %}
+                                    {{ action.progress_value }}
+                                    workout{{ action.progress_value|pluralize }}
+                                    completed
+                                {% else %}
+                                    {{ action.progress_value }}
+                                    {{ goal.progress_unit_label|default:goal.progress_unit }}
+                                {% endif %}
+                            </dd>
+                        </div>
+                    </dl>
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+        <div class="gd-confirm-actions">
+            <a href="{% url 'core:additional_goal_onboarding' %}"
+               class="gd-secondary-button">
+                Go Back and Edit
+            </a>
+
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="gd-primary-button">
+                    Activate Additional Goal
+                </button>
+            </form>
+        </div>
+    </section>
+</main>
+{% endblock %}

@@ -242,7 +242,11 @@
       </div>
 
             <div class="bs-hero-opportunity" id="goal-rescue">
-                <h2>Your Goal DNA</h2>
+                <h2>Primary Goal DNA</h2>
+                <p class="bs-goal-rescue-scope">
+                  <strong>Primary-only:</strong>
+                  additional active goals do not guide this recommendation.
+                </p>
 
                 {% with rescue=dashboard_summary.goal_rescue %}
                   {% if rescue.status == "ready" %}
@@ -591,6 +595,7 @@
                   completed toward a weekly target of
                   {{ momentum_summary.weekly_target }}
                   {{ momentum_summary.progress_unit }}.
+                  This percentage tracks the active primary goal only.
                 </p>
               </article>
             {% endif %}

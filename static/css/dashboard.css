@@ -3418,3 +3418,16 @@ footer {
     justify-content: center;
   }
 }
+
+/* ADDITIONAL_GOALS_PRIMARY_SCOPE_CLARITY */
+
+.bs-goal-rescue-scope {
+  margin: 5px 0 13px;
+  color: #7f8ea0;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.bs-goal-rescue-scope strong {
+  color: var(--dashboard-teal);
+}

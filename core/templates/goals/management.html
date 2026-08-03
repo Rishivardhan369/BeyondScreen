@@ -423,6 +423,189 @@
         {% endif %}
       {% endif %}
 
+      {% if additional_goals %}
+        <section class="goal-dna-additional">
+          <header class="goal-dna-section-heading">
+            <div>
+              <span class="goal-dna-section-kicker">ADDITIONAL ACTIVE GOALS</span>
+              <h2>Other directions you are actively building</h2>
+              <p>
+                These goals are active and fully configured, but only
+                the primary goal above currently guides Goal Rescue
+                recommendations and weekly primary-goal progress.
+              </p>
+            </div>
+
+            <span class="goal-dna-action-count">
+              {{ additional_goals|length }} additional active
+            </span>
+          </header>
+
+          <div class="goal-dna-additional-stack">
+            {% for goal in additional_goals %}
+              <details class="goal-dna-additional-card">
+                <summary>
+                  <div class="goal-dna-additional-summary-copy">
+                    <div class="goal-dna-additional-status-row">
+                      <span>ACTIVE · NOT GUIDING GOAL RESCUE</span>
+                      <b>{{ goal.configured_action_count }}/3 steps</b>
+                    </div>
+
+                    <h3>{{ goal.title }}</h3>
+                    <p>{{ goal.why_it_matters|truncatewords:28 }}</p>
+
+                    <div class="goal-dna-additional-summary-meta">
+                      <span>
+                        Weekly target:
+                        <strong>{{ goal.weekly_target }} {{ goal.progress_unit }}</strong>
+                      </span>
+                      <span>
+                        Focus:
+                        <strong>{{ goal.current_focus|default:"No specific focus set" }}</strong>
+                      </span>
+                    </div>
+                  </div>
+
+                  <span class="goal-dna-details-toggle">
+                    <b>View Goal DNA</b>
+                    <i aria-hidden="true">⌄</i>
+                  </span>
+                </summary>
+
+                <div class="goal-dna-additional-details">
+                  <div class="goal-dna-additional-scope-note">
+                    <span aria-hidden="true">◎</span>
+                    <p>
+                      This goal is active and preserved as complete Goal DNA.
+                      It does not guide Goal Rescue until a later
+                      primary-goal switching feature makes it primary.
+                    </p>
+                  </div>
+
+                  <div class="goal-dna-additional-detail-grid">
+                    <article>
+                      <span>Current focus</span>
+                      <strong>{{ goal.current_focus|default:"No specific focus set" }}</strong>
+                    </article>
+
+                    <article>
+                      <span>Preferred days</span>
+                      <strong>
+                        {% if goal.preferred_days %}
+                          {{ goal.preferred_days|join:", " }}
+                        {% else %}
+                          Any day that works
+                        {% endif %}
+                      </strong>
+                    </article>
+
+                    <article>
+                      <span>Preferred time</span>
+                      <strong>
+                        {% if goal.preferred_time %}
+                          {{ goal.preferred_time|time:"g:i A" }}
+                        {% else %}
+                          Any time that works
+                        {% endif %}
+                      </strong>
+                    </article>
+
+                    <article>
+                      <span>Deadline</span>
+                      <strong>
+                        {% if goal.deadline %}
+                          {{ goal.deadline|date:"M d, Y" }}
+                        {% else %}
+                          No deadline
+                        {% endif %}
+                      </strong>
+                    </article>
+                  </div>
+
+                  <div class="goal-dna-additional-ladder-heading">
+                    <div>
+                      <span>ACTION LADDER</span>
+                      <h4>Three ways to move this goal forward</h4>
+                    </div>
+                    <small>Read-only in this phase</small>
+                  </div>
+
+                  <div class="goal-dna-additional-action-grid">
+                    {% for action in goal.actions %}
+                      <article class="goal-dna-additional-action goal-dna-additional-action-{{ action.tone }}">
+                        <div class="goal-dna-additional-action-topline">
+                          <span>{{ action.number }}</span>
+                          <div>
+                            <strong>{{ action.label }}</strong>
+                            <small>{{ action.context }}</small>
+                          </div>
+                        </div>
+
+                        {% if action.is_configured %}
+                          <h5>{{ action.title }}</h5>
+
+                          <div class="goal-dna-additional-action-metrics">
+                            <div>
+                              <span>Time needed</span>
+                              <strong>
+                                {{ action.duration_minutes }}
+                                minute{{ action.duration_minutes|pluralize }}
+                              </strong>
+                            </div>
+                            <div>
+                              <span>Goal progress</span>
+                              <strong>{{ action.progress_display }}</strong>
+                            </div>
+                          </div>
+                        {% else %}
+                          <p class="goal-dna-additional-action-missing">
+                            This action step has not been configured.
+                          </p>
+                        {% endif %}
+                      </article>
+                    {% endfor %}
+                  </div>
+
+                  <div class="goal-dna-additional-readonly-note">
+                    No edit, pause, complete, delete or make-primary control
+                    is included in Additional Goals Phase 1.
+                  </div>
+                </div>
+              </details>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+
+      {% if primary_goal and available_goal_slots > 0 %}
+        <section class="goal-dna-add-launch">
+          <div class="goal-dna-add-launch-copy">
+            <span>EXPAND YOUR GOAL DNA</span>
+            <h2>Add another direction without replacing your primary goal</h2>
+            <p>
+              Create a complete three-step action ladder for another
+              active goal. Your current primary goal will continue to
+              guide Goal Rescue.
+            </p>
+          </div>
+
+          <a href="{% url 'core:additional_goal_onboarding' %}"
+             class="goal-dna-add-button">
+            Add Another Goal
+            <span aria-hidden="true">→</span>
+          </a>
+        </section>
+      {% elif primary_goal and active_goal_count >= 3 %}
+        <div class="goal-dna-additional-limit">
+          <span aria-hidden="true">3</span>
+          <p>
+            All three active goal slots are in use. This phase does not
+            add goal switching, pausing, completion or deletion controls
+            for additional goals.
+          </p>
+        </div>
+      {% endif %}
+
       {% if paused_goals %}
         <section class="goal-dna-paused">
           <header class="goal-dna-section-heading">
@@ -534,41 +717,6 @@
         </section>
       {% endif %}
 
-      {% if additional_goals %}
-        <section class="goal-dna-additional">
-          <header class="goal-dna-section-heading">
-            <div>
-              <span class="goal-dna-section-kicker">ADDITIONAL ACTIVE GOALS</span>
-              <h2>Other directions you are building</h2>
-              <p>
-                These goals remain active but do not currently guide
-                the primary Goal Rescue recommendation.
-              </p>
-            </div>
-          </header>
-
-          <div class="goal-dna-additional-grid">
-            {% for goal in additional_goals %}
-              <article>
-                <div class="goal-dna-additional-topline">
-                  <span>ACTIVE GOAL</span>
-                  <b>{{ goal.configured_action_count }}/3 steps</b>
-                </div>
-
-                <h3>{{ goal.title }}</h3>
-                <p>{{ goal.why_it_matters|truncatewords:25 }}</p>
-
-                <div class="goal-dna-additional-footer">
-                  <span>Weekly target</span>
-                  <strong>
-                    {{ goal.weekly_target }} {{ goal.progress_unit }}
-                  </strong>
-                </div>
-              </article>
-            {% endfor %}
-          </div>
-        </section>
-      {% endif %}
     </div>
   </main>
 </div>

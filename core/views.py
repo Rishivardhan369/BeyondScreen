@@ -572,6 +572,232 @@ def complete_primary_goal(request, goal_id):
 
 
 @login_required
+def additional_goal_onboarding(request):
+    active_goals = UserGoal.objects.filter(
+        user=request.user,
+        status=UserGoal.STATUS_ACTIVE,
+    )
+
+    if not active_goals.filter(is_primary=True).exists():
+        messages.info(
+            request,
+            "Create an active primary goal before adding another goal.",
+        )
+        return redirect("core:goal_onboarding")
+
+    active_goal_count = active_goals.count()
+
+    if active_goal_count >= 3:
+        messages.info(
+            request,
+            "You already have three active goals.",
+        )
+        return redirect("core:goal_dna_management")
+
+    if request.method == "POST":
+        form = GoalDNAForm(request.POST)
+
+        if form.is_valid():
+            request.session["pending_additional_goal_dna"] = (
+                form.to_session_data()
+            )
+            return redirect(
+                "core:additional_goal_confirmation"
+            )
+    else:
+        form = GoalDNAForm()
+
+    return render(
+        request,
+        "goals/additional_onboarding.html",
+        {
+            "form": form,
+            "available_goal_slots": max(
+                0,
+                3 - active_goal_count,
+            ),
+        },
+    )
+
+
+@login_required
+def additional_goal_confirmation(request):
+    pending_goal = request.session.get(
+        "pending_additional_goal_dna"
+    )
+
+    if not pending_goal:
+        messages.info(
+            request,
+            "Add an additional goal before confirming it.",
+        )
+        return redirect(
+            "core:additional_goal_onboarding"
+        )
+
+    if request.method == "POST":
+        from django.core.exceptions import ValidationError
+
+        try:
+            with transaction.atomic():
+                active_goals = (
+                    UserGoal.objects.select_for_update()
+                    .filter(
+                        user=request.user,
+                        status=UserGoal.STATUS_ACTIVE,
+                    )
+                )
+
+                if not active_goals.filter(
+                    is_primary=True
+                ).exists():
+                    request.session.pop(
+                        "pending_additional_goal_dna",
+                        None,
+                    )
+                    messages.info(
+                        request,
+                        (
+                            "Create an active primary goal before "
+                            "adding another goal."
+                        ),
+                    )
+                    return redirect("core:goal_onboarding")
+
+                if active_goals.count() >= 3:
+                    request.session.pop(
+                        "pending_additional_goal_dna",
+                        None,
+                    )
+                    messages.info(
+                        request,
+                        "You already have three active goals.",
+                    )
+                    return redirect(
+                        "core:goal_dna_management"
+                    )
+
+                goal = UserGoal(
+                    user=request.user,
+                    title=pending_goal["title"],
+                    why_it_matters=pending_goal[
+                        "why_it_matters"
+                    ],
+                    current_focus=pending_goal.get(
+                        "current_focus",
+                        "",
+                    ),
+                    progress_unit=pending_goal[
+                        "progress_unit"
+                    ],
+                    weekly_target=pending_goal[
+                        "weekly_target"
+                    ],
+                    preferred_days=pending_goal.get(
+                        "preferred_days",
+                        [],
+                    ),
+                    preferred_time=(
+                        time.fromisoformat(
+                            pending_goal["preferred_time"]
+                        )
+                        if pending_goal.get("preferred_time")
+                        else None
+                    ),
+                    deadline=(
+                        date.fromisoformat(
+                            pending_goal["deadline"]
+                        )
+                        if pending_goal.get("deadline")
+                        else None
+                    ),
+                    is_primary=False,
+                    status=UserGoal.STATUS_ACTIVE,
+                )
+                goal.full_clean()
+                goal.save()
+
+                for size in (
+                    GoalAction.SIZE_MINIMUM,
+                    GoalAction.SIZE_STANDARD,
+                    GoalAction.SIZE_DEEP,
+                ):
+                    action_data = pending_goal["actions"][
+                        size
+                    ]
+                    action = GoalAction(
+                        goal=goal,
+                        size=size,
+                        title=action_data["title"],
+                        duration_minutes=action_data[
+                            "duration_minutes"
+                        ],
+                        progress_value=action_data[
+                            "progress_value"
+                        ],
+                    )
+                    action.full_clean()
+                    action.save()
+
+        except ValidationError:
+            messages.error(
+                request,
+                (
+                    "This additional goal could not be activated. "
+                    "Review your active-goal limit and try again."
+                ),
+            )
+            return redirect(
+                "core:goal_dna_management"
+            )
+
+        request.session.pop(
+            "pending_additional_goal_dna",
+            None,
+        )
+        messages.success(
+            request,
+            "Your additional goal is now active.",
+        )
+        return redirect("core:goal_dna_management")
+
+    display_goal = pending_goal.copy()
+
+    preferred_time = pending_goal.get("preferred_time")
+
+    if preferred_time:
+        parsed_time = time.fromisoformat(preferred_time)
+        display_goal["preferred_time_display"] = (
+            parsed_time.strftime("%I:%M %p").lstrip("0")
+        )
+    else:
+        display_goal["preferred_time_display"] = (
+            "Any time that works"
+        )
+
+    deadline = pending_goal.get("deadline")
+
+    if deadline:
+        parsed_deadline = date.fromisoformat(deadline)
+        display_goal["deadline_display"] = (
+            f"{parsed_deadline.day} "
+            f"{parsed_deadline.strftime('%B %Y')}"
+        )
+    else:
+        display_goal["deadline_display"] = (
+            "No deadline selected"
+        )
+
+    return render(
+        request,
+        "goals/additional_confirmation.html",
+        {
+            "goal": display_goal,
+        },
+    )
+
+
+@login_required
 def goal_onboarding(request):
     existing_primary = UserGoal.objects.filter(
         user=request.user,

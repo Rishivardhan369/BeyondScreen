@@ -1349,3 +1349,492 @@
     width: 100%;
   }
 }
+
+/* ADDITIONAL_GOALS_PHASE_ONE */
+
+.goal-dna-add-launch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  margin-top: 16px;
+  padding: 24px;
+  background:
+    radial-gradient(
+      circle at 12% 30%,
+      rgba(57, 221, 213, 0.07),
+      transparent 28%
+    ),
+    linear-gradient(
+      140deg,
+      rgba(15, 31, 44, 0.98),
+      rgba(7, 18, 29, 0.98)
+    );
+  border: 1px solid rgba(57, 221, 213, 0.14);
+  border-radius: 20px;
+}
+
+.goal-dna-add-launch-copy > span {
+  color: var(--goal-dna-teal);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.goal-dna-add-launch-copy h2 {
+  margin: 8px 0 7px;
+  color: var(--goal-dna-text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 25px;
+  font-weight: 500;
+}
+
+.goal-dna-add-launch-copy p {
+  max-width: 670px;
+  margin: 0;
+  color: var(--goal-dna-muted);
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.goal-dna-add-button {
+  display: inline-flex;
+  min-height: 43px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 17px;
+  color: #06191a;
+  background: var(--goal-dna-teal);
+  border: 1px solid rgba(155, 255, 249, 0.42);
+  border-radius: 11px;
+  box-shadow: 0 12px 30px rgba(57, 221, 213, 0.11);
+  font-size: 10px;
+  font-weight: 800;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.goal-dna-add-button:hover {
+  transform: translateY(-1px);
+}
+
+.goal-dna-additional-limit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 15px 18px;
+  color: #9aa8b6;
+  background: rgba(255, 255, 255, 0.022);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 13px;
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.goal-dna-additional-limit > span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  color: var(--goal-dna-gold);
+  background: rgba(239, 174, 67, 0.07);
+  border: 1px solid rgba(239, 174, 67, 0.16);
+  border-radius: 50%;
+  font-weight: 800;
+}
+
+@media (max-width: 760px) {
+  .goal-dna-add-launch {
+    grid-template-columns: 1fr;
+  }
+
+  .goal-dna-add-button {
+    width: 100%;
+  }
+}
+
+/* ADDITIONAL_GOALS_PHASE_ONE_UI_CORRECTION */
+
+.goal-dna-additional {
+  padding: 25px;
+  background:
+    radial-gradient(circle at 88% 5%, rgba(57, 221, 213, 0.055), transparent 25%),
+    linear-gradient(145deg, rgba(10, 25, 38, 0.99), rgba(6, 17, 28, 0.99));
+  border: 1px solid rgba(57, 221, 213, 0.14);
+  border-radius: 20px;
+}
+
+.goal-dna-additional-stack {
+  display: grid;
+  gap: 14px;
+  margin-top: 21px;
+}
+
+.goal-dna-additional-card {
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    rgba(57, 221, 213, 0.038),
+    rgba(255, 255, 255, 0.014)
+  );
+  border: 1px solid rgba(57, 221, 213, 0.12);
+  border-radius: 17px;
+}
+
+.goal-dna-additional-card[open] {
+  border-color: rgba(57, 221, 213, 0.23);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.16);
+}
+
+.goal-dna-additional-card > summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 22px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.goal-dna-additional-card > summary::-webkit-details-marker {
+  display: none;
+}
+
+.goal-dna-additional-card > summary::marker {
+  content: "";
+}
+
+.goal-dna-additional-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.goal-dna-additional-status-row > span {
+  color: var(--goal-dna-teal);
+  font-size: 8px;
+  font-weight: 820;
+  letter-spacing: 0.11em;
+}
+
+.goal-dna-additional-status-row > b {
+  padding: 6px 9px;
+  color: #a9b6c3;
+  background: rgba(4, 15, 24, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 999px;
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.goal-dna-additional-summary-copy h3 {
+  margin: 10px 0 6px;
+  color: #f6f9fa;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.goal-dna-additional-summary-copy > p {
+  max-width: 790px;
+  margin: 0;
+  color: #8f9dac;
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.goal-dna-additional-summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.goal-dna-additional-summary-meta > span {
+  padding: 7px 10px;
+  color: #8896a5;
+  background: rgba(4, 14, 23, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  font-size: 8px;
+}
+
+.goal-dna-additional-summary-meta strong {
+  color: #c7d2dc;
+}
+
+.goal-dna-details-toggle {
+  display: inline-flex;
+  min-width: 132px;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--goal-dna-teal);
+  background: rgba(57, 221, 213, 0.055);
+  border: 1px solid rgba(57, 221, 213, 0.16);
+  border-radius: 10px;
+  font-size: 9px;
+}
+
+.goal-dna-details-toggle i {
+  font-size: 14px;
+  font-style: normal;
+  transition: transform 180ms ease;
+}
+
+.goal-dna-additional-card[open] .goal-dna-details-toggle i {
+  transform: rotate(180deg);
+}
+
+.goal-dna-additional-details {
+  padding: 0 22px 22px;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.goal-dna-additional-scope-note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 14px 15px;
+  color: #93a1af;
+  background: rgba(57, 221, 213, 0.035);
+  border: 1px solid rgba(57, 221, 213, 0.1);
+  border-radius: 12px;
+}
+
+.goal-dna-additional-scope-note > span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  color: var(--goal-dna-teal);
+  background: rgba(57, 221, 213, 0.07);
+  border: 1px solid rgba(57, 221, 213, 0.14);
+  border-radius: 50%;
+}
+
+.goal-dna-additional-scope-note p {
+  margin: 0;
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.goal-dna-additional-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.goal-dna-additional-detail-grid > article {
+  padding: 14px;
+  background: rgba(4, 15, 24, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 11px;
+}
+
+.goal-dna-additional-detail-grid span,
+.goal-dna-additional-detail-grid strong {
+  display: block;
+}
+
+.goal-dna-additional-detail-grid span {
+  color: #6f7d8d;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.goal-dna-additional-detail-grid strong {
+  margin-top: 7px;
+  overflow-wrap: anywhere;
+  color: #dbe3e8;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.goal-dna-additional-ladder-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 23px;
+}
+
+.goal-dna-additional-ladder-heading span {
+  color: var(--goal-dna-gold);
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+}
+
+.goal-dna-additional-ladder-heading h4 {
+  margin: 7px 0 0;
+  color: #f1f5f7;
+  font-size: 16px;
+}
+
+.goal-dna-additional-ladder-heading small {
+  color: #718091;
+  font-size: 8px;
+}
+
+.goal-dna-additional-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.goal-dna-additional-action {
+  display: flex;
+  min-height: 215px;
+  min-width: 0;
+  flex-direction: column;
+  padding: 17px;
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.027),
+    rgba(255, 255, 255, 0.009)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+}
+
+.goal-dna-additional-action-small {
+  border-top-color: rgba(57, 221, 213, 0.37);
+}
+
+.goal-dna-additional-action-regular {
+  border-top-color: rgba(239, 174, 67, 0.42);
+}
+
+.goal-dna-additional-action-bigger {
+  border-top-color: rgba(216, 117, 232, 0.4);
+}
+
+.goal-dna-additional-action-topline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.goal-dna-additional-action-topline > span {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  color: var(--goal-dna-gold);
+  background: rgba(239, 174, 67, 0.065);
+  border: 1px solid rgba(239, 174, 67, 0.15);
+  border-radius: 10px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.goal-dna-additional-action-topline strong,
+.goal-dna-additional-action-topline small {
+  display: block;
+}
+
+.goal-dna-additional-action-topline strong {
+  color: #e6ecef;
+  font-size: 10px;
+}
+
+.goal-dna-additional-action-topline small {
+  margin-top: 3px;
+  color: #718091;
+  font-size: 7px;
+}
+
+.goal-dna-additional-action h5 {
+  margin: 20px 0;
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.goal-dna-additional-action-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: auto;
+}
+
+.goal-dna-additional-action-metrics > div {
+  padding: 10px;
+  background: rgba(3, 13, 22, 0.56);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 9px;
+}
+
+.goal-dna-additional-action-metrics span,
+.goal-dna-additional-action-metrics strong {
+  display: block;
+}
+
+.goal-dna-additional-action-metrics span {
+  color: #687687;
+  font-size: 7px;
+  text-transform: uppercase;
+}
+
+.goal-dna-additional-action-metrics strong {
+  margin-top: 6px;
+  color: #cbd5dc;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.goal-dna-additional-readonly-note {
+  margin-top: 15px;
+  padding: 11px 13px;
+  color: #748292;
+  background: rgba(255, 255, 255, 0.018);
+  border: 1px solid rgba(255, 255, 255, 0.055);
+  border-radius: 10px;
+  font-size: 8px;
+  text-align: center;
+}
+
+@media (max-width: 980px) {
+  .goal-dna-additional-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .goal-dna-additional-action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .goal-dna-additional-action {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .goal-dna-additional-card > summary {
+    grid-template-columns: 1fr;
+  }
+
+  .goal-dna-details-toggle {
+    width: 100%;
+  }
+
+  .goal-dna-additional-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .goal-dna-additional-ladder-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
