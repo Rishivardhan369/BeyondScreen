@@ -1058,6 +1058,36 @@ def history(request):
 
         return f"{remaining_minutes}m"
 
+    def compact_number(value):
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            return "0"
+
+        if number.is_integer():
+            return str(int(number))
+
+        return f"{number:.2f}".rstrip("0").rstrip(".")
+
+    action_size_labels = {
+        GoalAction.SIZE_MINIMUM: "Small Step",
+        GoalAction.SIZE_STANDARD: "Regular Step",
+        GoalAction.SIZE_DEEP: "Bigger Step",
+    }
+
+    momentum_entries = MomentumEntry.objects.filter(
+        user=request.user,
+        digital_summary__in=summaries,
+    ).select_related(
+        "goal",
+        "digital_summary",
+    )
+
+    momentum_by_summary_id = {
+        entry.digital_summary_id: entry
+        for entry in momentum_entries
+    }
+
     history_reports = []
 
     for summary_item in summaries:
@@ -1072,6 +1102,37 @@ def history(request):
             wellness_tone = "steady"
         else:
             wellness_tone = "attention"
+
+        momentum_entry = momentum_by_summary_id.get(
+            summary_item.id
+        )
+
+        if momentum_entry is not None:
+            momentum = {
+                "is_completed": True,
+                "completed_at": momentum_entry.completed_at,
+                "action_title": momentum_entry.action_title,
+                "action_size_label": action_size_labels.get(
+                    momentum_entry.action_size,
+                    "Goal Step",
+                ),
+                "duration_minutes": (
+                    momentum_entry.duration_minutes
+                ),
+                "progress_display": (
+                    f"{compact_number(momentum_entry.progress_value)} "
+                    f"{momentum_entry.progress_unit}"
+                ).strip(),
+                "goal_title": (
+                    momentum_entry.goal.title
+                    if momentum_entry.goal is not None
+                    else "Previous goal"
+                ),
+            }
+        else:
+            momentum = {
+                "is_completed": False,
+            }
 
         history_reports.append(
             {
@@ -1088,6 +1149,7 @@ def history(request):
                     request.user,
                     summary_item.screen_time_minutes,
                 ),
+                "momentum": momentum,
             }
         )
 
@@ -1114,6 +1176,7 @@ def history(request):
     }
 
     return render(request, "history.html", context)
+
 
 @login_required
 def postcard_history(request):
@@ -1235,15 +1298,80 @@ def view_summary(request, summary_id):
         int(summary.screen_time_minutes or 0),
     )
 
+    goal_rescue = build_goal_rescue(
+        request.user,
+        screen_time_minutes,
+    )
+
+    momentum_entry = (
+        MomentumEntry.objects.filter(
+            user=request.user,
+            digital_summary=summary,
+        )
+        .select_related("goal")
+        .first()
+    )
+
+    momentum_completion = None
+
+    if momentum_entry is not None:
+        action_size_labels = {
+            GoalAction.SIZE_MINIMUM: "Small Step",
+            GoalAction.SIZE_STANDARD: "Regular Step",
+            GoalAction.SIZE_DEEP: "Bigger Step",
+        }
+
+        try:
+            progress_number = float(
+                momentum_entry.progress_value
+            )
+        except (TypeError, ValueError):
+            progress_display_value = "0"
+        else:
+            if progress_number.is_integer():
+                progress_display_value = str(
+                    int(progress_number)
+                )
+            else:
+                progress_display_value = (
+                    f"{progress_number:.2f}"
+                    .rstrip("0")
+                    .rstrip(".")
+                )
+
+        momentum_completion = {
+            "completed_at": momentum_entry.completed_at,
+            "action_title": momentum_entry.action_title,
+            "action_size_label": action_size_labels.get(
+                momentum_entry.action_size,
+                "Goal Step",
+            ),
+            "duration_minutes": (
+                momentum_entry.duration_minutes
+            ),
+            "progress_display": (
+                f"{progress_display_value} "
+                f"{momentum_entry.progress_unit}"
+            ).strip(),
+            "goal_title": (
+                momentum_entry.goal.title
+                if momentum_entry.goal is not None
+                else "Previous goal"
+            ),
+        }
+
+        goal_rescue["is_completed"] = True
+        goal_rescue["completed_at"] = (
+            momentum_entry.completed_at
+        )
+
     context = {
         "summary": summary,
         "total_screen_time": format_screen_time(
             screen_time_minutes,
         ),
-        "goal_rescue": build_goal_rescue(
-            request.user,
-            screen_time_minutes,
-        ),
+        "goal_rescue": goal_rescue,
+        "momentum_completion": momentum_completion,
     }
 
     return render(
@@ -1251,6 +1379,7 @@ def view_summary(request, summary_id):
         "view_summary.html",
         context,
     )
+
 
 @login_required
 def download_postcard_by_id(request, postcard_id, file_format):

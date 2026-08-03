@@ -113,7 +113,7 @@
         <span>Today's Focus</span>
       </a>
 
-      <a href="{% url 'core:dashboard' %}#weekly-progress" class="sidebar-link">
+      <a href="{% url 'core:dashboard' %}#momentum-ledger" class="sidebar-link">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M4 19V9"></path>
           <path d="M10 19V5"></path>
@@ -348,48 +348,77 @@
                       <time>{{ report.created_at|date:"g:i A" }}</time>
                     </div>
 
-                    <span class="history-wellness history-wellness-{{ report.wellness_tone }}">
-                      {{ report.wellness_score }}/100
-                    </span>
+                    <div class="history-report-statuses">
+                      {% if report.momentum.is_completed %}
+                        <span class="history-momentum-badge history-momentum-completed">
+                          ✓ Completed
+                        </span>
+                      {% else %}
+                        <span class="history-momentum-badge history-momentum-pending">
+                          Not completed
+                        </span>
+                      {% endif %}
+
+                      <span class="history-wellness history-wellness-{{ report.wellness_tone }}">
+                        {{ report.wellness_score }}/100
+                      </span>
+                    </div>
                   </div>
 
                   <h3>{{ report.screen_time }} of screen time</h3>
                   <p>{{ report.insight|truncatewords:24 }}</p>
 
-                                    <div class="opportunity-summary" style="margin-top: 8px; font-size: 0.9rem; display: flex; flex-wrap: wrap; gap: 8px;">
-                    {% with rescue=report.goal_rescue %}
-                      {% if rescue.status == "ready" %}
-                        <div class="opportunity-item" style="display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 12px;">
-                          <span class="opportunity-icon">🎯</span>
-                          <span class="opportunity-label">
-                            {{ rescue.action_size_label }}: {{ rescue.action_title }}
-                          </span>
-                        </div>
+                  <div class="history-rescue-summary">
+                    {% if report.momentum.is_completed %}
+                      <span class="history-rescue-chip history-rescue-chip-completed">
+                        <b>✓</b>
+                        {{ report.momentum.action_size_label }}:
+                        {{ report.momentum.action_title }}
+                      </span>
 
-                        <div class="opportunity-item" style="display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 12px;">
-                          <span class="opportunity-icon">⏱</span>
-                          <span class="opportunity-label">
+                      <span class="history-rescue-chip">
+                        <b>↗</b>
+                        {{ report.momentum.progress_display }}
+                      </span>
+
+                      <span class="history-rescue-chip">
+                        <b>◷</b>
+                        {{ report.momentum.duration_minutes }}
+                        minute{{ report.momentum.duration_minutes|pluralize }}
+                      </span>
+
+                      <span class="history-rescue-chip">
+                        Completed
+                        {{ report.momentum.completed_at|date:"M d, Y" }}
+                      </span>
+                    {% else %}
+                      {% with rescue=report.goal_rescue %}
+                        {% if rescue.status == "ready" %}
+                          <span class="history-rescue-chip">
+                            <b>◎</b>
+                            {{ rescue.action_size_label }}:
+                            {{ rescue.action_title }}
+                          </span>
+
+                          <span class="history-rescue-chip">
+                            <b>◷</b>
                             {{ rescue.action_minutes }}
                             minute{{ rescue.action_minutes|pluralize }}
                           </span>
-                        </div>
 
-                        <div class="opportunity-item" style="display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 12px;">
-                          <span class="opportunity-icon">↗</span>
-                          <span class="opportunity-label">
+                          <span class="history-rescue-chip">
+                            <b>↗</b>
                             {{ rescue.progress_phrase }}
                           </span>
-                        </div>
 
-                      {% elif rescue.status == "no_goal" %}
-                        <div class="opportunity-item" style="display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 12px;">
-                          <span class="opportunity-icon">◎</span>
-                          <span class="opportunity-label">
-                            Create a primary goal to receive Goal Rescue recommendations.
+                        {% elif rescue.status == "no_goal" %}
+                          <span class="history-rescue-chip">
+                            <b>◎</b>
+                            Create a primary goal to receive Goal Rescue.
                           </span>
-                        </div>
-                      {% endif %}
-                    {% endwith %}
+                        {% endif %}
+                      {% endwith %}
+                    {% endif %}
                   </div>
                 </div>
 

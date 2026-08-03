@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --history-gold: #efae43;
   --history-teal: #39ddd5;
   --history-blue: #7f9ff4;
@@ -939,4 +939,88 @@
 
 .history-report-action {
   color: #aab5c2;
+}
+
+/* MOMENTUM_LEDGER_HISTORY_PHASE_THREE */
+
+.history-report-statuses {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.history-momentum-badge {
+  display: inline-flex;
+  min-height: 27px;
+  align-items: center;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.history-momentum-completed {
+  color: var(--history-teal);
+  background: rgba(57, 221, 213, 0.075);
+  border: 1px solid rgba(57, 221, 213, 0.2);
+}
+
+.history-momentum-pending {
+  color: #8e9bab;
+  background: rgba(255, 255, 255, 0.028);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+}
+
+.history-rescue-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 11px;
+}
+
+.history-rescue-chip {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  color: #a2afbd;
+  background: rgba(255, 255, 255, 0.028);
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 999px;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.history-rescue-chip b {
+  color: var(--history-gold);
+  font-weight: 700;
+}
+
+.history-rescue-chip-completed {
+  color: #c9f7f2;
+  background: rgba(57, 221, 213, 0.06);
+  border-color: rgba(57, 221, 213, 0.16);
+}
+
+.history-rescue-chip-completed b {
+  color: var(--history-teal);
+}
+
+@media (max-width: 760px) {
+  .history-report-statuses {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .history-rescue-chip:nth-child(n + 3) {
+    display: none;
+  }
 }

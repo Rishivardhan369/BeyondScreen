@@ -92,9 +92,15 @@ Digital Wellness & Goal Rescue · {{ summary.created_at|date:"M d, Y" }} · Beyo
                             </p>
                         </div>
 
-                        <span class="historical-pending-badge">
-                            RECOMMENDATION ONLY
-                        </span>
+                        {% if momentum_completion %}
+                            <span class="historical-completed-badge">
+                                ✓ COMPLETED
+                            </span>
+                        {% else %}
+                            <span class="historical-pending-badge">
+                                RECOMMENDATION ONLY
+                            </span>
+                        {% endif %}
                     </div>
 
                     <div class="historical-rescue-highlight">
@@ -160,6 +166,66 @@ Digital Wellness & Goal Rescue · {{ summary.created_at|date:"M d, Y" }} · Beyo
                     </div>
                 {% endif %}
             </section>
+
+
+            {% if momentum_completion %}
+                <section class="historical-completion-card"
+                         aria-labelledby="historical-completion-title">
+                    <div class="historical-completion-icon"
+                         aria-hidden="true">
+                        ✓
+                    </div>
+
+                    <div class="historical-completion-copy">
+                        <span>MOMENTUM LEDGER</span>
+                        <h2 id="historical-completion-title">
+                            Added to your completed progress
+                        </h2>
+                        <p>
+                            You confirmed this Goal Rescue action on
+                            {{ momentum_completion.completed_at|date:"F d, Y" }}
+                            at
+                            {{ momentum_completion.completed_at|date:"g:i A" }}.
+                        </p>
+                    </div>
+
+                    <div class="historical-completion-details">
+                        <div>
+                            <span>Completed action</span>
+                            <strong>
+                                {{ momentum_completion.action_size_label }} ·
+                                {{ momentum_completion.action_title }}
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>Goal progress</span>
+                            <strong>
+                                {{ momentum_completion.progress_display }}
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>Reclaimed time</span>
+                            <strong>
+                                {{ momentum_completion.duration_minutes }}
+                                minute{{ momentum_completion.duration_minutes|pluralize }}
+                            </strong>
+                        </div>
+                    </div>
+                </section>
+            {% else %}
+                <section class="historical-unfinished-note">
+                    <span aria-hidden="true">◎</span>
+                    <div>
+                        <strong>Not completed</strong>
+                        <p>
+                            This report preserved a Goal Rescue recommendation,
+                            but no completed action was recorded for it.
+                        </p>
+                    </div>
+                </section>
+            {% endif %}
 
             {% if rescue.status == "ready" %}
                 <section class="historical-goal-dna">
