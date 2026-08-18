@@ -1,5 +1,6 @@
 """Content generation and export helpers for digital postcards."""
 
+from datetime import timedelta
 from io import BytesIO
 from itertools import count
 from textwrap import wrap
@@ -8,6 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 from reportlab.lib.colors import HexColor
 from reportlab.lib.pagesizes import A5
 from reportlab.pdfgen import canvas
+from django.utils import timezone
 
 _generation_counter = count()
 
@@ -690,6 +692,101 @@ def _goal_rescue_progress_phrase(progress_unit, progress_value):
 
 
 
+def _select_adaptive_goal_action(goal, eligible_actions, recent_entries, *, now=None):
+    """Choose deterministically from eligible actions using completions only.
+
+    BeyondScreen does not have trustworthy historical non-completion data for
+    every recommendation, so Phase 1 intentionally models demonstrated recent
+    completion behavior rather than inventing a success rate.
+    """
+    from collections import Counter
+    from decimal import Decimal
+
+    from django.utils import timezone
+
+    eligible_actions = list(eligible_actions)
+    if not eligible_actions:
+        return None, None
+
+    fallback_action = eligible_actions[-1]
+    recent_entries = list(recent_entries)
+    if len(recent_entries) < 3:
+        return fallback_action, (
+            "This is the largest step in your Goal DNA that fits a "
+            "small, realistic slice of today's screen time."
+        )
+
+    current_time = now or timezone.now()
+    week_start_date = timezone.localdate(current_time) - timedelta(
+        days=timezone.localdate(current_time).weekday()
+    )
+    completion_counts = Counter(entry.action_size for entry in recent_entries)
+    seven_day_start = current_time - timedelta(days=7)
+    seven_day_counts = Counter(
+        entry.action_size
+        for entry in recent_entries
+        if entry.completed_at >= seven_day_start
+    )
+    current_week_progress = sum(
+        (
+            Decimal(entry.progress_value)
+            for entry in recent_entries
+            if entry.progress_unit == goal.progress_unit
+            and timezone.localtime(entry.completed_at).date() >= week_start_date
+        ),
+        Decimal("0"),
+    )
+    weekly_target = Decimal(goal.weekly_target or 0)
+    remaining_target = max(Decimal("0"), weekly_target - current_week_progress)
+    repeated_size = None
+    if len(recent_entries) >= 2:
+        latest_sizes = [entry.action_size for entry in recent_entries[:2]]
+        if latest_sizes[0] == latest_sizes[1]:
+            repeated_size = latest_sizes[0]
+
+    scored_actions = []
+    for fit_rank, action in enumerate(eligible_actions):
+        score = Decimal(completion_counts[action.size] * 3)
+        score += Decimal(seven_day_counts[action.size] * 2)
+        score += Decimal(fit_rank) / Decimal("4")
+
+        weekly_bonus = Decimal("0")
+        action_progress = Decimal(action.progress_value or 0)
+        if remaining_target > 0 and action_progress > 0:
+            if action_progress <= remaining_target:
+                weekly_bonus = min(
+                    Decimal("2"),
+                    action_progress / remaining_target * Decimal("2"),
+                )
+            else:
+                weekly_bonus = Decimal("0.5")
+            score += weekly_bonus
+
+        if repeated_size == action.size:
+            score -= Decimal("2")
+
+        scored_actions.append((score, action.duration_minutes, weekly_bonus, action))
+
+    _score, _duration, weekly_bonus, selected_action = max(scored_actions)
+    if weekly_bonus >= Decimal("1.5") and remaining_target > 0:
+        selection_reason = (
+            "This step fits your available time and helps close this "
+            "week's remaining target."
+        )
+    elif selected_action.size != fallback_action.size:
+        selection_reason = (
+            "This is a realistic next step based on your recent "
+            "completed momentum."
+        )
+    else:
+        selection_reason = (
+            "This step fits your available time and is supported by "
+            "your recent completions."
+        )
+
+    return selected_action, selection_reason
+
+
 def build_goal_rescue(user, screen_time_minutes):
     """
     Match a realistic slice of today's screen time to one Goal DNA action.
@@ -797,10 +894,27 @@ def build_goal_rescue(user, screen_time_minutes):
     ]
 
     if eligible_actions:
-        selected_action = eligible_actions[-1]
-        selection_reason = (
-            "This is the largest step in your Goal DNA that fits a "
-            "small, realistic slice of today's screen time."
+        from .models import MomentumEntry
+
+        recent_window_start = timezone.now() - timedelta(days=30)
+        recent_entries = list(
+            MomentumEntry.objects.filter(
+                user=user,
+                goal=goal,
+                completed_at__gte=recent_window_start,
+            )
+            .only(
+                "action_size",
+                "completed_at",
+                "progress_value",
+                "progress_unit",
+            )
+            .order_by("-completed_at", "-id")
+        )
+        selected_action, selection_reason = _select_adaptive_goal_action(
+            goal,
+            eligible_actions,
+            recent_entries,
         )
     else:
         selected_action = smallest_action

@@ -1323,3 +1323,221 @@ class GoalSpecificProgressTests(TestCase):
             response,
             reverse("core:view_summary", args=[older.digital_summary_id]),
         )
+
+
+class AdaptiveGoalRescueTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="adaptive-owner",
+            password="test-password",
+        )
+        self.primary = self.create_goal("Adaptive primary", is_primary=True)
+        self.additional = self.create_goal("Adaptive additional")
+        self.client.force_login(self.user)
+
+    def create_goal(self, title, *, is_primary=False):
+        goal = UserGoal.objects.create(
+            user=self.user,
+            title=title,
+            why_it_matters=f"Why {title} matters",
+            current_focus="Adaptive focus",
+            progress_unit="sessions",
+            weekly_target=10,
+            is_primary=is_primary,
+            status=UserGoal.STATUS_ACTIVE,
+        )
+        for size, minutes, progress in (
+            (GoalAction.SIZE_MINIMUM, 5, 1),
+            (GoalAction.SIZE_STANDARD, 20, 2),
+            (GoalAction.SIZE_DEEP, 45, 4),
+        ):
+            GoalAction.objects.create(
+                goal=goal,
+                size=size,
+                title=f"{title} {size}",
+                duration_minutes=minutes,
+                progress_value=progress,
+            )
+        return goal
+
+    def complete_size(self, goal, size, *, when=None):
+        action = goal.actions.get(size=size)
+        summary = DigitalSummary.objects.create(
+            user=self.user,
+            screen_time_minutes=500,
+            wellness_score=70,
+            category="Balanced",
+            insight="Adaptive history",
+            goal_rescue_snapshot={"status": "ready"},
+        )
+        entry = MomentumEntry.objects.create(
+            user=self.user,
+            goal=goal,
+            action=action,
+            digital_summary=summary,
+            action_title=action.title,
+            action_size=action.size,
+            duration_minutes=action.duration_minutes,
+            progress_value=action.progress_value,
+            progress_unit=goal.progress_unit,
+        )
+        if when is not None:
+            MomentumEntry.objects.filter(pk=entry.pk).update(completed_at=when)
+            entry.refresh_from_db()
+        return entry
+
+    def test_no_history_uses_largest_action_that_fits(self):
+        rescue = build_goal_rescue(self.user, 500)
+
+        self.assertEqual(rescue["action_size"], GoalAction.SIZE_DEEP)
+        self.assertIn("largest step", rescue["selection_reason"])
+
+    def test_strong_deep_history_keeps_deep_when_it_fits(self):
+        for _ in range(4):
+            self.complete_size(self.primary, GoalAction.SIZE_DEEP)
+
+        rescue = build_goal_rescue(self.user, 500)
+
+        self.assertEqual(rescue["action_size"], GoalAction.SIZE_DEEP)
+        self.assertIn("recent completions", rescue["selection_reason"])
+
+    def test_strong_smaller_history_can_prefer_realistic_smaller_action(self):
+        for _ in range(4):
+            self.complete_size(self.primary, GoalAction.SIZE_MINIMUM)
+
+        rescue = build_goal_rescue(self.user, 500)
+
+        self.assertEqual(rescue["action_size"], GoalAction.SIZE_MINIMUM)
+        self.assertIn("recent", rescue["selection_reason"])
+
+    def test_action_that_does_not_fit_is_never_selected(self):
+        for _ in range(4):
+            self.complete_size(self.primary, GoalAction.SIZE_DEEP)
+
+        rescue = build_goal_rescue(self.user, 250)
+
+        self.assertNotEqual(rescue["action_size"], GoalAction.SIZE_DEEP)
+        self.assertLessEqual(rescue["action_minutes"], 25)
+
+    def test_other_goals_history_does_not_influence_primary(self):
+        for _ in range(4):
+            self.complete_size(self.additional, GoalAction.SIZE_MINIMUM)
+
+        rescue = build_goal_rescue(self.user, 500)
+
+        self.assertEqual(rescue["action_size"], GoalAction.SIZE_DEEP)
+        self.assertIn("largest step", rescue["selection_reason"])
+
+    def test_switch_uses_only_new_primary_history(self):
+        for _ in range(4):
+            self.complete_size(self.primary, GoalAction.SIZE_MINIMUM)
+            self.complete_size(self.additional, GoalAction.SIZE_DEEP)
+
+        before_switch = build_goal_rescue(self.user, 500)
+        self.client.post(
+            reverse("core:make_primary_goal", args=[self.additional.pk])
+        )
+        after_switch = build_goal_rescue(self.user, 500)
+
+        self.assertEqual(before_switch["goal_id"], self.primary.pk)
+        self.assertEqual(before_switch["action_size"], GoalAction.SIZE_MINIMUM)
+        self.assertEqual(after_switch["goal_id"], self.additional.pk)
+        self.assertEqual(after_switch["action_size"], GoalAction.SIZE_DEEP)
+
+    def test_weekly_remaining_target_is_explainable(self):
+        old_time = timezone.now() - timedelta(days=10)
+        for _ in range(2):
+            self.complete_size(
+                self.primary,
+                GoalAction.SIZE_MINIMUM,
+                when=old_time,
+            )
+            self.complete_size(
+                self.primary,
+                GoalAction.SIZE_STANDARD,
+                when=old_time,
+            )
+        self.primary.weekly_target = 2
+        self.primary.save(update_fields=["weekly_target"])
+
+        rescue = build_goal_rescue(self.user, 250)
+
+        self.assertEqual(rescue["action_size"], GoalAction.SIZE_STANDARD)
+        self.assertIn("remaining target", rescue["selection_reason"])
+
+    def test_history_older_than_thirty_days_has_no_influence(self):
+        old_time = timezone.now() - timedelta(days=31)
+        for _ in range(5):
+            self.complete_size(
+                self.primary,
+                GoalAction.SIZE_MINIMUM,
+                when=old_time,
+            )
+
+        rescue = build_goal_rescue(self.user, 500)
+
+        self.assertEqual(rescue["action_size"], GoalAction.SIZE_DEEP)
+        self.assertIn("largest step", rescue["selection_reason"])
+
+    def test_smallest_action_fallback_remains_when_little_time_is_available(self):
+        for _ in range(4):
+            self.complete_size(self.primary, GoalAction.SIZE_DEEP)
+
+        rescue = build_goal_rescue(self.user, 1)
+
+        self.assertEqual(rescue["action_size"], GoalAction.SIZE_MINIMUM)
+        self.assertEqual(rescue["action_minutes"], 5)
+
+    def test_frozen_summary_does_not_change_after_behavior_changes(self):
+        original = freeze_goal_rescue_snapshot(
+            build_goal_rescue(self.user, 500)
+        )
+        summary = DigitalSummary.objects.create(
+            user=self.user,
+            screen_time_minutes=500,
+            wellness_score=70,
+            category="Balanced",
+            insight="Frozen adaptive rescue",
+            goal_rescue_snapshot=original,
+        )
+        for _ in range(4):
+            self.complete_size(self.primary, GoalAction.SIZE_MINIMUM)
+
+        summary.refresh_from_db()
+        self.assertEqual(goal_rescue_for_summary(summary), original)
+        self.assertEqual(original["action_size"], GoalAction.SIZE_DEEP)
+
+    def test_new_summary_snapshots_adaptive_reason_and_completion_is_idempotent(self):
+        for _ in range(4):
+            self.complete_size(self.primary, GoalAction.SIZE_MINIMUM)
+
+        response = self.client.post(
+            reverse("core:home"),
+            {"screen_time": 500, "mood": "Calm", "goal": "Study"},
+        )
+        self.assertEqual(response.status_code, 302)
+        summary = DigitalSummary.objects.filter(
+            user=self.user,
+        ).order_by("-id").first()
+        snapshot = summary.goal_rescue_snapshot
+
+        self.assertEqual(snapshot["action_size"], GoalAction.SIZE_MINIMUM)
+        self.assertIn("recent", snapshot["selection_reason"])
+
+        self.client.post(
+            reverse("core:complete_goal_rescue"),
+            {"summary_id": summary.pk},
+        )
+        self.client.post(
+            reverse("core:complete_goal_rescue"),
+            {"summary_id": summary.pk},
+        )
+
+        self.assertEqual(
+            MomentumEntry.objects.filter(digital_summary=summary).count(),
+            1,
+        )
+        entry = MomentumEntry.objects.get(digital_summary=summary)
+        self.assertEqual(entry.goal_id, self.primary.pk)
+        self.assertEqual(entry.action_title, snapshot["action_title"])
+        self.assertEqual(entry.action_size, snapshot["action_size"])
