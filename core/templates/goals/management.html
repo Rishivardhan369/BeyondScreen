@@ -263,6 +263,8 @@
             </div>
           </header>
 
+          {% include "goals/_progress_summary.html" with goal=primary_goal %}
+
           <div class="goal-dna-details">
             <article>
               <span>Current focus</span>
@@ -542,6 +544,8 @@
                     </div>
                   </div>
 
+                  {% include "goals/_progress_summary.html" with goal=goal %}
+
                   <div class="goal-dna-additional-detail-grid">
                     <article>
                       <span>Current focus</span>
@@ -698,6 +702,8 @@
                       {{ goal.configured_action_count }}/3 steps preserved
                     </span>
                   </div>
+
+                  {% include "goals/_progress_summary.html" with goal=goal %}
                 </div>
 
                 <div class="goal-dna-paused-actions">
@@ -772,6 +778,8 @@
                       {{ goal.progress_unit }} weekly target
                     </span>
                   </div>
+
+                  {% include "goals/_progress_summary.html" with goal=goal %}
                 </div>
 
                 <a href="{% url 'core:momentum_ledger' %}?goal={{ goal.id }}"

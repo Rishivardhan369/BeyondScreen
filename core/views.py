@@ -26,6 +26,7 @@ from .forms import (
     UserProfileForm,
 )
 from .services import (
+    build_goal_progress,
     build_goal_rescue,
     freeze_goal_rescue_snapshot,
     format_screen_time,
@@ -155,6 +156,7 @@ def goal_dna_management(request):
             ),
             "created_at": goal.created_at,
             "updated_at": goal.updated_at,
+            "progress": progress_by_goal[goal.id],
         }
 
     active_goals = list(
@@ -198,6 +200,31 @@ def goal_dna_management(request):
         .prefetch_related("actions")
         .order_by("-updated_at")
     )
+
+    displayed_goal_models = (
+        active_goals + paused_goal_models + completed_goal_models
+    )
+    entries_by_goal = {
+        goal.id: []
+        for goal in displayed_goal_models
+    }
+    if entries_by_goal:
+        progress_entries = list(
+            MomentumEntry.objects.filter(
+                user=request.user,
+                goal_id__in=entries_by_goal,
+            ).order_by("-completed_at", "-id")
+        )
+        for entry in progress_entries:
+            entries_by_goal[entry.goal_id].append(entry)
+
+    progress_by_goal = {
+        goal.id: build_goal_progress(
+            goal,
+            entries_by_goal[goal.id],
+        )
+        for goal in displayed_goal_models
+    }
 
     primary_goal = (
         build_goal_display(primary_goal_model)
@@ -247,6 +274,66 @@ def goal_dna_management(request):
         request,
         "goals/management.html",
         context,
+    )
+
+
+@login_required
+def goal_progress(request, goal_id):
+    goal = get_object_or_404(
+        UserGoal,
+        id=goal_id,
+        user=request.user,
+    )
+    entries = list(
+        MomentumEntry.objects.filter(
+            user=request.user,
+            goal=goal,
+        )
+        .select_related("digital_summary")
+        .order_by("-completed_at", "-id")
+    )
+    progress = build_goal_progress(goal, entries)
+    action_size_labels = dict(GoalAction.SIZE_CHOICES)
+    timeline = []
+
+    for entry in entries:
+        completed_at = entry.completed_at
+        if timezone.is_aware(completed_at):
+            completed_at = timezone.localtime(completed_at)
+        timeline.append(
+            {
+                "completed_at": completed_at,
+                "action_title": entry.action_title,
+                "action_size_label": action_size_labels.get(
+                    entry.action_size,
+                    "Goal Step",
+                ),
+                "duration_minutes": entry.duration_minutes,
+                "progress_value": entry.progress_value,
+                "progress_unit": entry.progress_unit,
+                "summary_id": entry.digital_summary_id,
+            }
+        )
+
+    if goal.status == UserGoal.STATUS_ACTIVE:
+        status_label = "Active"
+    elif goal.status == UserGoal.STATUS_PAUSED:
+        status_label = "Paused"
+    else:
+        status_label = "Completed"
+
+    role_label = "Primary" if goal.is_primary else "Additional"
+
+    return render(
+        request,
+        "goals/progress.html",
+        {
+            "goal": goal,
+            "progress": progress,
+            "timeline": timeline,
+            "status_label": status_label,
+            "role_label": role_label,
+        },
     )
 
 @login_required

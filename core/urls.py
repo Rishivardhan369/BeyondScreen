@@ -36,6 +36,11 @@ urlpatterns = [
         name="make_primary_goal",
     ),
     path(
+        "goals/<int:goal_id>/progress/",
+        views.goal_progress,
+        name="goal_progress",
+    ),
+    path(
         "goals/<int:goal_id>/edit-additional/",
         views.additional_goal_edit,
         name="additional_goal_edit",

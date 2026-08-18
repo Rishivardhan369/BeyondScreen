@@ -1,0 +1,37 @@
+<section class="goal-dna-progress-summary" aria-label="Progress for {{ goal.title }}">
+  <div class="goal-dna-progress-heading">
+    <div>
+      <span>
+        {% if goal.status == "active" %}THIS WEEK{% else %}HISTORICAL PROGRESS{% endif %}
+      </span>
+      <strong>
+        {{ goal.progress.current_week_progress_display }} /
+        {{ goal.progress.weekly_target_display }}
+        {{ goal.progress.progress_unit }}
+      </strong>
+    </div>
+    <b>{{ goal.progress.weekly_percent }}%</b>
+  </div>
+
+  <div class="goal-dna-progress-track" aria-hidden="true">
+    <span style="width: {{ goal.progress.weekly_percent }}%"></span>
+  </div>
+
+  {% if goal.progress.has_activity %}
+    <div class="goal-dna-progress-meta">
+      <span>{{ goal.progress.total_completed_actions }} completed</span>
+      <span>{{ goal.progress.total_reclaimed_display }} reclaimed</span>
+      <span>
+        Last {{ goal.progress.last_completed_at|date:"M d, Y · g:i A" }}
+      </span>
+    </div>
+  {% else %}
+    <p class="goal-dna-progress-empty">
+      No completed Momentum activity for this goal yet.
+    </p>
+  {% endif %}
+
+  <a href="{% url 'core:goal_progress' goal.id %}">
+    View progress <span aria-hidden="true">→</span>
+  </a>
+</section>

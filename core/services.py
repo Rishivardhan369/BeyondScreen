@@ -909,3 +909,96 @@ def goal_rescue_for_summary(summary):
         }
 
     return deepcopy(summary.goal_rescue_snapshot)
+
+
+def build_goal_progress(goal, entries, *, today=None):
+    """Derive one goal's progress without mixing incompatible units.
+
+    Action counts and reclaimed minutes include every entry assigned to the
+    goal. Progress-value totals include only entries whose stored unit matches
+    the goal's current unit; entries using older units remain visible in the
+    timeline but are not added together with a different measurement.
+    """
+    from datetime import timedelta
+    from decimal import Decimal, InvalidOperation
+
+    from django.utils import timezone
+
+    def decimal_value(value):
+        try:
+            return Decimal(value or 0)
+        except (InvalidOperation, TypeError, ValueError):
+            return Decimal("0")
+
+    def compact_number(value):
+        number = decimal_value(value)
+        if number == number.to_integral_value():
+            return str(int(number))
+        return format(number.normalize(), "f")
+
+    def reclaimed_display(minutes):
+        hours, remaining = divmod(max(0, int(minutes or 0)), 60)
+        if hours and remaining:
+            return f"{hours}h {remaining:02d}m"
+        if hours:
+            return f"{hours}h"
+        return f"{remaining}m"
+
+    entries = list(entries)
+    current_date = today or timezone.localdate()
+    week_start = current_date - timedelta(days=current_date.weekday())
+    matching_unit_entries = [
+        entry
+        for entry in entries
+        if entry.progress_unit == goal.progress_unit
+    ]
+
+    def completed_date(entry):
+        completed_at = entry.completed_at
+        if timezone.is_aware(completed_at):
+            completed_at = timezone.localtime(completed_at)
+        return completed_at.date()
+
+    lifetime_progress = sum(
+        (decimal_value(entry.progress_value) for entry in matching_unit_entries),
+        Decimal("0"),
+    )
+    current_week_progress = sum(
+        (
+            decimal_value(entry.progress_value)
+            for entry in matching_unit_entries
+            if completed_date(entry) >= week_start
+        ),
+        Decimal("0"),
+    )
+    weekly_target = decimal_value(goal.weekly_target)
+    weekly_percent = (
+        min(100, round(float(current_week_progress / weekly_target * 100)))
+        if weekly_target > 0
+        else 0
+    )
+    total_reclaimed_minutes = sum(
+        max(0, int(entry.duration_minutes or 0))
+        for entry in entries
+    )
+    last_completed_at = max(
+        (entry.completed_at for entry in entries),
+        default=None,
+    )
+
+    return {
+        "has_activity": bool(entries),
+        "total_completed_actions": len(entries),
+        "total_reclaimed_minutes": total_reclaimed_minutes,
+        "total_reclaimed_display": reclaimed_display(total_reclaimed_minutes),
+        "lifetime_progress_value": lifetime_progress,
+        "lifetime_progress_display": compact_number(lifetime_progress),
+        "progress_unit": goal.progress_unit,
+        "current_week_progress": current_week_progress,
+        "current_week_progress_display": compact_number(current_week_progress),
+        "weekly_target": weekly_target,
+        "weekly_target_display": compact_number(weekly_target),
+        "weekly_percent": weekly_percent,
+        "last_completed_at": last_completed_at,
+        "has_mixed_units": len(matching_unit_entries) != len(entries),
+    }

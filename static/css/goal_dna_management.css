@@ -1841,6 +1841,83 @@
 
 /* PRIMARY_GOAL_SWITCHING */
 
+.goal-dna-progress-summary {
+  margin: 18px 0;
+  padding: 15px 17px;
+  background: rgba(5, 18, 27, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 13px;
+}
+
+.goal-dna-progress-heading,
+.goal-dna-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.goal-dna-progress-heading span,
+.goal-dna-progress-heading strong {
+  display: block;
+}
+
+.goal-dna-progress-heading span {
+  margin-bottom: 5px;
+  color: #718191;
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.goal-dna-progress-heading strong {
+  color: #e7f1f2;
+  font-size: 10px;
+}
+
+.goal-dna-progress-heading b {
+  color: var(--goal-dna-teal);
+  font-size: 15px;
+}
+
+.goal-dna-progress-track {
+  height: 4px;
+  margin: 12px 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.055);
+  border-radius: 999px;
+}
+
+.goal-dna-progress-track span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--goal-dna-teal), #83eee5);
+}
+
+.goal-dna-progress-meta {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  color: #8594a1;
+  font-size: 8px;
+}
+
+.goal-dna-progress-empty {
+  margin: 0;
+  color: #718191;
+  font-size: 8px;
+}
+
+.goal-dna-progress-summary > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  color: var(--goal-dna-teal);
+  font-size: 8px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
 .goal-dna-additional-switch-panel {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

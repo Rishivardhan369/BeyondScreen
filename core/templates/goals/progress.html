@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ goal.title }} Progress | BeyondScreen{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/goal_progress.css' %}">
+{% endblock %}
+
+{% block content %}
+<main class="goal-progress-page">
+  <div class="goal-progress-shell">
+    <nav class="goal-progress-nav" aria-label="Goal progress navigation">
+      <a href="{% url 'core:goal_dna_management' %}">← Goal DNA</a>
+      <a href="{% url 'core:momentum_ledger' %}?goal={{ goal.id }}">Momentum Ledger</a>
+    </nav>
+
+    <header class="goal-progress-hero">
+      <div>
+        <span class="goal-progress-kicker">GOAL-SPECIFIC PROGRESS</span>
+        <h1>{{ goal.title }}</h1>
+        <p>
+          Progress shown here comes only from completed Momentum activity
+          recorded for this Goal DNA.
+        </p>
+      </div>
+      <div class="goal-progress-badges">
+        <span>{{ status_label }}</span>
+        <span>{{ role_label }}</span>
+      </div>
+    </header>
+
+    <section class="goal-progress-weekly" aria-label="Weekly progress">
+      <div class="goal-progress-weekly-copy">
+        <span>This week</span>
+        <strong>
+          {{ progress.current_week_progress_display }} /
+          {{ progress.weekly_target_display }} {{ progress.progress_unit }}
+        </strong>
+      </div>
+      <div class="goal-progress-percent">{{ progress.weekly_percent }}%</div>
+      <div class="goal-progress-track" aria-hidden="true">
+        <span style="width: {{ progress.weekly_percent }}%"></span>
+      </div>
+    </section>
+
+    <section class="goal-progress-stats" aria-label="Lifetime progress summary">
+      <article>
+        <span>Lifetime progress</span>
+        <strong>{{ progress.lifetime_progress_display }} {{ progress.progress_unit }}</strong>
+      </article>
+      <article>
+        <span>Completed actions</span>
+        <strong>{{ progress.total_completed_actions }}</strong>
+      </article>
+      <article>
+        <span>Reclaimed time</span>
+        <strong>{{ progress.total_reclaimed_display }}</strong>
+      </article>
+      <article>
+        <span>Last activity</span>
+        <strong>
+          {% if progress.last_completed_at %}
+            {{ progress.last_completed_at|date:"M d, Y · g:i A" }}
+          {% else %}
+            No activity yet
+          {% endif %}
+        </strong>
+      </article>
+    </section>
+
+    {% if progress.has_mixed_units %}
+      <p class="goal-progress-unit-note">
+        Older entries using a different progress unit remain in the timeline
+        and count toward actions and reclaimed time, but are not combined with
+        {{ progress.progress_unit }} totals.
+      </p>
+    {% endif %}
+
+    <section class="goal-progress-timeline">
+      <header>
+        <span class="goal-progress-kicker">ACTIVITY TIMELINE</span>
+        <h2>Completed steps for this goal</h2>
+      </header>
+
+      {% if timeline %}
+        <div class="goal-progress-timeline-list">
+          {% for entry in timeline %}
+            <article>
+              <time datetime="{{ entry.completed_at|date:'c' }}">
+                {{ entry.completed_at|date:"M d, Y · g:i A" }}
+              </time>
+              <div>
+                <span>{{ entry.action_size_label }}</span>
+                <h3>{{ entry.action_title }}</h3>
+                <p>
+                  {{ entry.duration_minutes }} minute{{ entry.duration_minutes|pluralize }}
+                  · {{ entry.progress_value }} {{ entry.progress_unit }}
+                </p>
+              </div>
+              {% if entry.summary_id %}
+                <a href="{% url 'core:view_summary' entry.summary_id %}">
+                  View source report →
+                </a>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="goal-progress-empty">
+          <strong>No completed activity yet</strong>
+          <p>
+            This goal has no Momentum entries. Progress will appear after a
+            Goal Rescue action for this goal is marked complete.
+          </p>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+</main>
+{% endblock %}

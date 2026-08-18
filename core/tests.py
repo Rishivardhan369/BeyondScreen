@@ -4,10 +4,13 @@ from django.conf import settings
 from django.db import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
+from datetime import timedelta
 from unittest.mock import patch
 
 from .models import DigitalSummary, GoalAction, MomentumEntry, UserGoal
 from .services import (
+    build_goal_progress,
     build_goal_rescue,
     freeze_goal_rescue_snapshot,
     generate_postcard,
@@ -1012,4 +1015,311 @@ class HistoricalGoalRescueStabilityTests(TestCase):
         self.assertContains(completion_response, "predates saved Goal Rescue")
         self.assertFalse(
             MomentumEntry.objects.filter(digital_summary=legacy).exists()
+        )
+
+
+class GoalSpecificProgressTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="progress-owner",
+            password="test-password",
+        )
+        self.other_user = User.objects.create_user(
+            username="progress-outsider",
+            password="test-password",
+        )
+        self.primary = self.create_goal("Primary progress", is_primary=True)
+        self.additional = self.create_goal("Additional progress")
+        self.client.force_login(self.user)
+
+    def create_goal(self, title, *, is_primary=False, status=UserGoal.STATUS_ACTIVE):
+        goal = UserGoal.objects.create(
+            user=self.user,
+            title=title,
+            why_it_matters=f"Why {title} matters",
+            current_focus="Current focus",
+            progress_unit="sessions",
+            weekly_target=4,
+            is_primary=is_primary,
+            status=status,
+            preferred_days=["monday"],
+        )
+        for size, minutes in (
+            (GoalAction.SIZE_MINIMUM, 5),
+            (GoalAction.SIZE_STANDARD, 20),
+            (GoalAction.SIZE_DEEP, 45),
+        ):
+            GoalAction.objects.create(
+                goal=goal,
+                size=size,
+                title=f"{title} {size}",
+                duration_minutes=minutes,
+                progress_value=1,
+            )
+        return goal
+
+    def create_entry(
+        self,
+        goal,
+        *,
+        minutes=10,
+        progress="1.00",
+        completed_at=None,
+        unit=None,
+        title=None,
+    ):
+        summary = DigitalSummary.objects.create(
+            user=self.user,
+            screen_time_minutes=120,
+            wellness_score=70,
+            category="Balanced",
+            insight="Progress source",
+            goal_rescue_snapshot={"status": "ready"},
+        )
+        action = goal.actions.get(size=GoalAction.SIZE_MINIMUM)
+        entry = MomentumEntry.objects.create(
+            user=self.user,
+            goal=goal,
+            action=action,
+            digital_summary=summary,
+            action_title=title or action.title,
+            action_size=action.size,
+            duration_minutes=minutes,
+            progress_value=progress,
+            progress_unit=unit or goal.progress_unit,
+        )
+        if completed_at is not None:
+            MomentumEntry.objects.filter(pk=entry.pk).update(
+                completed_at=completed_at,
+            )
+            entry.refresh_from_db()
+        return entry
+
+    def progress_for(self, goal):
+        entries = MomentumEntry.objects.filter(
+            user=self.user,
+            goal=goal,
+        )
+        return build_goal_progress(goal, entries)
+
+    def test_goal_without_momentum_has_zero_empty_progress(self):
+        progress = self.progress_for(self.primary)
+
+        self.assertFalse(progress["has_activity"])
+        self.assertEqual(progress["total_completed_actions"], 0)
+        self.assertEqual(progress["total_reclaimed_minutes"], 0)
+        self.assertEqual(progress["lifetime_progress_value"], 0)
+        self.assertEqual(progress["current_week_progress"], 0)
+        self.assertIsNone(progress["last_completed_at"])
+
+    def test_lifetime_weekly_minutes_count_and_percentage_are_correct(self):
+        now = timezone.now()
+        self.create_entry(
+            self.primary,
+            minutes=15,
+            progress="1.00",
+            completed_at=now - timedelta(days=10),
+        )
+        recent = self.create_entry(
+            self.primary,
+            minutes=20,
+            progress="2.00",
+            completed_at=now,
+        )
+
+        progress = self.progress_for(self.primary)
+
+        self.assertEqual(progress["total_completed_actions"], 2)
+        self.assertEqual(progress["total_reclaimed_minutes"], 35)
+        self.assertEqual(progress["lifetime_progress_value"], 3)
+        self.assertEqual(progress["current_week_progress"], 2)
+        self.assertEqual(progress["weekly_target"], 4)
+        self.assertEqual(progress["weekly_percent"], 50)
+        self.assertEqual(progress["last_completed_at"], recent.completed_at)
+
+    def test_percentage_handles_zero_target_safely(self):
+        self.primary.weekly_target = 0
+        progress = build_goal_progress(self.primary, [])
+        self.assertEqual(progress["weekly_percent"], 0)
+
+    def test_different_goals_and_units_never_mix_progress(self):
+        self.create_entry(self.primary, progress="2.00", minutes=10)
+        self.create_entry(self.additional, progress="3.00", minutes=30)
+        self.create_entry(
+            self.primary,
+            progress="60.00",
+            minutes=60,
+            unit="minutes",
+        )
+
+        primary_progress = self.progress_for(self.primary)
+        additional_progress = self.progress_for(self.additional)
+
+        self.assertEqual(primary_progress["lifetime_progress_value"], 2)
+        self.assertEqual(primary_progress["total_completed_actions"], 2)
+        self.assertEqual(primary_progress["total_reclaimed_minutes"], 70)
+        self.assertTrue(primary_progress["has_mixed_units"])
+        self.assertEqual(additional_progress["lifetime_progress_value"], 3)
+        self.assertEqual(additional_progress["total_completed_actions"], 1)
+        self.assertEqual(additional_progress["total_reclaimed_minutes"], 30)
+
+    def test_switch_keeps_old_progress_and_future_rescue_uses_new_goal(self):
+        self.create_entry(self.primary, progress="2.00")
+
+        self.client.post(
+            reverse("core:make_primary_goal", args=[self.additional.pk])
+        )
+
+        self.assertEqual(
+            self.progress_for(self.primary)["lifetime_progress_value"],
+            2,
+        )
+        self.assertEqual(
+            self.progress_for(self.additional)["lifetime_progress_value"],
+            0,
+        )
+
+        rescue = freeze_goal_rescue_snapshot(
+            build_goal_rescue(self.user, 200)
+        )
+        summary = DigitalSummary.objects.create(
+            user=self.user,
+            screen_time_minutes=200,
+            wellness_score=70,
+            category="Balanced",
+            insight="After switch",
+            goal_rescue_snapshot=rescue,
+        )
+        self.client.post(
+            reverse("core:complete_goal_rescue"),
+            {"summary_id": summary.pk},
+        )
+
+        entry = MomentumEntry.objects.get(digital_summary=summary)
+        self.assertEqual(entry.goal_id, self.additional.pk)
+        self.assertEqual(
+            self.progress_for(self.primary)["total_completed_actions"],
+            1,
+        )
+        self.assertEqual(
+            self.progress_for(self.additional)["total_completed_actions"],
+            1,
+        )
+
+    def test_edit_pause_and_complete_do_not_erase_progress(self):
+        self.create_entry(self.additional, progress="2.00", minutes=25)
+        self.additional.title = "Edited additional title"
+        self.additional.save(update_fields=["title"])
+        self.client.post(
+            reverse("core:pause_additional_goal", args=[self.additional.pk])
+        )
+
+        paused_progress = self.progress_for(self.additional)
+        self.assertEqual(paused_progress["lifetime_progress_value"], 2)
+        self.assertEqual(paused_progress["total_reclaimed_minutes"], 25)
+
+        self.client.post(
+            reverse("core:resume_additional_goal", args=[self.additional.pk])
+        )
+        self.client.post(
+            reverse("core:complete_additional_goal", args=[self.additional.pk])
+        )
+
+        completed_progress = self.progress_for(self.additional)
+        self.assertEqual(completed_progress["lifetime_progress_value"], 2)
+        self.assertEqual(completed_progress["total_completed_actions"], 1)
+
+    def test_progress_page_is_user_scoped_and_requires_login(self):
+        other_goal = UserGoal.objects.create(
+            user=self.other_user,
+            title="Private progress",
+            why_it_matters="Private reason",
+            progress_unit="sessions",
+            weekly_target=2,
+        )
+
+        self.assertEqual(
+            self.client.get(
+                reverse("core:goal_progress", args=[other_goal.pk])
+            ).status_code,
+            404,
+        )
+
+        self.client.logout()
+        response = self.client.get(
+            reverse("core:goal_progress", args=[self.primary.pk])
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.url.startswith(settings.LOGIN_URL))
+
+    def test_management_renders_primary_and_additional_progress(self):
+        self.create_entry(self.primary, progress="2.00", minutes=20)
+        self.create_entry(self.additional, progress="1.00", minutes=10)
+
+        response = self.client.get(reverse("core:goal_dna_management"))
+
+        self.assertEqual(response.context["primary_goal"]["progress"]["lifetime_progress_value"], 2)
+        self.assertEqual(response.context["additional_goals"][0]["progress"]["lifetime_progress_value"], 1)
+        self.assertContains(
+            response,
+            reverse("core:goal_progress", args=[self.primary.pk]),
+        )
+        self.assertContains(
+            response,
+            reverse("core:goal_progress", args=[self.additional.pk]),
+        )
+
+    def test_management_renders_paused_and_completed_historical_progress(self):
+        paused = self.create_goal(
+            "Paused history",
+            status=UserGoal.STATUS_PAUSED,
+        )
+        completed = self.create_goal(
+            "Completed history",
+            status=UserGoal.STATUS_COMPLETED,
+        )
+        self.create_entry(paused, progress="2.00")
+        self.create_entry(completed, progress="3.00")
+
+        response = self.client.get(reverse("core:goal_dna_management"))
+
+        paused_data = next(goal for goal in response.context["paused_goals"] if goal["id"] == paused.pk)
+        completed_data = next(goal for goal in response.context["completed_goals"] if goal["id"] == completed.pk)
+        self.assertEqual(paused_data["progress"]["lifetime_progress_value"], 2)
+        self.assertEqual(completed_data["progress"]["lifetime_progress_value"], 3)
+        self.assertContains(response, "HISTORICAL PROGRESS", count=2)
+
+    def test_detail_timeline_is_goal_only_newest_first_with_source_links(self):
+        older = self.create_entry(
+            self.primary,
+            title="Older primary action",
+            completed_at=timezone.now() - timedelta(days=2),
+        )
+        newer = self.create_entry(
+            self.primary,
+            title="Newer primary action",
+            completed_at=timezone.now(),
+        )
+        other = self.create_entry(
+            self.additional,
+            title="Other goal action",
+        )
+
+        response = self.client.get(
+            reverse("core:goal_progress", args=[self.primary.pk])
+        )
+
+        timeline = response.context["timeline"]
+        self.assertEqual(
+            [item["action_title"] for item in timeline],
+            [newer.action_title, older.action_title],
+        )
+        self.assertNotContains(response, other.action_title)
+        self.assertContains(
+            response,
+            reverse("core:view_summary", args=[newer.digital_summary_id]),
+        )
+        self.assertContains(
+            response,
+            reverse("core:view_summary", args=[older.digital_summary_id]),
         )
