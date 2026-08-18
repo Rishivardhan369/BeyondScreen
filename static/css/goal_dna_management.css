@@ -1861,6 +1861,39 @@
   gap: 8px;
 }
 
+.goal-dna-additional-controls {
+  display: flex;
+  width: min(100%, 390px);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.goal-dna-additional-controls .goal-dna-make-primary-form {
+  width: 100%;
+}
+
+.goal-dna-additional-edit-button {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 15px;
+  color: #dbe8ee;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  font-size: 8px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.goal-dna-additional-controls .goal-dna-status-form button {
+  min-height: 38px;
+  padding-inline: 15px;
+}
+
 .goal-dna-make-primary-button {
   display: inline-flex;
   min-height: 43px;
@@ -1909,8 +1942,13 @@
   }
 
   .goal-dna-make-primary-form,
-  .goal-dna-primary-switch-unavailable {
+  .goal-dna-primary-switch-unavailable,
+  .goal-dna-additional-controls {
     width: 100%;
     max-width: none;
+  }
+
+  .goal-dna-additional-controls {
+    justify-content: flex-start;
   }
 }

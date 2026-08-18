@@ -11,18 +11,26 @@
 <main class="gd-page">
     <section class="gd-shell">
         <div class="gd-intro">
-            <span class="gd-kicker">EDIT YOUR PRIMARY GOAL</span>
-            <h1>Refine the goal that guides your Goal Rescue.</h1>
+            <span class="gd-kicker">
+                {% if is_additional %}EDIT ADDITIONAL GOAL{% else %}EDIT YOUR PRIMARY GOAL{% endif %}
+            </span>
+            <h1>
+                {% if is_additional %}Refine this additional direction.{% else %}Refine the goal that guides your Goal Rescue.{% endif %}
+            </h1>
             <p>
                 Update what matters, how you measure progress, or the
-                Small, Regular and Bigger Steps BeyondScreen can recommend.
+                Small, Regular and Bigger Steps for this goal.
             </p>
         </div>
 
         <div class="gd-guidance">
             <strong>Your completed progress stays preserved.</strong>
             <span>
+                {% if is_additional %}
+                This goal remains additional and does not guide Goal Rescue.
+                {% else %}
                 These changes guide future Goal Rescue recommendations.
+                {% endif %}
                 Existing Momentum Ledger entries keep the action details
                 recorded when you completed them.
             </span>
@@ -55,7 +63,11 @@
                     </label>
                     {{ form.title }}
                     <small>
+                        {% if is_additional %}
+                        This remains an additional goal and will not replace your primary.
+                        {% else %}
                         This remains the primary goal used by Goal Rescue.
+                        {% endif %}
                     </small>
                     {{ form.title.errors }}
                 </div>
@@ -317,8 +329,11 @@
 
             <div class="gd-submit-row">
                 <p>
-                    Saving updates future Goal Rescue recommendations
-                    immediately.
+                    {% if is_additional %}
+                    Saving preserves this goal as an additional direction.
+                    {% else %}
+                    Saving updates future Goal Rescue recommendations immediately.
+                    {% endif %}
                 </p>
 
                 <div class="gd-confirm-actions">

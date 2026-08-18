@@ -483,6 +483,37 @@
                       </p>
                     </div>
 
+                    <div class="goal-dna-additional-controls">
+                      <a
+                        href="{% url 'core:additional_goal_edit' goal.id %}"
+                        class="goal-dna-additional-edit-button"
+                      >
+                        Edit
+                      </a>
+
+                      <form
+                        method="post"
+                        action="{% url 'core:pause_additional_goal' goal.id %}"
+                        class="goal-dna-status-form"
+                      >
+                        {% csrf_token %}
+                        <button type="submit" class="goal-dna-pause-button">
+                          Pause
+                        </button>
+                      </form>
+
+                      <form
+                        method="post"
+                        action="{% url 'core:complete_additional_goal' goal.id %}"
+                        class="goal-dna-status-form"
+                        onsubmit="return confirm('Mark this additional goal as completed? Its Goal DNA and Momentum history will remain preserved.');"
+                      >
+                        {% csrf_token %}
+                        <button type="submit" class="goal-dna-complete-button">
+                          Complete
+                        </button>
+                      </form>
+
                     {% if primary_goal %}
                       <form
                         method="post"
@@ -508,6 +539,7 @@
                         switching between goals.
                       </div>
                     {% endif %}
+                    </div>
                   </div>
 
                   <div class="goal-dna-additional-detail-grid">
@@ -595,9 +627,9 @@
                   </div>
 
                   <div class="goal-dna-additional-readonly-note">
-                    Goal details remain read-only. Editing, pausing,
-                    completing and deleting additional goals are not
-                    included in this checkpoint.
+                    Changes preserve this goal's identity and existing
+                    Momentum Ledger history. Only the primary goal guides
+                    Goal Rescue.
                   </div>
                 </div>
               </details>
@@ -628,9 +660,8 @@
         <div class="goal-dna-additional-limit">
           <span aria-hidden="true">3</span>
           <p>
-            All three active goal slots are in use. This phase does not
-            add goal switching, pausing, completion or deletion controls
-            for additional goals.
+            All three active goal slots are in use. Pause or complete an
+            additional goal to make room for another direction.
           </p>
         </div>
       {% endif %}
@@ -652,7 +683,9 @@
             {% for goal in paused_goals %}
               <article class="goal-dna-paused-card">
                 <div class="goal-dna-paused-copy">
-                  <span>PAUSED PRIMARY GOAL</span>
+                  <span>
+                    {% if goal.is_primary %}PAUSED PRIMARY GOAL{% else %}PAUSED ADDITIONAL GOAL{% endif %}
+                  </span>
                   <h3>{{ goal.title }}</h3>
                   <p>{{ goal.why_it_matters|truncatewords:28 }}</p>
 
@@ -671,7 +704,7 @@
                   {% if goal.can_resume %}
                     <form
                       method="post"
-                      action="{% url 'core:resume_primary_goal' goal.id %}"
+                      action="{% if goal.is_primary %}{% url 'core:resume_primary_goal' goal.id %}{% else %}{% url 'core:resume_additional_goal' goal.id %}{% endif %}"
                       class="goal-dna-status-form"
                     >
                       {% csrf_token %}
@@ -689,7 +722,11 @@
                       Resume unavailable
                     </button>
                     <p class="goal-dna-resume-unavailable">
-                      Pause the current active primary goal first.
+                      {% if goal.is_primary %}
+                        Pause the current active primary goal first.
+                      {% else %}
+                        Pause an active goal to free one of the three slots.
+                      {% endif %}
                     </p>
                   {% endif %}
                 </div>
@@ -717,7 +754,9 @@
             {% for goal in completed_goals %}
               <article class="goal-dna-completed-card">
                 <div class="goal-dna-completed-copy">
-                  <span>COMPLETED GOAL</span>
+                  <span>
+                    {% if goal.is_primary %}COMPLETED PRIMARY GOAL{% else %}COMPLETED ADDITIONAL GOAL{% endif %}
+                  </span>
                   <h3>{{ goal.title }}</h3>
                   <p>{{ goal.why_it_matters|truncatewords:28 }}</p>
 

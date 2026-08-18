@@ -36,6 +36,26 @@ urlpatterns = [
         name="make_primary_goal",
     ),
     path(
+        "goals/<int:goal_id>/edit-additional/",
+        views.additional_goal_edit,
+        name="additional_goal_edit",
+    ),
+    path(
+        "goals/<int:goal_id>/pause-additional/",
+        views.pause_additional_goal,
+        name="pause_additional_goal",
+    ),
+    path(
+        "goals/<int:goal_id>/resume-additional/",
+        views.resume_additional_goal,
+        name="resume_additional_goal",
+    ),
+    path(
+        "goals/<int:goal_id>/complete-additional/",
+        views.complete_additional_goal,
+        name="complete_additional_goal",
+    ),
+    path(
         "goals/add/",
         views.additional_goal_onboarding,
         name="additional_goal_onboarding",

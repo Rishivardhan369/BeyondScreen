@@ -183,7 +183,6 @@ def goal_dna_management(request):
         UserGoal.objects.filter(
             user=request.user,
             status=UserGoal.STATUS_PAUSED,
-            is_primary=True,
         )
         .prefetch_related("actions")
         .order_by("-updated_at")
@@ -209,7 +208,7 @@ def goal_dna_management(request):
         for goal in additional_goal_models
     ]
 
-    can_resume_paused_goal = (
+    can_resume_paused_primary = (
         primary_goal_model is None
         and len(active_goals) < 3
     )
@@ -219,7 +218,9 @@ def goal_dna_management(request):
     for goal in paused_goal_models:
         display_goal = build_goal_display(goal)
         display_goal["can_resume"] = (
-            can_resume_paused_goal
+            can_resume_paused_primary
+            if goal.is_primary
+            else len(active_goals) < 3
         )
         paused_goals.append(display_goal)
 
@@ -264,6 +265,33 @@ def goal_dna_edit(request):
             "Create your primary goal before editing it.",
         )
         return redirect("core:goal_onboarding")
+
+    return _edit_goal_dna(
+        request,
+        primary_goal,
+        is_additional=False,
+    )
+
+
+@login_required
+def additional_goal_edit(request, goal_id):
+    goal = get_object_or_404(
+        UserGoal.objects.prefetch_related("actions"),
+        id=goal_id,
+        user=request.user,
+        status=UserGoal.STATUS_ACTIVE,
+        is_primary=False,
+    )
+
+    return _edit_goal_dna(
+        request,
+        goal,
+        is_additional=True,
+    )
+
+
+def _edit_goal_dna(request, primary_goal, *, is_additional):
+    original_is_primary = primary_goal.is_primary
 
     actions_by_size = {
         action.size: action
@@ -332,7 +360,7 @@ def goal_dna_edit(request):
             with transaction.atomic():
                 updated_goal = form.save(commit=False)
                 updated_goal.user = request.user
-                updated_goal.is_primary = True
+                updated_goal.is_primary = original_is_primary
                 updated_goal.status = UserGoal.STATUS_ACTIVE
                 updated_goal.full_clean()
                 updated_goal.save()
@@ -382,7 +410,11 @@ def goal_dna_edit(request):
 
             messages.success(
                 request,
-                "Your Goal DNA has been updated.",
+                (
+                    "Your additional Goal DNA has been updated."
+                    if is_additional
+                    else "Your Goal DNA has been updated."
+                ),
             )
             return redirect("core:goal_dna_management")
     else:
@@ -397,6 +429,7 @@ def goal_dna_edit(request):
         {
             "form": form,
             "goal": primary_goal,
+            "is_additional": is_additional,
         },
     )
 
@@ -689,6 +722,106 @@ def complete_primary_goal(request, goal_id):
         request,
         (
             "Goal completed. Its Goal DNA and Momentum "
+            "history remain preserved."
+        ),
+    )
+    return redirect("core:goal_dna_management")
+
+
+@login_required
+@require_POST
+def pause_additional_goal(request, goal_id):
+    with transaction.atomic():
+        goal = get_object_or_404(
+            UserGoal.objects.select_for_update(),
+            id=goal_id,
+            user=request.user,
+            status=UserGoal.STATUS_ACTIVE,
+            is_primary=False,
+        )
+        goal.status = UserGoal.STATUS_PAUSED
+        goal.full_clean()
+        goal.save(update_fields=["status", "updated_at"])
+
+    messages.success(
+        request,
+        "Your additional goal has been paused.",
+    )
+    return redirect("core:goal_dna_management")
+
+
+@login_required
+@require_POST
+def resume_additional_goal(request, goal_id):
+    from django.core.exceptions import ValidationError
+
+    try:
+        with transaction.atomic():
+            goal = get_object_or_404(
+                UserGoal.objects.select_for_update(),
+                id=goal_id,
+                user=request.user,
+                status=UserGoal.STATUS_PAUSED,
+                is_primary=False,
+            )
+            active_goal_count = (
+                UserGoal.objects.select_for_update()
+                .filter(
+                    user=request.user,
+                    status=UserGoal.STATUS_ACTIVE,
+                )
+                .count()
+            )
+
+            if active_goal_count >= 3:
+                messages.error(
+                    request,
+                    (
+                        "You already have three active goals. "
+                        "Pause one before resuming this goal."
+                    ),
+                )
+                return redirect("core:goal_dna_management")
+
+            goal.status = UserGoal.STATUS_ACTIVE
+            goal.is_primary = False
+            goal.full_clean()
+            goal.save(
+                update_fields=["status", "is_primary", "updated_at"],
+            )
+    except (IntegrityError, ValidationError):
+        messages.error(
+            request,
+            "This additional goal could not be resumed safely.",
+        )
+        return redirect("core:goal_dna_management")
+
+    messages.success(
+        request,
+        "Your additional goal is active again.",
+    )
+    return redirect("core:goal_dna_management")
+
+
+@login_required
+@require_POST
+def complete_additional_goal(request, goal_id):
+    with transaction.atomic():
+        goal = get_object_or_404(
+            UserGoal.objects.select_for_update(),
+            id=goal_id,
+            user=request.user,
+            status=UserGoal.STATUS_ACTIVE,
+            is_primary=False,
+        )
+        goal.status = UserGoal.STATUS_COMPLETED
+        goal.full_clean()
+        goal.save(update_fields=["status", "updated_at"])
+
+    messages.success(
+        request,
+        (
+            "Additional goal completed. Its Goal DNA and Momentum "
             "history remain preserved."
         ),
     )

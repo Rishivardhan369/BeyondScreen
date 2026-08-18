@@ -254,6 +254,7 @@ class PrimaryGoalSwitchingTests(TestCase):
         self.assertRedirects(response, reverse("core:goal_dna_management"))
         self.assert_original_primary_state()
 
+
     def test_goal_rescue_immediately_uses_promoted_goal(self):
         self.client.post(self.switch_url())
 
@@ -367,3 +368,345 @@ class PrimaryGoalSwitchingTests(TestCase):
 
         self.assertRedirects(response, reverse("core:goal_dna_management"))
         self.assert_original_primary_state()
+
+
+class AdditionalGoalManagementPhase2Tests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="additional-manager",
+            password="test-password",
+        )
+        self.other_user = User.objects.create_user(
+            username="additional-outsider",
+            password="test-password",
+        )
+        self.primary = self.create_goal(
+            self.user,
+            "Primary writing goal",
+            is_primary=True,
+        )
+        self.additional = self.create_goal(
+            self.user,
+            "Additional fitness goal",
+        )
+        self.client.force_login(self.user)
+
+    def create_goal(
+        self,
+        user,
+        title,
+        *,
+        is_primary=False,
+        status=UserGoal.STATUS_ACTIVE,
+    ):
+        goal = UserGoal.objects.create(
+            user=user,
+            title=title,
+            why_it_matters=f"A meaningful reason for {title}",
+            current_focus="Original focus",
+            progress_unit="sessions",
+            weekly_target=3,
+            is_primary=is_primary,
+            status=status,
+            preferred_days=["monday"],
+        )
+        for size, minutes in (
+            (GoalAction.SIZE_MINIMUM, 5),
+            (GoalAction.SIZE_STANDARD, 20),
+            (GoalAction.SIZE_DEEP, 45),
+        ):
+            GoalAction.objects.create(
+                goal=goal,
+                size=size,
+                title=f"{title} {size}",
+                duration_minutes=minutes,
+                progress_value=1,
+            )
+        return goal
+
+    def edit_payload(self):
+        return {
+            "title": "Updated additional fitness goal",
+            "why_it_matters": "This updated reason remains meaningful",
+            "current_focus": "Updated focus",
+            "progress_unit": "sessions",
+            "weekly_target": 4,
+            "preferred_days": ["tuesday", "thursday"],
+            "preferred_time": "08:30",
+            "deadline": "",
+            "minimum_action_title": "Updated minimum action",
+            "minimum_action_minutes": 10,
+            "minimum_action_progress": "",
+            "standard_action_title": "Updated standard action",
+            "standard_action_minutes": 25,
+            "standard_action_progress": "",
+            "deep_action_title": "Updated deep action",
+            "deep_action_minutes": 60,
+            "deep_action_progress": "",
+        }
+
+    def url(self, name, goal=None):
+        return reverse(
+            f"core:{name}",
+            args=[(goal or self.additional).pk],
+        )
+
+    def assert_primary_unchanged(self):
+        self.primary.refresh_from_db()
+        self.assertTrue(self.primary.is_primary)
+        self.assertEqual(self.primary.status, UserGoal.STATUS_ACTIVE)
+        self.assertEqual(
+            UserGoal.objects.get(
+                user=self.user,
+                status=UserGoal.STATUS_ACTIVE,
+                is_primary=True,
+            ).pk,
+            self.primary.pk,
+        )
+
+    def test_edit_active_additional_goal_preserves_roles_and_identities(self):
+        goal_pk = self.additional.pk
+        action_pks = set(
+            self.additional.actions.values_list("pk", flat=True)
+        )
+
+        response = self.client.post(
+            self.url("additional_goal_edit"),
+            self.edit_payload(),
+        )
+
+        self.assertRedirects(response, reverse("core:goal_dna_management"))
+        self.additional.refresh_from_db()
+        self.assertEqual(self.additional.pk, goal_pk)
+        self.assertEqual(self.additional.title, "Updated additional fitness goal")
+        self.assertEqual(self.additional.current_focus, "Updated focus")
+        self.assertFalse(self.additional.is_primary)
+        self.assertSetEqual(
+            set(self.additional.actions.values_list("pk", flat=True)),
+            action_pks,
+        )
+        self.assertEqual(
+            self.additional.actions.get(size=GoalAction.SIZE_MINIMUM).title,
+            "Updated minimum action",
+        )
+        self.assert_primary_unchanged()
+
+    def test_pause_additional_goal_reduces_active_count(self):
+        before_count = UserGoal.objects.filter(
+            user=self.user,
+            status=UserGoal.STATUS_ACTIVE,
+        ).count()
+
+        response = self.client.post(self.url("pause_additional_goal"))
+
+        self.assertRedirects(response, reverse("core:goal_dna_management"))
+        self.additional.refresh_from_db()
+        self.assertEqual(self.additional.status, UserGoal.STATUS_PAUSED)
+        self.assertFalse(self.additional.is_primary)
+        self.assertEqual(
+            UserGoal.objects.filter(
+                user=self.user,
+                status=UserGoal.STATUS_ACTIVE,
+            ).count(),
+            before_count - 1,
+        )
+        self.assert_primary_unchanged()
+
+    def test_resume_paused_additional_goal_remains_non_primary(self):
+        self.additional.status = UserGoal.STATUS_PAUSED
+        self.additional.save(update_fields=["status"])
+
+        response = self.client.post(self.url("resume_additional_goal"))
+
+        self.assertRedirects(response, reverse("core:goal_dna_management"))
+        self.additional.refresh_from_db()
+        self.assertEqual(self.additional.status, UserGoal.STATUS_ACTIVE)
+        self.assertFalse(self.additional.is_primary)
+        self.assert_primary_unchanged()
+
+    def test_resume_is_rejected_when_three_goals_are_active(self):
+        self.additional.status = UserGoal.STATUS_PAUSED
+        self.additional.save(update_fields=["status"])
+        self.create_goal(self.user, "Second active additional")
+        self.create_goal(self.user, "Third active additional")
+
+        response = self.client.post(
+            self.url("resume_additional_goal"),
+            follow=True,
+        )
+
+        self.additional.refresh_from_db()
+        self.assertEqual(self.additional.status, UserGoal.STATUS_PAUSED)
+        self.assertFalse(self.additional.is_primary)
+        self.assertContains(response, "You already have three active goals")
+        self.assertEqual(
+            UserGoal.objects.filter(
+                user=self.user,
+                status=UserGoal.STATUS_ACTIVE,
+            ).count(),
+            3,
+        )
+
+    def test_complete_additional_goal_and_reject_resume(self):
+        response = self.client.post(self.url("complete_additional_goal"))
+
+        self.assertRedirects(response, reverse("core:goal_dna_management"))
+        self.additional.refresh_from_db()
+        self.assertEqual(self.additional.status, UserGoal.STATUS_COMPLETED)
+        self.assertFalse(self.additional.is_primary)
+        self.assert_primary_unchanged()
+
+        resume_response = self.client.post(self.url("resume_additional_goal"))
+        self.assertEqual(resume_response.status_code, 404)
+        self.additional.refresh_from_db()
+        self.assertEqual(self.additional.status, UserGoal.STATUS_COMPLETED)
+
+    def test_another_users_additional_goal_cannot_be_accessed_or_changed(self):
+        other_goal = self.create_goal(self.other_user, "Other private goal")
+
+        self.assertEqual(
+            self.client.get(self.url("additional_goal_edit", other_goal)).status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.post(
+                self.url("additional_goal_edit", other_goal),
+                self.edit_payload(),
+            ).status_code,
+            404,
+        )
+        for name in (
+            "pause_additional_goal",
+            "resume_additional_goal",
+            "complete_additional_goal",
+        ):
+            with self.subTest(name=name):
+                self.assertEqual(
+                    self.client.post(self.url(name, other_goal)).status_code,
+                    404,
+                )
+        other_goal.refresh_from_db()
+        self.assertEqual(other_goal.status, UserGoal.STATUS_ACTIVE)
+        self.assertFalse(other_goal.is_primary)
+
+    def test_lifecycle_get_requests_are_rejected(self):
+        for name in (
+            "pause_additional_goal",
+            "resume_additional_goal",
+            "complete_additional_goal",
+        ):
+            with self.subTest(name=name):
+                self.assertEqual(self.client.get(self.url(name)).status_code, 405)
+
+    def test_anonymous_users_are_redirected_to_login(self):
+        self.client.logout()
+        names = (
+            "additional_goal_edit",
+            "pause_additional_goal",
+            "resume_additional_goal",
+            "complete_additional_goal",
+        )
+        for name in names:
+            with self.subTest(name=name):
+                response = self.client.post(self.url(name))
+                self.assertEqual(response.status_code, 302)
+                self.assertTrue(response.url.startswith(settings.LOGIN_URL))
+
+    def test_goal_rescue_keeps_using_primary_through_all_additional_states(self):
+        expected_action_ids = set(
+            self.primary.actions.values_list("pk", flat=True)
+        )
+
+        def assert_rescue_primary():
+            rescue = build_goal_rescue(self.user, 200)
+            self.assertEqual(rescue["goal_title"], self.primary.title)
+            self.assertIn(rescue["action_id"], expected_action_ids)
+
+        self.client.post(
+            self.url("additional_goal_edit"),
+            self.edit_payload(),
+        )
+        assert_rescue_primary()
+        self.client.post(self.url("pause_additional_goal"))
+        assert_rescue_primary()
+        self.client.post(self.url("resume_additional_goal"))
+        assert_rescue_primary()
+        self.client.post(self.url("complete_additional_goal"))
+        assert_rescue_primary()
+
+    def test_momentum_entry_and_goal_dna_identities_remain_unchanged(self):
+        summary = DigitalSummary.objects.create(
+            user=self.user,
+            screen_time_minutes=90,
+            wellness_score=65,
+            category="Balanced",
+            insight="Historical insight",
+        )
+        action = self.additional.actions.get(size=GoalAction.SIZE_MINIMUM)
+        entry = MomentumEntry.objects.create(
+            user=self.user,
+            goal=self.additional,
+            action=action,
+            digital_summary=summary,
+            action_title=action.title,
+            action_size=action.size,
+            duration_minutes=action.duration_minutes,
+            progress_value=action.progress_value,
+            progress_unit=self.additional.progress_unit,
+        )
+        goal_ids = set(UserGoal.objects.values_list("pk", flat=True))
+        action_ids = set(GoalAction.objects.values_list("pk", flat=True))
+        entry_snapshot = MomentumEntry.objects.filter(pk=entry.pk).values().get()
+
+        self.client.post(
+            self.url("additional_goal_edit"),
+            self.edit_payload(),
+        )
+        self.client.post(self.url("pause_additional_goal"))
+        self.client.post(self.url("resume_additional_goal"))
+        self.client.post(self.url("complete_additional_goal"))
+
+        self.assertSetEqual(
+            set(UserGoal.objects.values_list("pk", flat=True)),
+            goal_ids,
+        )
+        self.assertSetEqual(
+            set(GoalAction.objects.values_list("pk", flat=True)),
+            action_ids,
+        )
+        self.assertEqual(
+            MomentumEntry.objects.filter(pk=entry.pk).values().get(),
+            entry_snapshot,
+        )
+
+    def test_management_page_shows_active_additional_controls(self):
+        response = self.client.get(reverse("core:goal_dna_management"))
+
+        self.assertContains(response, self.url("additional_goal_edit"))
+        self.assertContains(response, self.url("pause_additional_goal"))
+        self.assertContains(response, self.url("complete_additional_goal"))
+        self.assertContains(
+            response,
+            reverse("core:make_primary_goal", args=[self.additional.pk]),
+        )
+
+    def test_management_page_shows_paused_additional_resume_control(self):
+        self.client.post(self.url("pause_additional_goal"))
+
+        response = self.client.get(reverse("core:goal_dna_management"))
+
+        self.assertContains(response, "PAUSED ADDITIONAL GOAL")
+        self.assertContains(response, self.url("resume_additional_goal"))
+        self.assertNotContains(response, self.url("additional_goal_edit"))
+
+    def test_management_page_shows_completed_without_resume_or_make_primary(self):
+        self.client.post(self.url("complete_additional_goal"))
+
+        response = self.client.get(reverse("core:goal_dna_management"))
+
+        self.assertContains(response, "COMPLETED ADDITIONAL GOAL")
+        self.assertNotContains(response, self.url("resume_additional_goal"))
+        self.assertNotContains(
+            response,
+            reverse("core:make_primary_goal", args=[self.additional.pk]),
+        )
