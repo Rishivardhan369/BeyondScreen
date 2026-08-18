@@ -403,6 +403,130 @@ def goal_dna_edit(request):
 
 @login_required
 @require_POST
+def make_primary_goal(request, goal_id):
+    from django.core.exceptions import ValidationError
+    from django.http import Http404
+
+    target_title = ""
+    previous_primary_title = ""
+
+    try:
+        with transaction.atomic():
+            active_goals = list(
+                UserGoal.objects.select_for_update()
+                .filter(
+                    user=request.user,
+                    status=UserGoal.STATUS_ACTIVE,
+                )
+                .order_by("id")
+            )
+
+            target_goal = next(
+                (
+                    goal
+                    for goal in active_goals
+                    if goal.id == goal_id
+                ),
+                None,
+            )
+
+            if target_goal is None:
+                raise Http404
+
+            if target_goal.is_primary:
+                messages.info(
+                    request,
+                    "This goal is already your active primary goal.",
+                )
+                return redirect("core:goal_dna_management")
+
+            current_primary = next(
+                (
+                    goal
+                    for goal in active_goals
+                    if goal.is_primary
+                ),
+                None,
+            )
+
+            if current_primary is None:
+                messages.error(
+                    request,
+                    (
+                        "An active primary goal is required before "
+                        "switching. Resume or create one first."
+                    ),
+                )
+                return redirect("core:goal_dna_management")
+
+            configured_sizes = set(
+                target_goal.actions.values_list(
+                    "size",
+                    flat=True,
+                )
+            )
+            required_sizes = {
+                GoalAction.SIZE_MINIMUM,
+                GoalAction.SIZE_STANDARD,
+                GoalAction.SIZE_DEEP,
+            }
+
+            if configured_sizes != required_sizes:
+                messages.error(
+                    request,
+                    (
+                        "This goal needs all three action steps "
+                        "before it can become primary."
+                    ),
+                )
+                return redirect("core:goal_dna_management")
+
+            target_title = target_goal.title
+            previous_primary_title = current_primary.title
+
+            current_primary.is_primary = False
+            current_primary.full_clean()
+            current_primary.save(
+                update_fields=[
+                    "is_primary",
+                    "updated_at",
+                ],
+            )
+
+            target_goal.is_primary = True
+            target_goal.full_clean()
+            target_goal.save(
+                update_fields=[
+                    "is_primary",
+                    "updated_at",
+                ],
+            )
+
+    except Http404:
+        raise
+    except (IntegrityError, ValidationError):
+        messages.error(
+            request,
+            (
+                "The primary goal could not be switched safely. "
+                "Your existing goal setup was left unchanged."
+            ),
+        )
+        return redirect("core:goal_dna_management")
+
+    messages.success(
+        request,
+        (
+            f"{target_title} is now your primary goal. "
+            f"{previous_primary_title} remains active as an "
+            "additional goal."
+        ),
+    )
+    return redirect("core:goal_dna_management")
+
+
+@login_required
+@require_POST
 def pause_primary_goal(request, goal_id):
     goal = get_object_or_404(
         UserGoal,

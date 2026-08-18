@@ -430,9 +430,9 @@
               <span class="goal-dna-section-kicker">ADDITIONAL ACTIVE GOALS</span>
               <h2>Other directions you are actively building</h2>
               <p>
-                These goals are active and fully configured, but only
-                the primary goal above currently guides Goal Rescue
-                recommendations and weekly primary-goal progress.
+                These goals are active and fully configured. Open one
+                and choose Make Primary when you want Goal Rescue and
+                weekly primary-goal progress to follow it.
               </p>
             </div>
 
@@ -473,13 +473,41 @@
                 </summary>
 
                 <div class="goal-dna-additional-details">
-                  <div class="goal-dna-additional-scope-note">
-                    <span aria-hidden="true">◎</span>
-                    <p>
-                      This goal is active and preserved as complete Goal DNA.
-                      It does not guide Goal Rescue until a later
-                      primary-goal switching feature makes it primary.
-                    </p>
+                  <div class="goal-dna-additional-switch-panel">
+                    <div class="goal-dna-additional-scope-note">
+                      <span aria-hidden="true">◎</span>
+                      <p>
+                        This goal is active and fully preserved. It will
+                        guide new Goal Rescue recommendations and primary
+                        weekly progress only while it is the primary goal.
+                      </p>
+                    </div>
+
+                    {% if primary_goal %}
+                      <form
+                        method="post"
+                        action="{% url 'core:make_primary_goal' goal.id %}"
+                        class="goal-dna-make-primary-form"
+                        onsubmit="return confirm('Make this your primary goal? The current primary goal will remain active as an additional goal. Goal Rescue and primary weekly progress will switch immediately.');"
+                      >
+                        {% csrf_token %}
+                        <button
+                          type="submit"
+                          class="goal-dna-make-primary-button"
+                        >
+                          Make Primary
+                          <span aria-hidden="true">→</span>
+                        </button>
+                        <small>
+                          The current primary goal will stay active.
+                        </small>
+                      </form>
+                    {% else %}
+                      <div class="goal-dna-primary-switch-unavailable">
+                        Resume or create an active primary goal before
+                        switching between goals.
+                      </div>
+                    {% endif %}
                   </div>
 
                   <div class="goal-dna-additional-detail-grid">
@@ -527,7 +555,7 @@
                       <span>ACTION LADDER</span>
                       <h4>Three ways to move this goal forward</h4>
                     </div>
-                    <small>Read-only in this phase</small>
+                    <small>Goal details are read-only</small>
                   </div>
 
                   <div class="goal-dna-additional-action-grid">
@@ -567,8 +595,9 @@
                   </div>
 
                   <div class="goal-dna-additional-readonly-note">
-                    No edit, pause, complete, delete or make-primary control
-                    is included in Additional Goals Phase 1.
+                    Goal details remain read-only. Editing, pausing,
+                    completing and deleting additional goals are not
+                    included in this checkpoint.
                   </div>
                 </div>
               </details>

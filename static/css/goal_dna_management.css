@@ -1838,3 +1838,79 @@
     flex-direction: column;
   }
 }
+
+/* PRIMARY_GOAL_SWITCHING */
+
+.goal-dna-additional-switch-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.goal-dna-additional-switch-panel .goal-dna-additional-scope-note {
+  margin-top: 0;
+}
+
+.goal-dna-make-primary-form {
+  display: flex;
+  width: min(100%, 225px);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.goal-dna-make-primary-button {
+  display: inline-flex;
+  min-height: 43px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 17px;
+  color: #07191a;
+  background: linear-gradient(135deg, #78f2eb, var(--goal-dna-teal));
+  border: 1px solid rgba(162, 255, 250, 0.48);
+  border-radius: 11px;
+  box-shadow: 0 13px 30px rgba(57, 221, 213, 0.12);
+  font: inherit;
+  font-size: 9px;
+  font-weight: 830;
+  cursor: pointer;
+}
+
+.goal-dna-make-primary-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 36px rgba(57, 221, 213, 0.17);
+}
+
+.goal-dna-make-primary-form small {
+  color: #758494;
+  font-size: 7px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.goal-dna-primary-switch-unavailable {
+  max-width: 225px;
+  padding: 12px 14px;
+  color: #8b99a8;
+  background: rgba(255, 255, 255, 0.022);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 11px;
+  font-size: 8px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (max-width: 820px) {
+  .goal-dna-additional-switch-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .goal-dna-make-primary-form,
+  .goal-dna-primary-switch-unavailable {
+    width: 100%;
+    max-width: none;
+  }
+}
