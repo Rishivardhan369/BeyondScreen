@@ -7,7 +7,12 @@ from django.urls import reverse
 from unittest.mock import patch
 
 from .models import DigitalSummary, GoalAction, MomentumEntry, UserGoal
-from .services import build_goal_rescue, generate_postcard
+from .services import (
+    build_goal_rescue,
+    freeze_goal_rescue_snapshot,
+    generate_postcard,
+    goal_rescue_for_summary,
+)
 
 
 class HomeViewTests(TestCase):
@@ -709,4 +714,302 @@ class AdditionalGoalManagementPhase2Tests(TestCase):
         self.assertNotContains(
             response,
             reverse("core:make_primary_goal", args=[self.additional.pk]),
+        )
+
+
+class HistoricalGoalRescueStabilityTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="snapshot-user",
+            password="test-password",
+        )
+        self.primary = self.create_goal(
+            "Original primary",
+            is_primary=True,
+        )
+        self.additional = self.create_goal("Future primary")
+        self.client.force_login(self.user)
+
+    def create_goal(self, title, *, is_primary=False):
+        goal = UserGoal.objects.create(
+            user=self.user,
+            title=title,
+            why_it_matters=f"Why {title} matters",
+            current_focus=f"Focus for {title}",
+            progress_unit="sessions",
+            weekly_target=3,
+            is_primary=is_primary,
+            status=UserGoal.STATUS_ACTIVE,
+            preferred_days=["monday"],
+        )
+        for size, minutes in (
+            (GoalAction.SIZE_MINIMUM, 5),
+            (GoalAction.SIZE_STANDARD, 20),
+            (GoalAction.SIZE_DEEP, 45),
+        ):
+            GoalAction.objects.create(
+                goal=goal,
+                size=size,
+                title=f"{title} {size}",
+                duration_minutes=minutes,
+                progress_value=1,
+            )
+        return goal
+
+    def create_summary(self, minutes=200, *, snapshot=True):
+        rescue_snapshot = None
+        if snapshot:
+            rescue_snapshot = freeze_goal_rescue_snapshot(
+                build_goal_rescue(self.user, minutes)
+            )
+        return DigitalSummary.objects.create(
+            user=self.user,
+            screen_time_minutes=minutes,
+            wellness_score=70,
+            category="Balanced",
+            insight="Snapshot insight",
+            goal_rescue_snapshot=rescue_snapshot,
+        )
+
+    def test_new_summary_created_by_home_stores_goal_rescue_snapshot(self):
+        response = self.client.post(
+            reverse("core:home"),
+            {"screen_time": 200, "mood": "Calm", "goal": "Study"},
+        )
+
+        self.assertEqual(response.status_code, 302)
+        summary = DigitalSummary.objects.get(user=self.user)
+        snapshot = summary.goal_rescue_snapshot
+        selected_action = self.primary.actions.get(pk=snapshot["action_id"])
+        self.assertEqual(snapshot["status"], "ready")
+        self.assertEqual(snapshot["goal_id"], self.primary.pk)
+        self.assertEqual(snapshot["goal_title"], self.primary.title)
+        self.assertEqual(snapshot["action_title"], selected_action.title)
+        self.assertEqual(snapshot["action_size"], selected_action.size)
+        self.assertEqual(snapshot["action_minutes"], selected_action.duration_minutes)
+        self.assertEqual(snapshot["action_progress_value"], "1.00")
+        self.assertEqual(snapshot["progress_unit"], self.primary.progress_unit)
+
+    def test_historical_views_keep_snapshot_after_primary_switch(self):
+        summary = self.create_summary()
+        original = summary.goal_rescue_snapshot.copy()
+        session = self.client.session
+        session["summary_data"] = {
+            "summary_id": summary.pk,
+            "screen_time_minutes": summary.screen_time_minutes,
+            "insight": summary.insight,
+        }
+        session.save()
+
+        self.client.post(
+            reverse("core:make_primary_goal", args=[self.additional.pk])
+        )
+
+        current_response = self.client.get(reverse("core:summary"))
+        detail_response = self.client.get(
+            reverse("core:view_summary", args=[summary.pk])
+        )
+        history_response = self.client.get(reverse("core:history"))
+        self.assertEqual(
+            current_response.context["summary"]["goal_rescue"]["goal_title"],
+            original["goal_title"],
+        )
+        self.assertEqual(
+            detail_response.context["goal_rescue"]["action_title"],
+            original["action_title"],
+        )
+        self.assertEqual(
+            history_response.context["history_reports"][0]["goal_rescue"],
+            original,
+        )
+
+    def test_snapshot_survives_original_goal_and_action_edits(self):
+        summary = self.create_summary()
+        original = summary.goal_rescue_snapshot.copy()
+        selected_action = GoalAction.objects.get(pk=original["action_id"])
+
+        self.primary.title = "Edited primary title"
+        self.primary.progress_unit = "tasks"
+        self.primary.save(update_fields=["title", "progress_unit"])
+        selected_action.title = "Edited action title"
+        selected_action.duration_minutes = 99
+        selected_action.progress_value = 7
+        selected_action.save()
+
+        summary.refresh_from_db()
+        self.assertEqual(goal_rescue_for_summary(summary), original)
+
+    def test_snapshot_survives_pausing_original_primary(self):
+        summary = self.create_summary()
+        original = summary.goal_rescue_snapshot.copy()
+
+        self.client.post(
+            reverse("core:pause_primary_goal", args=[self.primary.pk])
+        )
+
+        summary.refresh_from_db()
+        self.assertEqual(goal_rescue_for_summary(summary), original)
+
+    def test_snapshot_survives_completing_original_primary(self):
+        summary = self.create_summary()
+        original = summary.goal_rescue_snapshot.copy()
+
+        self.client.post(
+            reverse("core:complete_primary_goal", args=[self.primary.pk])
+        )
+
+        summary.refresh_from_db()
+        self.assertEqual(goal_rescue_for_summary(summary), original)
+
+    def test_old_rescue_completion_uses_frozen_values_and_prevents_duplicates(self):
+        summary = self.create_summary()
+        snapshot = summary.goal_rescue_snapshot.copy()
+        original_action = GoalAction.objects.get(pk=snapshot["action_id"])
+
+        self.client.post(
+            reverse("core:make_primary_goal", args=[self.additional.pk])
+        )
+        original_action.title = "Later edited action"
+        original_action.duration_minutes = 120
+        original_action.progress_value = 9
+        original_action.save()
+
+        first = self.client.post(
+            reverse("core:complete_goal_rescue"),
+            {"summary_id": summary.pk},
+        )
+        second = self.client.post(
+            reverse("core:complete_goal_rescue"),
+            {"summary_id": summary.pk},
+        )
+
+        self.assertEqual(first.status_code, 302)
+        self.assertEqual(first.url, reverse("core:summary"))
+        self.assertEqual(second.status_code, 302)
+        self.assertEqual(second.url, reverse("core:summary"))
+        self.assertEqual(
+            MomentumEntry.objects.filter(digital_summary=summary).count(),
+            1,
+        )
+        entry = MomentumEntry.objects.get(digital_summary=summary)
+        self.assertEqual(entry.goal_id, self.primary.pk)
+        self.assertEqual(entry.action_id, original_action.pk)
+        self.assertEqual(entry.action_title, snapshot["action_title"])
+        self.assertEqual(entry.action_size, snapshot["action_size"])
+        self.assertEqual(entry.duration_minutes, snapshot["action_minutes"])
+        self.assertEqual(str(entry.progress_value), snapshot["action_progress_value"])
+        self.assertEqual(entry.progress_unit, snapshot["progress_unit"])
+
+    def test_new_summary_after_switch_uses_new_primary(self):
+        old_summary = self.create_summary()
+        self.client.post(
+            reverse("core:make_primary_goal", args=[self.additional.pk])
+        )
+
+        new_summary = self.create_summary()
+
+        self.assertEqual(
+            old_summary.goal_rescue_snapshot["goal_id"],
+            self.primary.pk,
+        )
+        self.assertEqual(
+            new_summary.goal_rescue_snapshot["goal_id"],
+            self.additional.pk,
+        )
+
+    def test_no_rescue_snapshot_does_not_gain_rescue_later(self):
+        no_goal_user = User.objects.create_user(
+            username="no-goal-snapshot",
+            password="test-password",
+        )
+        self.client.force_login(no_goal_user)
+        snapshot = freeze_goal_rescue_snapshot(
+            build_goal_rescue(no_goal_user, 120)
+        )
+        summary = DigitalSummary.objects.create(
+            user=no_goal_user,
+            screen_time_minutes=120,
+            wellness_score=70,
+            category="Balanced",
+            insight="No goal then",
+            goal_rescue_snapshot=snapshot,
+        )
+        UserGoal.objects.create(
+            user=no_goal_user,
+            title="Later goal",
+            why_it_matters="Created after the report",
+            progress_unit="sessions",
+            weekly_target=3,
+            is_primary=True,
+        )
+
+        summary.refresh_from_db()
+        self.assertEqual(goal_rescue_for_summary(summary)["status"], "no_goal")
+
+    def test_zero_screen_time_state_is_frozen(self):
+        summary = self.create_summary(minutes=0)
+        self.assertEqual(
+            summary.goal_rescue_snapshot["status"],
+            "no_screen_time",
+        )
+
+        self.client.post(
+            reverse("core:make_primary_goal", args=[self.additional.pk])
+        )
+
+        summary.refresh_from_db()
+        self.assertEqual(
+            goal_rescue_for_summary(summary)["status"],
+            "no_screen_time",
+        )
+        self.assertEqual(
+            goal_rescue_for_summary(summary)["goal_title"],
+            self.primary.title,
+        )
+
+    def test_smallest_action_fallback_is_frozen_when_slice_fits_nothing(self):
+        summary = self.create_summary(minutes=1)
+        minimum_action = self.primary.actions.get(
+            size=GoalAction.SIZE_MINIMUM,
+        )
+
+        self.assertEqual(
+            summary.goal_rescue_snapshot["action_id"],
+            minimum_action.pk,
+        )
+
+        self.client.post(
+            reverse("core:make_primary_goal", args=[self.additional.pk])
+        )
+        minimum_action.title = "Changed after recommendation"
+        minimum_action.save(update_fields=["title"])
+
+        summary.refresh_from_db()
+        rescue = goal_rescue_for_summary(summary)
+        self.assertEqual(rescue["action_id"], minimum_action.pk)
+        self.assertNotEqual(rescue["action_title"], minimum_action.title)
+
+    def test_legacy_summary_is_explicitly_unavailable_and_not_completable(self):
+        legacy = self.create_summary(snapshot=False)
+
+        detail_response = self.client.get(
+            reverse("core:view_summary", args=[legacy.pk])
+        )
+        completion_response = self.client.post(
+            reverse("core:complete_goal_rescue"),
+            {"summary_id": legacy.pk},
+            follow=True,
+        )
+
+        self.assertEqual(
+            detail_response.context["goal_rescue"]["status"],
+            "legacy_unavailable",
+        )
+        self.assertContains(
+            detail_response,
+            "No historical recommendation was saved.",
+        )
+        self.assertContains(completion_response, "predates saved Goal Rescue")
+        self.assertFalse(
+            MomentumEntry.objects.filter(digital_summary=legacy).exists()
         )

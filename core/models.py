@@ -44,6 +44,10 @@ class DigitalSummary(models.Model):
     wellness_score = models.IntegerField()
     category = models.CharField(max_length=20)
     insight = models.TextField()
+    # NULL identifies summaries created before historical Goal Rescue
+    # snapshots existed. An empty/no-rescue result is stored as a real
+    # dictionary so it cannot later acquire a recommendation.
+    goal_rescue_snapshot = models.JSONField(blank=True, null=True)
 
     class Meta:
         ordering = ['-created_at']

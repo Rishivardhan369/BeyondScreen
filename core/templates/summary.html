@@ -181,6 +181,19 @@
                         </div>
                     {% endif %}
 
+                {% elif rescue.status == "legacy_unavailable" %}
+                    <div class="gr-empty-state">
+                        <span class="gr-rescue-badge">GOAL RESCUE</span>
+                        <h2 id="goal-rescue-title">
+                            This older report has no saved recommendation.
+                        </h2>
+                        <p>
+                            BeyondScreen does not rebuild historical Goal
+                            Rescue actions from your current Goal DNA because
+                            that could misrepresent what was recommended then.
+                        </p>
+                    </div>
+
                 {% elif rescue.status == "paused_goal" %}
                     <div class="gr-empty-state">
                         <span class="gr-rescue-badge">GOAL RESCUE</span>

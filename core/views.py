@@ -27,8 +27,10 @@ from .forms import (
 )
 from .services import (
     build_goal_rescue,
+    freeze_goal_rescue_snapshot,
     format_screen_time,
     generate_postcard,
+    goal_rescue_for_summary,
     render_postcard_pdf,
     render_postcard_png,
 )
@@ -1340,12 +1342,16 @@ def home(request):
 
             # If user is authenticated, save a DigitalSummary record
             if request.user.is_authenticated:
+                goal_rescue_snapshot = freeze_goal_rescue_snapshot(
+                    build_goal_rescue(request.user, minutes)
+                )
                 digital_summary = DigitalSummary.objects.create(
                     user=request.user,
                     screen_time_minutes=minutes,
                     wellness_score=wellness_score,
                     category=category,
                     insight=insight,
+                    goal_rescue_snapshot=goal_rescue_snapshot,
                 )
                 request.session["summary_data"]["summary_id"] = (
                     digital_summary.id
@@ -1381,13 +1387,15 @@ def complete_goal_rescue(request):
         user=request.user,
     )
 
-    rescue = build_goal_rescue(
-        request.user,
-        digital_summary.screen_time_minutes,
-    )
+    rescue = goal_rescue_for_summary(digital_summary)
 
     if rescue.get("status") != "ready":
-        if rescue.get("status") == "paused_goal":
+        if rescue.get("status") == "legacy_unavailable":
+            error_message = (
+                "This older report predates saved Goal Rescue "
+                "recommendations and cannot be completed safely."
+            )
+        elif rescue.get("status") == "paused_goal":
             error_message = (
                 "Resume your primary goal before recording "
                 "new progress."
@@ -1408,21 +1416,24 @@ def complete_goal_rescue(request):
         )
         return redirect("core:summary")
 
-    action = get_object_or_404(
-        GoalAction.objects.select_related("goal"),
-        id=rescue["action_id"],
+    goal = UserGoal.objects.filter(
+        id=rescue.get("goal_id"),
+        user=request.user,
+    ).first()
+    action = GoalAction.objects.filter(
+        id=rescue.get("action_id"),
         goal__user=request.user,
-    )
+    ).first()
 
     defaults = {
         "user": request.user,
-        "goal": action.goal,
+        "goal": goal,
         "action": action,
-        "action_title": action.title,
-        "action_size": action.size,
-        "duration_minutes": action.duration_minutes,
-        "progress_value": action.progress_value,
-        "progress_unit": action.goal.progress_unit,
+        "action_title": rescue["action_title"],
+        "action_size": rescue["action_size"],
+        "duration_minutes": rescue["action_minutes"],
+        "progress_value": rescue["action_progress_value"],
+        "progress_unit": rescue["progress_unit"],
     }
 
     try:
@@ -1464,23 +1475,26 @@ def summary(request):
         0,
     )
 
-    goal_rescue = build_goal_rescue(
-        request.user,
-        screen_time_minutes,
-    )
-
     summary_id = display_summary.get("summary_id")
+    digital_summary = None
+
+    if request.user.is_authenticated and summary_id:
+        digital_summary = DigitalSummary.objects.filter(
+            id=summary_id,
+            user=request.user,
+        ).first()
+
+    goal_rescue = (
+        goal_rescue_for_summary(digital_summary)
+        if digital_summary is not None
+        else build_goal_rescue(request.user, screen_time_minutes)
+    )
 
     if (
         request.user.is_authenticated
         and goal_rescue.get("status") == "ready"
         and summary_id
     ):
-        digital_summary = DigitalSummary.objects.filter(
-            id=summary_id,
-            user=request.user,
-        ).first()
-
         if digital_summary is not None:
             goal_rescue["summary_id"] = digital_summary.id
 
@@ -1901,10 +1915,7 @@ def dashboard(request):
         dashboard_summary = {
             "total_screen_time": format_minutes(latest_minutes),
             "recommendation": build_recommendation(latest_minutes),
-            "goal_rescue": build_goal_rescue(
-                request.user,
-                latest_minutes,
-            ),
+            "goal_rescue": goal_rescue_for_summary(latest_summary),
         }
     else:
         session_minutes = session_summary.get(
@@ -2466,10 +2477,7 @@ def history(request):
                 "wellness_tone": wellness_tone,
                 "category": summary_item.category,
                 "insight": summary_item.insight,
-                "goal_rescue": build_goal_rescue(
-                    request.user,
-                    summary_item.screen_time_minutes,
-                ),
+                "goal_rescue": goal_rescue_for_summary(summary_item),
                 "momentum": momentum,
             }
         )
@@ -2619,10 +2627,7 @@ def view_summary(request, summary_id):
         int(summary.screen_time_minutes or 0),
     )
 
-    goal_rescue = build_goal_rescue(
-        request.user,
-        screen_time_minutes,
-    )
+    goal_rescue = goal_rescue_for_summary(summary)
 
     momentum_entry = (
         MomentumEntry.objects.filter(

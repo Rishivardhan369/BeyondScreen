@@ -125,6 +125,19 @@ Digital Wellness & Goal Rescue · {{ summary.created_at|date:"M d, Y" }} · Beyo
                         <p>{{ rescue.selection_reason }}</p>
                     </div>
 
+                {% elif rescue.status == "legacy_unavailable" %}
+                    <div class="historical-empty-state">
+                        <span class="historical-rescue-badge">HISTORICAL GOAL RESCUE</span>
+                        <h2 id="historical-rescue-title">
+                            No historical recommendation was saved.
+                        </h2>
+                        <p>
+                            This report predates Goal Rescue snapshots.
+                            BeyondScreen will not substitute a recommendation
+                            from your current Goal DNA.
+                        </p>
+                    </div>
+
                 {% elif rescue.status == "paused_goal" %}
                     <div class="historical-empty-state">
                         <span class="historical-rescue-badge">HISTORICAL GOAL RESCUE</span>

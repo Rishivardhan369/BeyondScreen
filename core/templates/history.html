@@ -411,6 +411,11 @@
                             {{ rescue.progress_phrase }}
                           </span>
 
+                        {% elif rescue.status == "legacy_unavailable" %}
+                          <span class="history-rescue-chip">
+                            Historical recommendation was not saved.
+                          </span>
+
                         {% elif rescue.status == "paused_goal" %}
                           <span class="history-rescue-chip">
                             <b>Ⅱ</b>

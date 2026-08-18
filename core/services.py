@@ -861,6 +861,7 @@ def build_goal_rescue(user, screen_time_minutes):
 
     return {
         "status": "ready",
+        "goal_id": goal.id,
         "goal_title": goal.title,
         "goal_reason": goal.why_it_matters,
         "current_focus": goal.current_focus,
@@ -868,6 +869,8 @@ def build_goal_rescue(user, screen_time_minutes):
         "action_title": selected_action.title,
         "action_minutes": selected_action.duration_minutes,
         "action_size": selected_action.size,
+        "action_progress_value": str(selected_action.progress_value),
+        "progress_unit": goal.progress_unit,
         "action_size_label": selected_detail["label"],
         "action_context": selected_detail["context"],
         "progress_phrase": _goal_rescue_progress_phrase(
@@ -880,3 +883,29 @@ def build_goal_rescue(user, screen_time_minutes):
         "goal_actions": goal_actions,
         "is_completed": False,
     }
+
+
+def freeze_goal_rescue_snapshot(rescue):
+    """Return a JSON-safe copy suitable for immutable summary storage."""
+    import json
+
+    from django.core.serializers.json import DjangoJSONEncoder
+
+    return json.loads(json.dumps(rescue, cls=DjangoJSONEncoder))
+
+
+def goal_rescue_for_summary(summary):
+    """Read a frozen rescue without reconstructing unknowable history.
+
+    Rows predating snapshot support remain explicitly unavailable. Rebuilding
+    them from today's primary goal would create misleading historical data.
+    """
+    from copy import deepcopy
+
+    if summary.goal_rescue_snapshot is None:
+        return {
+            "status": "legacy_unavailable",
+            "screen_time_minutes": summary.screen_time_minutes,
+        }
+
+    return deepcopy(summary.goal_rescue_snapshot)
