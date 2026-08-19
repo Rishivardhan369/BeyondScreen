@@ -8,6 +8,7 @@ from .models import (
     Postcard,
     UserGoal,
     UserProfile,
+    ActionableInputFeedback,
 )
 
 
@@ -47,8 +48,8 @@ class GoalActionAdmin(admin.ModelAdmin):
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "newsletter_subscribe", "created_at", "updated_at")
-    list_filter = ("newsletter_subscribe",)
+    list_display = ("user", "newsletter_subscribe", "show_detailed_mobile_analytics", "created_at", "updated_at")
+    list_filter = ("newsletter_subscribe", "show_detailed_mobile_analytics", "show_actionable_inputs")
     search_fields = ("user__username", "user__email")
     readonly_fields = ("created_at", "updated_at")
 
@@ -58,7 +59,7 @@ class DigitalSummaryAdmin(admin.ModelAdmin):
     list_display = ("user", "created_at", "screen_time_minutes", "wellness_score", "category")
     list_filter = ("category", "created_at")
     search_fields = ("user__username", "user__email", "insight")
-    readonly_fields = ("created_at", "goal_rescue_snapshot")
+    readonly_fields = ("created_at", "goal_rescue_snapshot", "mobile_analytics_snapshot", "mobile_assessment_snapshot")
     date_hierarchy = "created_at"
 
 
@@ -86,3 +87,11 @@ class GoalRescueOutcomeAdmin(admin.ModelAdmin):
     search_fields = ("user__username", "action_title", "goal__title")
     readonly_fields = ("shown_at", "completed_at", "skipped_at")
     date_hierarchy = "shown_at"
+
+
+@admin.register(ActionableInputFeedback)
+class ActionableInputFeedbackAdmin(admin.ModelAdmin):
+    list_display = ("user", "input_type", "outcome", "digital_summary", "created_at")
+    list_filter = ("input_type", "outcome", "created_at")
+    search_fields = ("user__username", "input_id", "input_type")
+    readonly_fields = ("user", "digital_summary", "input_id", "input_type", "outcome", "created_at")

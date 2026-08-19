@@ -22,6 +22,13 @@ class UserProfile(models.Model):
         default="all",
     )
     show_skipped_rescue_statistics = models.BooleanField(default=True)
+    show_detailed_mobile_analytics = models.BooleanField(default=True)
+    show_interaction_metrics = models.BooleanField(default=True)
+    show_actionable_inputs = models.BooleanField(default=True)
+    preferred_daily_screen_time_minutes = models.PositiveSmallIntegerField(
+        blank=True,
+        null=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -64,6 +71,10 @@ class DigitalSummary(models.Model):
     # dictionary so it cannot later acquire a recommendation.
     goal_rescue_snapshot = models.JSONField(blank=True, null=True)
     app_usage = models.JSONField(default=list, blank=True)
+    # Immutable, structured extraction and interpretation captured when the
+    # report is created. Legacy summaries intentionally retain empty objects.
+    mobile_analytics_snapshot = models.JSONField(default=dict, blank=True)
+    mobile_assessment_snapshot = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ['-created_at']
@@ -313,6 +324,47 @@ class GoalRescueOutcome(models.Model):
 
     def __str__(self):
         return f"{self.user.username}: {self.action_title} ({self.status})"
+
+
+class ActionableInputFeedback(models.Model):
+    OUTCOME_HELPFUL = "helpful"
+    OUTCOME_USED = "used"
+    OUTCOME_NOT_USEFUL = "not_useful"
+    OUTCOME_CHOICES = [
+        (OUTCOME_HELPFUL, "Helpful"),
+        (OUTCOME_USED, "Used this input"),
+        (OUTCOME_NOT_USEFUL, "Not useful"),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="actionable_input_feedback",
+    )
+    digital_summary = models.ForeignKey(
+        DigitalSummary,
+        on_delete=models.CASCADE,
+        related_name="actionable_input_feedback",
+    )
+    input_id = models.CharField(max_length=80)
+    input_type = models.CharField(max_length=40)
+    outcome = models.CharField(max_length=20, choices=OUTCOME_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "digital_summary", "input_id"],
+                name="one_feedback_per_actionable_input",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["user", "input_type", "outcome"], name="input_feedback_user_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.input_type} ({self.outcome})"
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):

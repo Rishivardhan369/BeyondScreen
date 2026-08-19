@@ -148,6 +148,16 @@
               {% endif %}
             </label>
 
+            <details class="home-advanced-analytics">
+              <summary>Add more phone analytics <small>optional</small></summary>
+              <p>Use values shown by your phone. Leave anything unavailable blank.</p>
+              <div class="home-form-grid">
+                <label class="home-field" for="{{ form.pickups.id_for_label }}"><span>{{ form.pickups.label }}</span>{{ form.pickups }}{% if form.pickups.errors %}<span class="home-form-error">{{ form.pickups.errors }}</span>{% endif %}</label>
+                <label class="home-field" for="{{ form.notifications.id_for_label }}"><span>{{ form.notifications.label }}</span>{{ form.notifications }}{% if form.notifications.errors %}<span class="home-form-error">{{ form.notifications.errors }}</span>{% endif %}</label>
+                <label class="home-field" for="{{ form.longest_session_minutes.id_for_label }}"><span>{{ form.longest_session_minutes.label }}</span>{{ form.longest_session_minutes }}{% if form.longest_session_minutes.errors %}<span class="home-form-error">{{ form.longest_session_minutes.errors }}</span>{% endif %}</label>
+              </div>
+            </details>
+
             <div class="home-form-grid">
               <label class="home-field">
                 <span>How are you feeling?</span>

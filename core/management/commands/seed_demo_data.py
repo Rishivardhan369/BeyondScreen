@@ -15,6 +15,7 @@ from core.models import (
     MomentumEntry,
     UserGoal,
 )
+from core.mobile_analytics import build_mobile_analytics_assessment
 
 
 DEMO_USERNAME = "beyondscreen_demo"
@@ -96,12 +97,33 @@ class Command(BaseCommand):
         for index, (days_ago, goal, size, status) in enumerate(plan):
             action = goal.actions.get(size=size)
             when = now - timedelta(days=days_ago, hours=index)
+            apps = [
+                {"name": "Instagram", "minutes": 48 + index * 3, "category": "Social"},
+                {"name": "YouTube", "minutes": 37 + index * 2, "category": "Entertainment"},
+                {"name": "Notion", "minutes": 22 + index, "category": "Productivity"},
+            ]
+            mobile_snapshot = {
+                "schema_version": 1,
+                "source_type": "ios_screen_time" if index == 3 else "android_digital_wellbeing",
+                "platform": "ios" if index == 3 else "android",
+                "detection_confidence": "high",
+                "total_minutes": 180 + index * 17,
+                "apps": apps,
+                "pickups": 52 + index * 4,
+                "notifications": 88 + index * 7,
+                "sessions": 24 + index,
+                "longest_session_minutes": 31 + index * 2,
+                "last_use_time": "11:42 PM" if index % 2 else "10:18 PM",
+                "report_date": when.date().isoformat(),
+            }
             summary = DigitalSummary.objects.create(
                 user=user,
                 screen_time_minutes=180 + index * 17,
                 wellness_score=78 - index * 2,
                 category="Balanced" if index % 2 == 0 else "Needs attention",
                 insight="Demo insight: one intentional action can reclaim part of this time.",
+                app_usage=apps,
+                mobile_analytics_snapshot=mobile_snapshot,
                 goal_rescue_snapshot={
                     "status": "ready",
                     "goal_id": goal.id,
@@ -116,6 +138,9 @@ class Command(BaseCommand):
                 },
             )
             DigitalSummary.objects.filter(pk=summary.pk).update(created_at=when)
+            summary.refresh_from_db()
+            summary.mobile_assessment_snapshot = build_mobile_analytics_assessment(summary)
+            summary.save(update_fields=["mobile_assessment_snapshot"])
             outcome = GoalRescueOutcome.objects.create(
                 user=user,
                 digital_summary=summary,

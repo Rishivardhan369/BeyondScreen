@@ -6,6 +6,7 @@ Digital Wellness & Goal Rescue · {{ summary.created_at|date:"M d, Y" }} · Beyo
 {% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/mobile_analytics.css' %}">
 <link rel="stylesheet" href="{% static 'css/view_summary.css' %}">
 {% endblock %}
 
@@ -73,6 +74,8 @@ Digital Wellness & Goal Rescue · {{ summary.created_at|date:"M d, Y" }} · Beyo
             <p>{{ summary.insight }}</p>
         </section>
 
+        {% include "includes/mobile_analytics.html" with analytics=mobile_analytics assessment=mobile_assessment summary_id=summary.id preferences=mobile_preferences %}
+
         {% with rescue=goal_rescue %}
             <section class="historical-rescue-card" aria-labelledby="historical-rescue-title">
                 {% if rescue.status == "ready" %}
@@ -122,7 +125,7 @@ Digital Wellness & Goal Rescue · {{ summary.created_at|date:"M d, Y" }} · Beyo
 
                     <div class="historical-rescue-reason">
                         <span>Why this step</span>
-                        <p>{{ rescue.selection_reason }}</p>
+                        <p>{{ rescue.selection_reason }}{% if rescue.mobile_context %}<br>{{ rescue.mobile_context }}{% endif %}</p>
                     </div>
 
                     {% if not momentum_completion %}
@@ -337,6 +340,8 @@ Digital Wellness & Goal Rescue · {{ summary.created_at|date:"M d, Y" }} · Beyo
                 </section>
             {% endif %}
         {% endwith %}
+
+        {% include "includes/mobile_app_usage.html" with assessment=mobile_assessment preferences=mobile_preferences %}
 
         <footer class="historical-summary-footer">
             <a href="{% url 'core:history' %}">

@@ -1,0 +1,16 @@
+{% if preferences.show_detailed_mobile_analytics and assessment.app_patterns.top_apps %}
+<section class="mobile-app-detail" aria-labelledby="mobile-app-detail-title">
+  <header>
+    <div><span>RECORDED APP DETAIL</span><h2 id="mobile-app-detail-title">Where recorded time went</h2></div>
+    <p>Only apps reliably present in this report are shown. Categories are conservative and Unknown remains explicit.</p>
+  </header>
+  <div class="mobile-app-list">
+    {% for app in assessment.app_patterns.top_apps %}
+      <article>
+        <div class="mobile-app-heading"><div><strong>{{ app.name }}</strong><small>{{ app.category }}</small></div><span>{{ app.minutes }} min{% if app.share is not None %} · {{ app.share }}%{% endif %}</span></div>
+        {% if app.share is not None %}<div class="mobile-app-track" role="img" aria-label="{{ app.name }} represented {{ app.share }} percent of recorded screen time"><i style="width: {{ app.share }}%"></i></div>{% endif %}
+      </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}

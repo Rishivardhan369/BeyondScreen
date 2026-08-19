@@ -11,6 +11,7 @@
     <header class="weekly-review-hero">
       <span>WEEKLY REVIEW</span>
       <h1>Your week in reclaimed momentum</h1>
+      <b class="weekly-review-mode">{% if review.is_current_week %}CURRENT WEEK{% else %}HISTORICAL WEEK{% endif %}</b>
       <p>{{ review.week_start|date:"M d" }} – {{ review.week_end|date:"M d, Y" }}</p>
     </header>
 
@@ -28,7 +29,7 @@
     <section class="weekly-review-metrics">
       <article><span>Completed actions</span><strong>{{ review.completed_actions }}</strong></article>
       <article><span>Reclaimed minutes</span><strong>{{ review.reclaimed_minutes }}</strong></article>
-      <article><span>Rescues shown</span><strong>{{ review.recommendations_shown }}</strong></article>
+      <article><span>Most active goal</span><strong>{% if review.most_active_goal %}{{ review.most_active_goal.title }}{% else %}No activity yet{% endif %}</strong></article>
       <article><span>Completed / skipped / pending</span><strong>{{ review.recommendations_completed }} / {{ review.recommendations_skipped }} / {{ review.recommendations_pending }}</strong></article>
       <article><span>Completion rate</span><strong>{{ review.completion_percent }}%</strong></article>
     </section>
@@ -41,6 +42,16 @@
         {% endfor %}
       </section>
     {% endif %}
+
+    <section class="weekly-review-insights">
+      <span>MOBILE ANALYTICS</span>
+      {% if review.mobile_analytics.available %}
+        <p>{{ review.mobile_analytics.report_count }} recorded report{{ review.mobile_analytics.report_count|pluralize }} averaged {{ review.mobile_analytics.average_screen_time }} minutes of screen time.{% if review.mobile_analytics.top_app %} The highest cumulative recorded app was {{ review.mobile_analytics.top_app }}.{% endif %}</p>
+        {% if review.mobile_analytics.average_pickups is not None %}<p>Average pickups: {{ review.mobile_analytics.average_pickups }}.</p>{% endif %}
+        {% if review.mobile_analytics.average_notifications is not None %}<p>Average notifications: {{ review.mobile_analytics.average_notifications }}.</p>{% endif %}
+        {% if review.mobile_analytics.most_common_input_type %}<p>Most common Actionable Input type: {{ review.mobile_analytics.most_common_input_type }}.</p>{% endif %}
+      {% else %}<p>No Mobile Analytics reports were recorded for this selected week.</p>{% endif %}
+    </section>
 
     <section class="weekly-review-insights">
       <span>WEEKLY INSIGHTS</span>
@@ -80,7 +91,7 @@
           {% endfor %}
         </div>
       {% else %}
-        <div class="weekly-review-empty">No goals or goal activity to review yet.</div>
+        <div class="weekly-review-empty"><strong>No goal activity to review yet.</strong><p>Create Goal DNA, then complete a Goal Rescue to start weekly progress.</p><a href="{% url 'core:goal_dna_management' %}">Review Goal DNA →</a></div>
       {% endif %}
     </section>
 
@@ -100,7 +111,7 @@
           </article>
         {% endfor %}
       {% else %}
-        <div class="weekly-review-empty">No completed Momentum activity yet this week.</div>
+        <div class="weekly-review-empty"><strong>No completed Momentum activity yet this week.</strong><p>Add a screen-time report to receive a Goal Rescue and record your first completed action.</p><a href="{% url 'core:home' %}">Add a report →</a></div>
       {% endif %}
     </section>
   </div>

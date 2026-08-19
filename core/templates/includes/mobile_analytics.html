@@ -1,0 +1,60 @@
+<section class="mobile-analytics" aria-labelledby="mobile-analytics-title">
+  <header>
+    <div>
+      <span>Mobile Analytics</span>
+      <h2 id="mobile-analytics-title">Usage Assessment</h2>
+    </div>
+    <p><strong>{{ assessment.data_quality|default:"Assessment unavailable" }}</strong> · {{ assessment.source|default:"Legacy report" }}{% if analytics.platform %} · {{ analytics.platform }}{% endif %}</p>
+  </header>
+
+  {% if assessment %}
+    <p class="mobile-assessment-summary">{{ assessment.summary }}</p>
+
+    {% if preferences.show_detailed_mobile_analytics %}
+      <div class="mobile-analytics-grid">
+        <article><span>Recorded screen time</span><strong>{{ assessment.screen_time.total_minutes }} min</strong></article>
+        {% if assessment.screen_time.comparison.seven_day.available %}
+          <article><span>Recent recorded average</span><strong>{{ assessment.screen_time.comparison.seven_day.average }} min</strong><small>{{ assessment.screen_time.comparison.seven_day.sample_count }} recorded day{{ assessment.screen_time.comparison.seven_day.sample_count|pluralize }}</small></article>
+        {% else %}
+          <article><span>Personal baseline</span><strong>Still building</strong><small>Missing dates are not counted as zero.</small></article>
+        {% endif %}
+        {% if assessment.app_patterns.top_app %}<article><span>Highest recorded app</span><strong>{{ assessment.app_patterns.top_app.name }}</strong><small>{{ assessment.app_patterns.top_app.minutes }} min · {{ assessment.app_patterns.top_app_share }}%</small></article>{% endif %}
+        {% if assessment.app_patterns.concentration %}<article><span>Usage distribution</span><strong>{{ assessment.app_patterns.concentration }}</strong><small>Descriptive only—not a health diagnosis.</small></article>{% endif %}
+      </div>
+
+      {% if not assessment.app_patterns.top_apps %}<p class="mobile-empty"><strong>No reliable app details detected.</strong> Your total-only assessment remains available; a richer supported report can add app distribution later.</p>{% endif %}
+    {% endif %}
+
+    {% if preferences.show_interaction_metrics %}
+      <div class="mobile-subsection"><h3>Device interaction metrics</h3><div class="mobile-analytics-grid compact">
+        {% if assessment.interaction_metrics.pickups is not None %}<article><span>Pickups / unlocks</span><strong>{{ assessment.interaction_metrics.pickups }}</strong></article>{% endif %}
+        {% if assessment.interaction_metrics.notifications is not None %}<article><span>Notifications</span><strong>{{ assessment.interaction_metrics.notifications }}</strong></article>{% endif %}
+        {% if assessment.interaction_metrics.sessions is not None %}<article><span>Sessions</span><strong>{{ assessment.interaction_metrics.sessions }}</strong></article>{% endif %}
+        {% if assessment.interaction_metrics.average_session_minutes is not None %}<article><span>Average session</span><strong>{{ assessment.interaction_metrics.average_session_minutes }} min</strong></article>{% endif %}
+        {% if assessment.interaction_metrics.longest_session_minutes is not None %}<article><span>Longest session</span><strong>{{ assessment.interaction_metrics.longest_session_minutes }} min</strong></article>{% endif %}
+        {% if assessment.interaction_metrics.first_use_time %}<article><span>First recorded use</span><strong>{{ assessment.interaction_metrics.first_use_time }}</strong></article>{% endif %}
+        {% if assessment.interaction_metrics.last_use_time %}<article><span>Latest recorded use</span><strong>{{ assessment.interaction_metrics.last_use_time }}</strong></article>{% endif %}
+        {% if assessment.interaction_metrics.pickups_per_screen_hour is not None %}<article><span>Pickups per recorded hour</span><strong>{{ assessment.interaction_metrics.pickups_per_screen_hour }}</strong></article>{% endif %}
+        {% if assessment.interaction_metrics.notifications_per_screen_hour is not None %}<article><span>Notifications per recorded hour</span><strong>{{ assessment.interaction_metrics.notifications_per_screen_hour }}</strong></article>{% endif %}
+      </div>{% if assessment.interaction_metrics.pickups is None and assessment.interaction_metrics.notifications is None and assessment.interaction_metrics.sessions is None and assessment.interaction_metrics.longest_session_minutes is None %}<p class="mobile-empty">This report did not contain reliable interaction metrics.</p>{% endif %}</div>
+    {% endif %}
+
+    <div class="mobile-subsection"><h3>Usage Signals</h3><ul class="mobile-signals">{% for signal in assessment.usage_signals %}{% if signal.type != 'pickups' and signal.type != 'notifications' and signal.type != 'session' and signal.type != 'timing' and signal.type != 'late_use' or preferences.show_interaction_metrics %}{% if signal.type != 'concentration' or preferences.show_detailed_mobile_analytics %}<li><strong>{{ signal.label }}</strong><span>{{ signal.explanation }}</span></li>{% endif %}{% endif %}{% empty %}<li>No additional usage signals were available.</li>{% endfor %}</ul></div>
+
+    {% if preferences.show_actionable_inputs %}
+      <div class="mobile-subsection"><h3>Actionable Inputs</h3><div class="mobile-inputs">
+        {% for input in assessment.actionable_inputs %}<article>
+          <span>{{ input.source_signal }}</span><h4>{{ input.title }}</h4><p>{{ input.explanation }}</p>
+          <strong>{{ input.recommended_action }}{% if input.estimated_duration_minutes %} · {{ input.estimated_duration_minutes }} min{% endif %}</strong>
+          {% if input.goal_title %}<em>Goal DNA · {{ input.goal_title }}</em>{% endif %}
+          <small>Why this? {{ input.why }}</small>
+          {% if summary_id %}<form method="post" action="{% url 'core:actionable_input_feedback' summary_id %}">{% csrf_token %}<input type="hidden" name="input_id" value="{{ input.id }}"><button name="outcome" value="helpful" type="submit">Helpful</button><button name="outcome" value="used" type="submit">Used this input</button><button name="outcome" value="not_useful" type="submit">Not useful</button></form>{% endif %}
+        </article>{% empty %}<p class="mobile-empty">No Actionable Inputs were generated from this report.</p>{% endfor %}
+      </div></div>
+    {% endif %}
+
+    <div class="mobile-goal-context"><strong>Goal connection</strong>{% if assessment.goal_context.available %}<span>{{ assessment.goal_context.goal_title }} · {{ assessment.goal_context.weekly_remaining }} {{ assessment.goal_context.progress_unit }} remaining this week · {{ assessment.goal_context.goal_health }}</span>{% else %}<span>{{ assessment.goal_context.message }}</span><a href="{% url 'core:goal_onboarding' %}">Create Goal DNA</a>{% endif %}</div>
+  {% else %}
+    <div class="mobile-empty"><strong>Historical assessment unavailable</strong><p>This report predates frozen Mobile Analytics assessments. BeyondScreen will not invent or recalculate what was known then.</p></div>
+  {% endif %}
+</section>

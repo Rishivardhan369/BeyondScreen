@@ -5,6 +5,7 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/goal_rescue.css' %}">
+<link rel="stylesheet" href="{% static 'css/mobile_analytics.css' %}">
 {% endblock %}
 
 {% block content %}
@@ -45,13 +46,7 @@
             </article>
         </section>
 
-        <section class="gr-insight">
-            <div>
-                <span class="gr-section-label">WHAT THIS MEANS</span>
-                <h2>A clear reading of today</h2>
-            </div>
-            <p>{{ summary.insight }}</p>
-        </section>
+        {% include "includes/mobile_analytics.html" with analytics=summary.mobile_analytics assessment=summary.mobile_assessment summary_id=summary.summary_id preferences=summary.mobile_preferences %}
 
         <section class="gr-rescue" aria-labelledby="goal-rescue-title">
             {% with rescue=summary.goal_rescue %}
@@ -131,6 +126,7 @@
 
                             <p class="gr-selection-reason">
                                 {{ rescue.selection_reason }}
+                                {% if rescue.mobile_context %}<br>{{ rescue.mobile_context }}{% endif %}
                             </p>
                         </article>
                     </div>
@@ -322,6 +318,12 @@
             {% endwith %}
         </section>
 
+        {% include "includes/mobile_app_usage.html" with assessment=summary.mobile_assessment preferences=summary.mobile_preferences %}
+
+        <section class="gr-insight">
+            <div><span class="gr-section-label">SUPPORTING SUMMARY</span><h2>Your recorded report</h2></div>
+            <p>{{ summary.insight }}</p>
+        </section>
 
         <section class="gr-possibilities">
             {% with rescue=summary.goal_rescue %}

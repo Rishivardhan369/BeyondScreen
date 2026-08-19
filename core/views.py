@@ -23,6 +23,7 @@ from .models import (
     Postcard,
     UserGoal,
     UserProfile,
+    ActionableInputFeedback,
 )
 from .forms import (
     GoalDNAForm,
@@ -47,13 +48,25 @@ from .services import (
     render_postcard_png,
 )
 from .analytics import build_personal_insights
+from .mobile_analytics import (
+    build_mobile_analytics_assessment,
+    build_mobile_analytics_snapshot,
+    build_weekly_mobile_analytics,
+    build_mobile_insights,
+    build_transient_mobile_assessment,
+)
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from services.screen_time_parser import parse_screen_time_report
 from datetime import date, time, timedelta
 from django.db import IntegrityError, transaction
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
+
+
+@require_GET
+def health(request):
+    return JsonResponse({"status": "ok"})
 
 
 @login_required
@@ -1383,6 +1396,17 @@ def home(request):
                 if "ocr_apps" in request.session:
                     del request.session["ocr_apps"]
 
+            mobile_analytics = build_mobile_analytics_snapshot(
+                parsed=ocr_result,
+                manual_total=minutes,
+                manual_metrics={
+                    "pickups": data.get("pickups"),
+                    "notifications": data.get("notifications"),
+                    "longest_session_minutes": data.get("longest_session_minutes"),
+                },
+                report_date=timezone.localdate(),
+            )
+
             postcard_data = generate_postcard(
                 mood=data["mood"],
                 goal=data["goal"],
@@ -1472,7 +1496,11 @@ def home(request):
                 "insight": insight,
                 "recommendation": recommendation,
                 "motivational": motivational,
+                "mobile_analytics": mobile_analytics,
             }
+
+            if not request.user.is_authenticated:
+                request.session["summary_data"]["mobile_assessment"] = build_transient_mobile_assessment(mobile_analytics)
 
             # If user is authenticated, save a DigitalSummary record
             if request.user.is_authenticated:
@@ -1487,12 +1515,27 @@ def home(request):
                         category=category,
                         insight=insight,
                         goal_rescue_snapshot=goal_rescue_snapshot,
-                        app_usage=request.session.get("ocr_apps", []),
+                        app_usage=mobile_analytics.get("apps", []),
+                        mobile_analytics_snapshot=mobile_analytics,
                     )
+                    digital_summary.mobile_assessment_snapshot = build_mobile_analytics_assessment(
+                        digital_summary
+                    )
+                    frozen_rescue = dict(digital_summary.goal_rescue_snapshot or {})
+                    top_app = digital_summary.mobile_assessment_snapshot.get("app_patterns", {}).get("top_app")
+                    if frozen_rescue.get("status") == "ready" and top_app:
+                        frozen_rescue["mobile_context"] = (
+                            f"This step fits within the report's recorded time; "
+                            f"{top_app['name']} was the highest recorded app."
+                        )
+                        digital_summary.goal_rescue_snapshot = frozen_rescue
+                    digital_summary.save(update_fields=["mobile_assessment_snapshot", "goal_rescue_snapshot"])
                     ensure_goal_rescue_outcome(digital_summary)
                 request.session["summary_data"]["summary_id"] = (
                     digital_summary.id
                 )
+                request.session["summary_data"]["mobile_analytics"] = mobile_analytics
+                request.session["summary_data"]["mobile_assessment"] = digital_summary.mobile_assessment_snapshot
                 request.session.modified = True
 
             messages.success(request, "Postcard generated!")
@@ -1646,6 +1689,33 @@ def skip_goal_rescue(request):
     return redirect("core:summary")
 
 
+@login_required
+@require_POST
+def actionable_input_feedback(request, summary_id):
+    digital_summary = get_object_or_404(
+        DigitalSummary, id=summary_id, user=request.user
+    )
+    input_id = str(request.POST.get("input_id", "")).strip()[:80]
+    outcome = str(request.POST.get("outcome", "")).strip()
+    available = {
+        str(item.get("id")): item
+        for item in (digital_summary.mobile_assessment_snapshot or {}).get("actionable_inputs", [])
+        if isinstance(item, dict) and item.get("id")
+    }
+    if input_id not in available or outcome not in dict(ActionableInputFeedback.OUTCOME_CHOICES):
+        messages.error(request, "That Actionable Input feedback could not be saved.")
+    else:
+        item = available[input_id]
+        ActionableInputFeedback.objects.update_or_create(
+            user=request.user,
+            digital_summary=digital_summary,
+            input_id=input_id,
+            defaults={"input_type": str(item.get("type", "unknown"))[:40], "outcome": outcome},
+        )
+        messages.success(request, "Thanks — your input preference was saved.")
+    return redirect("core:view_summary", summary_id=digital_summary.id)
+
+
 def summary(request):
     summary_data = request.session.get("summary_data")
 
@@ -1708,6 +1778,15 @@ def summary(request):
                     goal_rescue["skipped_at"] = outcome.skipped_at
 
     display_summary["goal_rescue"] = goal_rescue
+    display_summary["mobile_preferences"] = {
+        "show_detailed_mobile_analytics": True,
+        "show_interaction_metrics": True,
+        "show_actionable_inputs": True,
+    }
+    if digital_summary is not None:
+        display_summary["mobile_analytics"] = digital_summary.mobile_analytics_snapshot
+        display_summary["mobile_assessment"] = digital_summary.mobile_assessment_snapshot
+        display_summary["mobile_preferences"] = request.user.userprofile
 
     return render(
         request,
@@ -2026,10 +2105,14 @@ def momentum_ledger(request):
 @login_required
 def weekly_review(request):
     selected_date = _normalized_review_date(request.GET.get("week", ""))
+    review = build_weekly_review(request.user, today=selected_date)
+    review["mobile_analytics"] = build_weekly_mobile_analytics(
+        request.user, review["week_start"], review["week_end"]
+    )
     return render(
         request,
         "weekly_review.html",
-        {"review": build_weekly_review(request.user, today=selected_date)},
+        {"review": review},
     )
 
 
@@ -2059,6 +2142,7 @@ def weekly_review_csv(request):
     review = build_weekly_review(
         request.user, today=_normalized_review_date(request.GET.get("week"))
     )
+    review["mobile_analytics"] = build_weekly_mobile_analytics(request.user, review["week_start"], review["week_end"])
     response = HttpResponse(content_type="text/csv; charset=utf-8")
     filename = f"beyondscreen-weekly-review-{review['week_start'].isoformat()}.csv"
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -2089,6 +2173,16 @@ def weekly_review_csv(request):
             entry.completed_at.isoformat(), _csv_safe(entry.action_title), entry.get_action_size_display(),
             entry.duration_minutes, entry.progress_value, _csv_safe(entry.progress_unit),
         ])
+    mobile = review["mobile_analytics"]
+    writer.writerow([])
+    writer.writerow(["Mobile Analytics", "Value", "Unit"])
+    writer.writerow(["Applicable reports", mobile.get("report_count", 0), "count"])
+    if mobile.get("available"):
+        writer.writerow(["Average recorded screen time", mobile.get("average_screen_time"), "minutes"])
+        writer.writerow(["Average pickups", mobile.get("average_pickups", ""), "count"])
+        writer.writerow(["Average notifications", mobile.get("average_notifications", ""), "count"])
+        writer.writerow(["Top recorded app", _csv_safe(mobile.get("top_app") or ""), ""])
+        writer.writerow(["Most common Actionable Input", mobile.get("most_common_input_type") or "", "type"])
     return response
 
 
@@ -2097,6 +2191,7 @@ def weekly_review_pdf(request):
     review = build_weekly_review(
         request.user, today=_normalized_review_date(request.GET.get("week"))
     )
+    review["mobile_analytics"] = build_weekly_mobile_analytics(request.user, review["week_start"], review["week_end"])
     output = BytesIO()
     pdf = canvas.Canvas(output, pagesize=A4)
     width, height = A4
@@ -2126,6 +2221,21 @@ def weekly_review_pdf(request):
         line(f"{row['progress']['current_week_progress_display']} / {row['progress']['weekly_target_display']} {row['progress']['progress_unit']}; rescues {row['outcomes']['completed']} completed, {row['outcomes']['skipped']} not now")
         if row["latest_milestone"]:
             line(f"Milestone: {row['latest_milestone']['label']}")
+    mobile = review["mobile_analytics"]
+    y -= 8
+    line("Mobile Analytics", size=14, gap=20)
+    if mobile.get("available"):
+        line(f"{mobile['report_count']} reports; average recorded screen time {mobile['average_screen_time']} minutes.")
+        if mobile.get("top_app"):
+            line(f"Top recorded app: {mobile['top_app']}")
+        if mobile.get("average_pickups") is not None:
+            line(f"Average pickups: {mobile['average_pickups']}")
+        if mobile.get("average_notifications") is not None:
+            line(f"Average notifications: {mobile['average_notifications']}")
+        if mobile.get("most_common_input_type"):
+            line(f"Most common Actionable Input: {mobile['most_common_input_type']}")
+    else:
+        line("No Mobile Analytics reports were recorded for this week.")
     pdf.save()
     response = HttpResponse(output.getvalue(), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="beyondscreen-weekly-review-{review["week_start"].isoformat()}.pdf"'
@@ -2134,7 +2244,9 @@ def weekly_review_pdf(request):
 
 @login_required
 def insights(request):
-    return render(request, "insights.html", {"insights": build_personal_insights(request.user)})
+    insight_data = build_personal_insights(request.user)
+    insight_data["mobile"] = build_mobile_insights(request.user)
+    return render(request, "insights.html", {"insights": insight_data})
 
 
 @login_required
@@ -2154,6 +2266,10 @@ def export_personal_data(request):
             "preferences": {
                 "default_momentum_period": request.user.userprofile.default_momentum_period,
                 "show_skipped_rescue_statistics": request.user.userprofile.show_skipped_rescue_statistics,
+                "show_detailed_mobile_analytics": request.user.userprofile.show_detailed_mobile_analytics,
+                "show_interaction_metrics": request.user.userprofile.show_interaction_metrics,
+                "show_actionable_inputs": request.user.userprofile.show_actionable_inputs,
+                "preferred_daily_screen_time_minutes": request.user.userprofile.preferred_daily_screen_time_minutes,
             },
         },
         "goals": [{
@@ -2167,6 +2283,8 @@ def export_personal_data(request):
             "id": s.id, "created_at": s.created_at.isoformat(), "screen_time_minutes": s.screen_time_minutes,
             "wellness_score": s.wellness_score, "category": s.category, "insight": s.insight,
             "app_usage": s.app_usage, "goal_rescue_snapshot": s.goal_rescue_snapshot,
+            "mobile_analytics_snapshot": s.mobile_analytics_snapshot,
+            "mobile_assessment_snapshot": s.mobile_assessment_snapshot,
         } for s in summaries],
         "goal_rescue_outcomes": [{
             "summary_id": o.digital_summary_id, "goal_id": o.goal_id, "action_id": o.action_id,
@@ -2181,6 +2299,11 @@ def export_personal_data(request):
             "completed_at": e.completed_at.isoformat(),
         } for e in momentum],
         "postcards": [{"id": p.id, "created_at": p.created_at.isoformat(), "mood": p.mood, "goal": p.goal, "screen_time": p.screen_time, "has_report": p.has_report} for p in postcards],
+        "actionable_input_feedback": [{
+            "summary_id": item.digital_summary_id, "input_id": item.input_id,
+            "input_type": item.input_type, "outcome": item.outcome,
+            "created_at": item.created_at.isoformat(),
+        } for item in request.user.actionable_input_feedback.order_by("created_at", "id")],
     }
     response = HttpResponse(json.dumps(payload, ensure_ascii=False, indent=2), content_type="application/json; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="beyondscreen-personal-data-v1.json"'
@@ -2872,6 +2995,9 @@ def history(request):
                 "insight": summary_item.insight,
                 "goal_rescue": rescue,
                 "momentum": momentum,
+                "mobile_source": (summary_item.mobile_analytics_snapshot or {}).get("source_type"),
+                "mobile_quality": (summary_item.mobile_assessment_snapshot or {}).get("data_quality"),
+                "top_app": ((summary_item.mobile_assessment_snapshot or {}).get("app_patterns", {}).get("top_app") or {}).get("name"),
             }
         )
 
@@ -3109,6 +3235,9 @@ def view_summary(request, summary_id):
         ),
         "goal_rescue": goal_rescue,
         "momentum_completion": momentum_completion,
+        "mobile_analytics": summary.mobile_analytics_snapshot,
+        "mobile_assessment": summary.mobile_assessment_snapshot,
+        "mobile_preferences": request.user.userprofile,
     }
 
     return render(

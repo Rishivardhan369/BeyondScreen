@@ -4,6 +4,7 @@ from . import views
 app_name = "core"
 
 urlpatterns = [
+    path("health/", views.health, name="health"),
     path("", views.home, name="home"),
     path(
         "goals/",
@@ -73,6 +74,7 @@ urlpatterns = [
     path("goals/new/", views.goal_onboarding, name="goal_onboarding"),
     path("goals/confirm/", views.goal_confirmation, name="goal_confirmation"),
     path("summary/", views.summary, name="summary"),
+    path("summary/<int:summary_id>/input-feedback/", views.actionable_input_feedback, name="actionable_input_feedback"),
     path(
         "momentum/",
         views.momentum_ledger,

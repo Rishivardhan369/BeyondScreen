@@ -27,6 +27,21 @@ class PostcardForm(forms.Form):
             attrs={"placeholder": "e.g. 245", "inputmode": "numeric", "min": 0, "max": 1440}
         ),
     )
+    pickups = forms.IntegerField(
+        required=False, min_value=0, max_value=10000,
+        label="Pickups or unlocks (optional)",
+        widget=forms.NumberInput(attrs={"inputmode": "numeric", "placeholder": "e.g. 68"}),
+    )
+    notifications = forms.IntegerField(
+        required=False, min_value=0, max_value=100000,
+        label="Notifications (optional)",
+        widget=forms.NumberInput(attrs={"inputmode": "numeric", "placeholder": "e.g. 124"}),
+    )
+    longest_session_minutes = forms.IntegerField(
+        required=False, min_value=0, max_value=1440,
+        label="Longest session in minutes (optional)",
+        widget=forms.NumberInput(attrs={"inputmode": "numeric", "placeholder": "e.g. 42"}),
+    )
     mood = forms.ChoiceField(
         choices=[
             ("", "Choose your mood"),
@@ -467,8 +482,21 @@ class UserProfileForm(forms.ModelForm):
             "newsletter_subscribe",
             "default_momentum_period",
             "show_skipped_rescue_statistics",
+            "show_detailed_mobile_analytics",
+            "show_interaction_metrics",
+            "show_actionable_inputs",
+            "preferred_daily_screen_time_minutes",
         )
         widgets = {
             "bio": forms.Textarea(attrs={"rows": 4, "placeholder": "Tell us about yourself..."}),
             "avatar": forms.ClearableFileInput(attrs={"accept": ".jpg,.jpeg,.png"}),
+            "preferred_daily_screen_time_minutes": forms.NumberInput(
+                attrs={"min": 1, "max": 1440, "inputmode": "numeric", "placeholder": "Optional, e.g. 240"}
+            ),
         }
+
+    def clean_preferred_daily_screen_time_minutes(self):
+        value = self.cleaned_data.get("preferred_daily_screen_time_minutes")
+        if value is not None and not 1 <= value <= 1440:
+            raise forms.ValidationError("Choose a target between 1 and 1,440 minutes.")
+        return value

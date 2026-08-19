@@ -933,3 +933,4 @@ body {
     justify-self: center;
   }
 }
+.home-advanced-analytics{margin:1rem 0;padding:1rem;border:1px solid rgba(255,255,255,.1);border-radius:14px;background:rgba(255,255,255,.025)}.home-advanced-analytics summary{cursor:pointer;color:#e9c775;font-weight:700}.home-advanced-analytics summary small{color:#8fa4ad;font-weight:400}.home-advanced-analytics p{color:#9fb0b7;font-size:.88rem}.home-advanced-analytics input{width:100%;min-height:48px;padding:.75rem;border:1px solid rgba(255,255,255,.13);border-radius:10px;background:#091624;color:#fff}

@@ -371,6 +371,7 @@
                   </div>
 
                   <h3>{{ report.screen_time }} of screen time</h3>
+                  {% if report.mobile_quality %}<p><strong>Mobile Analytics:</strong> {{ report.mobile_quality }}{% if report.mobile_source %} · {{ report.mobile_source }}{% endif %}{% if report.top_app %} · highest recorded app {{ report.top_app }}{% endif %}</p>{% endif %}
                   <p>{{ report.insight|truncatewords:24 }}</p>
 
                   <div class="history-rescue-summary">
