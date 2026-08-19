@@ -997,3 +997,4 @@
   pointer-events: auto;
 }
 .postcard-pagination{display:flex;justify-content:center;align-items:center;gap:14px;margin-top:24px}.postcard-pagination a{padding:9px 14px;border:1px solid rgba(255,255,255,.1);border-radius:999px;color:#39ddd5}
+.postcard-pagination span{color:rgba(238,247,248,.68)}.postcard-pagination{padding-top:8px}

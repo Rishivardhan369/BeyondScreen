@@ -5,15 +5,16 @@
 {% block content %}
 <main class="insights-page"><div class="insights-shell">
   <nav class="insights-nav" aria-label="Insights navigation"><a href="{% url 'core:weekly_review' %}">Weekly Review</a><a href="{% url 'core:momentum_ledger' %}">Momentum</a></nav>
-  <header class="insights-hero"><span>PERSONAL INSIGHTS</span><h1>Patterns from your recorded activity</h1><p>Only days and reports you recorded are included. Missing days are never counted as zero.</p></header>
+  <header class="insights-hero"><div><span>PERSONAL INSIGHTS</span><h1>Patterns from your recorded digital activity</h1><p>Only days and reports you recorded are included. Missing days are never counted as zero.</p></div><div class="insights-hero-orbit" aria-hidden="true"><span>{{ insights.momentum.current_streak }}</span><small>day current streak</small></div></header>
 
   <section class="insights-section"><header><span>SCREEN TIME TRENDS</span><h2>Recorded screen time</h2></header>
-    <div class="insights-grid">
+    <div class="insights-grid insights-grid-featured">
       <article><small>7-day recorded average</small><strong>{% if insights.screen_time.average_7 is not None %}{{ insights.screen_time.average_7 }} min{% else %}Not enough data{% endif %}</strong><p>{{ insights.screen_time.reports_7 }} applicable report{{ insights.screen_time.reports_7|pluralize }}</p></article>
       <article><small>Previous comparable 7 days</small><strong>{% if insights.screen_time.previous_average_7 is not None %}{{ insights.screen_time.previous_average_7 }} min{% else %}Not enough data{% endif %}</strong></article>
       <article><small>30-day recorded average</small><strong>{% if insights.screen_time.average_30 is not None %}{{ insights.screen_time.average_30 }} min{% else %}Not enough data{% endif %}</strong><p>{{ insights.screen_time.reports_30 }} reports</p></article>
       <article><small>Direction</small><strong>{% if insights.screen_time.direction == 'insufficient' %}More samples needed{% else %}{{ insights.screen_time.change_percent }}% {{ insights.screen_time.direction }}{% endif %}</strong></article>
     </div>
+    <div class="insights-comparison" aria-label="Recorded seven-day average comparison"><div><span>Current recorded average</span><strong>{% if insights.screen_time.average_7 is not None %}{{ insights.screen_time.average_7 }} minutes{% else %}More data needed{% endif %}</strong></div><i aria-hidden="true"></i><div><span>Previous comparable period</span><strong>{% if insights.screen_time.previous_average_7 is not None %}{{ insights.screen_time.previous_average_7 }} minutes{% else %}More data needed{% endif %}</strong></div></div>
     {% if insights.screen_time.highest %}<p class="insights-fact">Highest recorded: {{ insights.screen_time.highest.screen_time_minutes }} minutes on {{ insights.screen_time.highest.created_at|date:"M d" }}. Lowest recorded: {{ insights.screen_time.lowest.screen_time_minutes }} minutes on {{ insights.screen_time.lowest.created_at|date:"M d" }}.</p>{% endif %}
   </section>
 

@@ -1,70 +1,13 @@
-{% extends "base.html" %}
-
-{% block title %}Edit Profile - BeyondScreen{% endblock %}
-
-{% block content %}
-<main>
-    <section class="hero-shell">
-        <div class="hero-grid">
-            <div class="hero-copy reveal">
-                <p class="eyebrow">Edit your profile</p>
-                <h1>Update your information</h1>
-                <p class="hero-lede">Make changes to your profile below.</p>
-            </div>
-        </div>
-    </section>
-
-    <section class="ritual-section" style="padding: 2rem 0; max-width: 600px; margin: 0 auto;">
-        <form method="post" enctype="multipart/form-data" novalidate>
-            {% csrf_token %}
-            {{ form.non_field_errors }}
-            <div class="input-box">
-                {{ form.avatar.label_tag }}
-                {{ form.avatar }}
-                {% if form.avatar.errors %}
-                <small style="color: #ff6b6b;">{{ form.avatar.errors }}</small>
-                {% endif %}
-                {% if user.userprofile.avatar %}
-                <div style="margin-top: 0.5rem;">
-                    <img src="{{ user.userprofile.avatar.url }}" alt="Current avatar" style="max-width: 100px; border-radius: 50%;">
-                </div>
-                {% endif %}
-            </div>
-            <div class="input-box">
-                {{ form.bio.label_tag }}
-                {{ form.bio }}
-                {% if form.bio.errors %}
-                <small style="color: #ff6b6b;">{{ form.bio.errors }}</small>
-                {% endif %}
-            </div>
-            <div class="input-box">
-                {{ form.newsletter_subscribe.label_tag }}
-                {{ form.newsletter_subscribe }}
-                {% if form.newsletter_subscribe.errors %}
-                <small style="color: #ff6b6b;">{{ form.newsletter_subscribe.errors }}</small>
-                {% endif %}
-            </div>
-            <div class="input-box">
-                {{ form.default_momentum_period.label_tag }}
-                {{ form.default_momentum_period }}
-                {{ form.default_momentum_period.errors }}
-                <small>Used when you open Momentum without choosing a period.</small>
-            </div>
-            <div class="input-box">
-                {{ form.show_skipped_rescue_statistics.label_tag }}
-                {{ form.show_skipped_rescue_statistics }}
-                {{ form.show_skipped_rescue_statistics.errors }}
-                <small>Turn off to hide Not now totals from Personal Insights.</small>
-            </div>
-            <div style="text-align: center; margin-top: 2rem;">
-                <button class="primary-button" type="submit">
-                    <span>Save changes</span><span aria-hidden="true">→</span>
-                </button>
-                <a href="{% url 'core:profile' %}" class="text-button" type="button">
-                    <span>Cancel</span>
-                </a>
-            </div>
-        </form>
-    </section>
-</main>
-{% endblock %}
+{% extends "base.html" %}{% load static %}
+{% block title %}Edit Profile | BeyondScreen{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/profile.css' %}">{% endblock %}
+{% block content %}<main class="profile-page"><div class="profile-shell profile-shell-narrow">
+  <nav class="profile-context-nav"><a href="{% url 'core:profile' %}">← Back to profile</a></nav>
+  <header class="profile-hero"><div><span class="profile-kicker">PROFILE SETTINGS</span><h1>Edit your profile</h1><p>Update your personal details and the defaults that shape your experience.</p></div></header>
+  <form method="post" enctype="multipart/form-data" novalidate class="profile-form">{% csrf_token %}
+    {% if form.non_field_errors %}<div class="profile-form-error">{{ form.non_field_errors }}</div>{% endif %}
+    <section class="profile-card"><header><span>PERSONAL DETAILS</span><h2>About you</h2></header>{% for field in form %}{% if field.name == 'avatar' or field.name == 'bio' %}<div class="profile-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% if field.errors %}<div class="profile-field-error">{{ field.errors|striptags }}</div>{% endif %}</div>{% endif %}{% endfor %}</section>
+    <section class="profile-card" id="preferences"><header><span>PREFERENCES</span><h2>Experience defaults</h2></header>{% for field in form %}{% if field.name != 'avatar' and field.name != 'bio' and field.name != 'newsletter_subscribe' %}<div class="profile-field{% if field.field.widget.input_type == 'checkbox' %} profile-field-check{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.name == 'default_momentum_period' %}<small>Used when Momentum opens without an explicit filter.</small>{% elif field.name == 'show_skipped_rescue_statistics' %}<small>Controls whether Not now totals appear in Personal Insights.</small>{% endif %}{% if field.errors %}<div class="profile-field-error">{{ field.errors|striptags }}</div>{% endif %}</div>{% endif %}{% endfor %}</section>
+    <div class="profile-form-actions"><button type="submit" class="profile-button profile-button-primary">Save changes</button><a href="{% url 'core:profile' %}" class="profile-button profile-button-secondary">Cancel</a></div>
+  </form>
+</div></main>{% endblock %}

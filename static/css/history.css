@@ -880,6 +880,7 @@
   }
 }
 .history-pagination{display:flex;justify-content:center;align-items:center;gap:14px;margin-top:24px}.history-pagination a{padding:9px 14px;border:1px solid rgba(255,255,255,.1);border-radius:999px;color:#39ddd5}
+.history-pagination{padding-top:8px}.history-pagination span{color:rgba(238,247,248,.68)}.history-toolbar{padding:18px;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:rgba(4,14,21,.4)}
 
 
 /* ==================================================
