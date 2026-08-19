@@ -93,15 +93,15 @@
         <span>Overview</span>
       </a>
 
-      <a href="{% url 'core:dashboard' %}#goal-rescue" class="sidebar-link">
+      <a href="{% url 'core:dashboard' %}#opportunity-cost" class="sidebar-link">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="9"></circle>
           <path d="M12 7v5l3 2"></path>
         </svg>
-        <span>Goal Rescue</span>
+        <span>Opportunity Cost</span>
       </a>
 
-      <a href="{% url 'core:weekly_review' %}" class="sidebar-link">
+      <a href="{% url 'core:dashboard' %}#today-focus" class="sidebar-link">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="8"></circle>
           <circle cx="12" cy="12" r="3"></circle>
@@ -110,17 +110,17 @@
           <path d="m4.9 4.9 1.4 1.4"></path>
           <path d="m17.7 17.7 1.4 1.4"></path>
         </svg>
-        <span>Weekly Review</span>
+        <span>Today's Focus</span>
       </a>
 
-      <a href="{% url 'core:momentum_ledger' %}" class="sidebar-link">
+      <a href="{% url 'core:dashboard' %}#weekly-progress" class="sidebar-link">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M4 19V9"></path>
           <path d="M10 19V5"></path>
           <path d="M16 19v-7"></path>
           <path d="M22 19H2"></path>
         </svg>
-        <span>Momentum</span>
+        <span>Progress</span>
       </a>
 
       <a href="{% url 'core:history' %}" class="sidebar-link active" aria-current="page">

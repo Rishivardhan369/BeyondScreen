@@ -40,8 +40,6 @@
 .goal-progress-stats article { padding: 20px; background: var(--gp-panel); border: 1px solid var(--gp-line); border-radius: 15px; }
 .goal-progress-stats span, .goal-progress-stats strong { display: block; }
 .goal-progress-stats span { margin-bottom: 10px; color: var(--gp-muted); font-size: 12px; }
-.goal-progress-breakdown { margin-top: 32px; }
-.goal-progress-breakdown h2 { margin: 6px 0 16px; font-size: clamp(22px, 3vw, 30px); }
 .goal-progress-timeline { margin-top: 42px; }
 .goal-progress-timeline h2 { margin: 8px 0 22px; }
 .goal-progress-timeline-list { display: grid; gap: 10px; }
@@ -60,8 +58,5 @@
 }
 
 @media (max-width: 480px) {
-  .goal-progress-page { padding: 28px 14px 64px; }
-  .goal-progress-nav { align-items: flex-start; flex-direction: column; gap: 10px; }
-  .goal-progress-badges { flex-wrap: wrap; }
   .goal-progress-stats { grid-template-columns: 1fr; }
 }

@@ -17,14 +17,35 @@
       <small>Here is your latest digital-life snapshot</small>
     </div>
 
+    <div class="top-search">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"></circle>
+        <path d="m20 20-3.5-3.5"></path>
+      </svg>
+
+      <input
+        type="search"
+        placeholder="Search anything..."
+        aria-label="Search reports and insights"
+      >
+    </div>
+
     <div class="top-actions">
-      <a href="{% url 'core:home' %}#upload-report" class="upload-button">
+      <button class="notification-button" type="button" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>
+          <path d="M13.7 21a2 2 0 0 1-3.4 0"></path>
+        </svg>
+        <span class="notification-dot"></span>
+      </button>
+
+      <a href="{% url 'core:home' %}" class="upload-button">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12 16V4"></path>
           <path d="m7 9 5-5 5 5"></path>
           <path d="M20 15v4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-4"></path>
         </svg>
-        New Digital Summary
+        Upload New Report
       </a>
     </div>
   </div>
@@ -64,7 +85,7 @@
           <path d="M5 10v10h14V10"></path>
           <path d="M9 20v-6h6v6"></path>
         </svg>
-        <span>Dashboard</span>
+        <span>Overview</span>
       </a>
 
       <a href="#goal-rescue" class="sidebar-link">
@@ -75,7 +96,7 @@
         <span>Goal Rescue</span>
       </a>
 
-      <a href="{% url 'core:home' %}#upload-report" class="sidebar-link">
+      <a href="#today-focus" class="sidebar-link">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="8"></circle>
           <circle cx="12" cy="12" r="3"></circle>
@@ -84,17 +105,7 @@
           <path d="m4.9 4.9 1.4 1.4"></path>
           <path d="m17.7 17.7 1.4 1.4"></path>
         </svg>
-        <span>New Summary</span>
-      </a>
-
-      <a href="{% url 'core:goal_dna_management' %}" class="sidebar-link">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4 19V9"></path>
-          <path d="M10 19V5"></path>
-          <path d="M16 19v-7"></path>
-          <path d="M22 19H2"></path>
-        </svg>
-        <span>Goal DNA</span>
+        <span>Today's Focus</span>
       </a>
 
       <a href="{% url 'core:momentum_ledger' %}" class="sidebar-link">
@@ -104,14 +115,7 @@
           <path d="M16 19v-7"></path>
           <path d="M22 19H2"></path>
         </svg>
-        <span>Momentum</span>
-      </a>
-
-      <a href="{% url 'core:weekly_review' %}" class="sidebar-link">
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M5 3v3M19 3v3M4 8h16M5 5h14v16H5z"></path>
-        </svg>
-        <span>Weekly Review</span>
+        <span>Progress</span>
       </a>
 
       <a
