@@ -154,6 +154,11 @@
                                     </p>
                                 </div>
                             </div>
+                        {% elif rescue.is_skipped %}
+                            <div class="gr-completed-state">
+                                <div class="gr-completed-state-icon" aria-hidden="true">–</div>
+                                <div><span>GOAL RESCUE</span><h3>Marked Not now</h3><p>No Momentum entry was created.</p></div>
+                            </div>
                         {% else %}
                             <div class="gr-completion-panel">
                                 <div>

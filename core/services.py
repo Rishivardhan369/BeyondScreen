@@ -1231,8 +1231,132 @@ def build_goal_progress(goal, entries, *, today=None):
     }
 
 
+def build_goal_health(goal, progress, entries, outcomes, *, as_of=None):
+    """Return a deterministic status derived only from stored activity.
+
+    Active goals are Ahead at 100%+, On track at 75%+, Needs attention below
+    50% when there has been no activity for seven days or at least three
+    recent recommendations were skipped two-thirds of the time, and Building
+    momentum otherwise. Lifecycle states always take precedence.
+    """
+    from decimal import Decimal
+
+    from .models import GoalRescueOutcome, UserGoal
+
+    if goal.status == UserGoal.STATUS_COMPLETED:
+        return {"key": "completed", "label": "Completed"}
+    if goal.status == UserGoal.STATUS_PAUSED:
+        return {"key": "paused", "label": "Paused"}
+
+    reference = as_of or timezone.now()
+    if not isinstance(reference, datetime):
+        reference = timezone.make_aware(datetime.combine(reference, datetime.max.time()))
+    recent_cutoff = reference - timedelta(days=7)
+    entries = list(entries)
+    outcomes = list(outcomes)
+    historical_activity = bool(entries or outcomes)
+    if not historical_activity:
+        return {"key": "none", "label": "No activity yet"}
+
+    target = Decimal(progress.get("weekly_target") or 0)
+    weekly = Decimal(progress.get("current_week_progress") or 0)
+    percent = float(weekly / target * 100) if target > 0 else 0
+    if target > 0 and percent >= 100:
+        return {"key": "ahead", "label": "Ahead"}
+    if target > 0 and percent >= 75:
+        return {"key": "on_track", "label": "On track"}
+
+    recent_entries = [entry for entry in entries if entry.completed_at >= recent_cutoff]
+    recent_outcomes = [outcome for outcome in outcomes if outcome.shown_at >= recent_cutoff]
+    skipped = sum(
+        outcome.status == GoalRescueOutcome.STATUS_SKIPPED
+        for outcome in recent_outcomes
+    )
+    repeated_skips = len(recent_outcomes) >= 3 and skipped / len(recent_outcomes) >= (2 / 3)
+    if target > 0 and percent < 50 and (not recent_entries or repeated_skips):
+        return {"key": "needs_attention", "label": "Needs attention"}
+    return {"key": "building", "label": "Building momentum"}
+
+
+def build_goal_milestones(goal, entries, *, today=None):
+    """Derive a small curated milestone list without persisting badges."""
+    from decimal import Decimal
+
+    current_date = today or timezone.localdate()
+    week_start = current_date - timedelta(days=current_date.weekday())
+    ordered = sorted(entries, key=lambda entry: (entry.completed_at, entry.id))
+    milestones = []
+
+    def add(key, label, entry):
+        milestones.append({"key": key, "label": label, "achieved_at": entry.completed_at})
+
+    if ordered:
+        add("first_action", "First Momentum action completed", ordered[0])
+    if len(ordered) >= 5:
+        add("five_actions", "5 Momentum actions completed", ordered[4])
+    if len(ordered) >= 10:
+        add("ten_actions", "10 Momentum actions completed", ordered[9])
+
+    minutes = 0
+    reached_60 = reached_300 = False
+    for entry in ordered:
+        minutes += max(0, int(entry.duration_minutes or 0))
+        if minutes >= 60 and not reached_60:
+            add("minutes_60", "60 reclaimed minutes", entry)
+            reached_60 = True
+        if minutes >= 300 and not reached_300:
+            add("minutes_300", "300 reclaimed minutes", entry)
+            reached_300 = True
+        if entry.action_size == "deep" and not any(item["key"] == "first_deep" for item in milestones):
+            add("first_deep", "First Deep action completed", entry)
+
+    week_entries = [
+        entry for entry in ordered
+        if timezone.localtime(entry.completed_at).date() >= week_start
+        and entry.progress_unit == goal.progress_unit
+    ]
+    target = Decimal(goal.weekly_target or 0)
+    running = Decimal("0")
+    reached = exceeded = False
+    for entry in week_entries:
+        running += Decimal(entry.progress_value or 0)
+        if target > 0 and running >= target and not reached:
+            add("weekly_reached", "Weekly target reached", entry)
+            reached = True
+        if target > 0 and running > target and not exceeded:
+            add("weekly_exceeded", "Weekly target exceeded", entry)
+            exceeded = True
+
+    milestones.sort(key=lambda item: (item["achieved_at"], item["key"]))
+    return milestones
+
+
+def build_goal_outcome_analytics(outcomes):
+    """Summarize reliable explicit recommendation outcomes by action size."""
+    from collections import Counter
+    from .models import GoalAction, GoalRescueOutcome
+
+    outcomes = list(outcomes)
+    completed = Counter(o.action_size for o in outcomes if o.status == GoalRescueOutcome.STATUS_COMPLETED)
+    skipped = Counter(o.action_size for o in outcomes if o.status == GoalRescueOutcome.STATUS_SKIPPED)
+    pending = Counter(o.action_size for o in outcomes if o.status == GoalRescueOutcome.STATUS_SHOWN)
+    labels = dict(GoalAction.SIZE_CHOICES)
+    sizes = (GoalAction.SIZE_MINIMUM, GoalAction.SIZE_STANDARD, GoalAction.SIZE_DEEP)
+    shown = len(outcomes)
+    completed_total = sum(completed.values())
+    return {
+        "shown": shown,
+        "completed": completed_total,
+        "skipped": sum(skipped.values()),
+        "pending": sum(pending.values()),
+        "completion_percent": round(completed_total / shown * 100) if shown else None,
+        "completed_by_size": [{"size": s, "label": labels[s], "count": completed[s]} for s in sizes],
+        "skipped_by_size": [{"size": s, "label": labels[s], "count": skipped[s]} for s in sizes],
+    }
+
+
 def build_weekly_review(user, *, today=None):
-    """Build a query-batched, deterministic current-calendar-week review."""
+    """Build a query-batched review for the calendar week containing today."""
     from collections import Counter, defaultdict
     from decimal import Decimal
 
@@ -1243,7 +1367,9 @@ def build_weekly_review(user, *, today=None):
     week_start_at = timezone.make_aware(
         datetime.combine(week_start, datetime.min.time())
     )
-    recent_start_at = timezone.now() - timedelta(days=30)
+    week_end_at = week_start_at + timedelta(days=7)
+    is_current_week = week_start == timezone.localdate() - timedelta(days=timezone.localdate().weekday())
+    recent_start_at = week_end_at - timedelta(days=30)
     goals = list(
         UserGoal.objects.filter(user=user).prefetch_related("actions")
     )
@@ -1251,6 +1377,7 @@ def build_weekly_review(user, *, today=None):
         MomentumEntry.objects.filter(
             user=user,
             completed_at__gte=week_start_at,
+            completed_at__lt=week_end_at,
         )
         .select_related("goal", "digital_summary")
         .order_by("-completed_at", "-id")
@@ -1259,6 +1386,7 @@ def build_weekly_review(user, *, today=None):
         GoalRescueOutcome.objects.filter(
             user=user,
             shown_at__gte=recent_start_at,
+            shown_at__lt=week_end_at,
         )
         .select_related("goal")
         .order_by("-shown_at", "-id")
@@ -1266,29 +1394,44 @@ def build_weekly_review(user, *, today=None):
     week_outcomes = [
         outcome
         for outcome in recent_outcomes
-        if timezone.localtime(outcome.shown_at).date() >= week_start
+        if week_start <= timezone.localtime(outcome.shown_at).date() <= week_start + timedelta(days=6)
     ]
     entries_by_goal = defaultdict(list)
     for entry in week_entries:
         if entry.goal_id is not None:
             entries_by_goal[entry.goal_id].append(entry)
 
+    outcome_goal_ids = {
+        outcome.goal_id for outcome in week_outcomes if outcome.goal_id is not None
+    }
     relevant_goals = [
         goal
         for goal in goals
-        if goal.status == UserGoal.STATUS_ACTIVE or goal.id in entries_by_goal
+        if (
+            (is_current_week and goal.status == UserGoal.STATUS_ACTIVE)
+            or goal.id in entries_by_goal
+            or goal.id in outcome_goal_ids
+        )
     ]
     goal_rows = []
     for goal in relevant_goals:
         goal_entries = entries_by_goal[goal.id]
         progress = build_goal_progress(goal, goal_entries, today=current_date)
+        goal_outcomes = [outcome for outcome in week_outcomes if outcome.goal_id == goal.id]
+        health = build_goal_health(goal, progress, goal_entries, goal_outcomes, as_of=week_end_at - timedelta(microseconds=1))
+        milestones = build_goal_milestones(goal, goal_entries, today=current_date)
         goal_rows.append(
             {
                 "id": goal.id,
                 "title": goal.title,
                 "status": goal.status,
-                "role": "Primary" if goal.is_primary else "Additional",
+                "role": (
+                    "Primary" if goal.is_primary else "Additional"
+                ) if is_current_week else "Historical goal",
                 "progress": progress,
+                "health": health,
+                "outcomes": build_goal_outcome_analytics(goal_outcomes),
+                "latest_milestone": milestones[-1] if milestones else None,
             }
         )
 
@@ -1302,6 +1445,7 @@ def build_weekly_review(user, *, today=None):
         outcome.status == GoalRescueOutcome.STATUS_SKIPPED
         for outcome in week_outcomes
     )
+    pending_count = shown_count - completed_count - skipped_count
     completion_percent = (
         round(completed_count / shown_count * 100)
         if shown_count
@@ -1335,6 +1479,15 @@ def build_weekly_review(user, *, today=None):
             "label": dict(GoalAction.SIZE_CHOICES).get(size, "Goal Step"),
             "count": size_counts[size],
         }
+    skipped_size_counts = Counter(
+        outcome.action_size for outcome in week_outcomes
+        if outcome.status == GoalRescueOutcome.STATUS_SKIPPED
+    )
+    most_skipped_size = None
+    if skipped_size_counts:
+        size_order = {"minimum": 0, "standard": 1, "deep": 2}
+        size = max(skipped_size_counts, key=lambda item: (skipped_size_counts[item], size_order[item]))
+        most_skipped_size = {"size": size, "label": dict(GoalAction.SIZE_CHOICES).get(size, "Goal Step"), "count": skipped_size_counts[size]}
 
     insights = []
     if total_minutes:
@@ -1365,7 +1518,9 @@ def build_weekly_review(user, *, today=None):
         primary_goal,
         entries_by_goal.get(primary_goal.id, []) if primary_goal else [],
         [outcome for outcome in recent_outcomes if primary_goal and outcome.goal_id == primary_goal.id],
-    )
+    ) if is_current_week else None
+    recent_milestones = [row["latest_milestone"] | {"goal_title": row["title"]} for row in goal_rows if row["latest_milestone"]]
+    recent_milestone = max(recent_milestones, key=lambda item: item["achieved_at"], default=None)
 
     return {
         "week_start": week_start,
@@ -1377,13 +1532,19 @@ def build_weekly_review(user, *, today=None):
         "recommendations_shown": shown_count,
         "recommendations_completed": completed_count,
         "recommendations_skipped": skipped_count,
+        "recommendations_pending": pending_count,
         "completion_percent": completion_percent,
         "most_active_goal": most_active,
         "goal_rows": goal_rows,
         "most_completed_size": most_completed_size,
+        "most_skipped_size": most_skipped_size,
+        "recent_milestone": recent_milestone,
         "recent_activity": week_entries[:6],
         "insights": insights,
         "next_step": next_step,
+        "is_current_week": is_current_week,
+        "previous_week": week_start - timedelta(days=7),
+        "next_week": week_start + timedelta(days=7) if not is_current_week else None,
     }
 
 

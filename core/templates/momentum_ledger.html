@@ -295,6 +295,14 @@
           </span>
         </header>
 
+        {% if filters_active %}
+          <p class="momentum-result-count">
+            Filtered totals: {{ filtered_summary.completed_actions }} completed ·
+            {{ filtered_summary.reclaimed_time }} reclaimed ·
+            {{ filtered_summary.goals_advanced }} goal{{ filtered_summary.goals_advanced|pluralize }}
+          </p>
+        {% endif %}
+
         <form method="get" class="momentum-filter-bar">
           <label>
             <span>Goal</span>

@@ -27,6 +27,7 @@
       <div class="goal-progress-badges">
         <span>{{ status_label }}</span>
         <span>{{ role_label }}</span>
+        <span class="goal-health--{{ health.key }}">Momentum status: {{ health.label }}</span>
       </div>
     </header>
 
@@ -43,6 +44,32 @@
         <span style="width: {{ progress.weekly_percent }}%"></span>
       </div>
     </section>
+
+    <section class="goal-progress-stats" aria-label="Recent Goal Rescue outcomes">
+      <article><span>Recommendations shown</span><strong>{{ outcome_analytics.shown }}</strong></article>
+      <article><span>Completed rescues</span><strong>{{ outcome_analytics.completed }}</strong></article>
+      <article><span>Skipped / pending</span><strong>{{ outcome_analytics.skipped }} / {{ outcome_analytics.pending }}</strong></article>
+      <article><span>Completion rate</span><strong>{% if outcome_analytics.completion_percent is not None %}{{ outcome_analytics.completion_percent }}%{% else %}Not available{% endif %}</strong></article>
+    </section>
+
+    <section class="goal-progress-stats" aria-label="Action size breakdown">
+      {% for item in outcome_analytics.completed_by_size %}
+        <article><span>{{ item.label }} completed</span><strong>{{ item.count }}</strong></article>
+      {% endfor %}
+      {% for item in outcome_analytics.skipped_by_size %}
+        <article><span>{{ item.label }} skipped</span><strong>{{ item.count }}</strong></article>
+      {% endfor %}
+    </section>
+
+    {% if latest_milestone %}
+      <section class="goal-progress-weekly" aria-label="Latest milestone">
+        <div class="goal-progress-weekly-copy">
+          <span>LATEST MILESTONE</span>
+          <strong>{{ latest_milestone.label }}</strong>
+          <small>{{ latest_milestone.achieved_at|date:"M d, Y" }}</small>
+        </div>
+      </section>
+    {% endif %}
 
     <section class="goal-progress-stats" aria-label="Lifetime progress summary">
       <article>

@@ -27,6 +27,9 @@ from .forms import (
     UserProfileForm,
 )
 from .services import (
+    build_goal_health,
+    build_goal_milestones,
+    build_goal_outcome_analytics,
     build_goal_progress,
     build_goal_rescue,
     build_weekly_review,
@@ -160,6 +163,7 @@ def goal_dna_management(request):
             "created_at": goal.created_at,
             "updated_at": goal.updated_at,
             "progress": progress_by_goal[goal.id],
+            "health": health_by_goal[goal.id],
         }
 
     active_goals = list(
@@ -225,6 +229,25 @@ def goal_dna_management(request):
         goal.id: build_goal_progress(
             goal,
             entries_by_goal[goal.id],
+        )
+        for goal in displayed_goal_models
+    }
+    recent_outcomes = list(
+        GoalRescueOutcome.objects.filter(
+            user=request.user,
+            goal_id__in=entries_by_goal,
+            shown_at__gte=timezone.now() - timedelta(days=30),
+        )
+    ) if entries_by_goal else []
+    outcomes_by_goal = {goal.id: [] for goal in displayed_goal_models}
+    for outcome in recent_outcomes:
+        outcomes_by_goal[outcome.goal_id].append(outcome)
+    health_by_goal = {
+        goal.id: build_goal_health(
+            goal,
+            progress_by_goal[goal.id],
+            entries_by_goal[goal.id],
+            outcomes_by_goal[goal.id],
         )
         for goal in displayed_goal_models
     }
@@ -296,6 +319,16 @@ def goal_progress(request, goal_id):
         .order_by("-completed_at", "-id")
     )
     progress = build_goal_progress(goal, entries)
+    recent_outcomes = list(
+        GoalRescueOutcome.objects.filter(
+            user=request.user,
+            goal=goal,
+            shown_at__gte=timezone.now() - timedelta(days=30),
+        ).order_by("-shown_at", "-id")
+    )
+    outcome_analytics = build_goal_outcome_analytics(recent_outcomes)
+    health = build_goal_health(goal, progress, entries, recent_outcomes)
+    milestones = build_goal_milestones(goal, entries)
     action_size_labels = dict(GoalAction.SIZE_CHOICES)
     timeline = []
 
@@ -336,6 +369,9 @@ def goal_progress(request, goal_id):
             "timeline": timeline,
             "status_label": status_label,
             "role_label": role_label,
+            "health": health,
+            "outcome_analytics": outcome_analytics,
+            "latest_milestone": milestones[-1] if milestones else None,
         },
     )
 
@@ -1940,6 +1976,12 @@ def momentum_ledger(request):
             selected_period != "all",
         )
     )
+    filtered_reclaimed_minutes = sum(
+        entry.duration_minutes for entry in filtered_entries
+    )
+    filtered_goals_advanced = len(
+        {entry.goal_id for entry in filtered_entries if entry.goal_id}
+    )
 
     context = {
         "ledger_summary": {
@@ -1973,6 +2015,11 @@ def momentum_ledger(request):
         },
         "timeline_groups": timeline_groups,
         "filtered_entry_count": len(filtered_entries),
+        "filtered_summary": {
+            "completed_actions": len(filtered_entries),
+            "reclaimed_time": format_minutes(filtered_reclaimed_minutes),
+            "goals_advanced": filtered_goals_advanced,
+        },
         "goal_options": goal_options,
         "selected_goal": selected_goal,
         "selected_size": selected_size,
@@ -1989,10 +2036,27 @@ def momentum_ledger(request):
 
 @login_required
 def weekly_review(request):
+    requested_week = request.GET.get("week", "").strip()
+    today = timezone.localdate()
+    selected_date = today
+    if requested_week:
+        try:
+            selected_date = date.fromisoformat(requested_week)
+        except ValueError:
+            messages.info(
+                request,
+                "That week was not recognized. Showing the current week.",
+            )
+            selected_date = today
+    current_week_start = today - timedelta(days=today.weekday())
+    selected_week_start = selected_date - timedelta(days=selected_date.weekday())
+    if selected_week_start > current_week_start:
+        messages.info(request, "Future weekly reviews are not available.")
+        selected_date = today
     return render(
         request,
         "weekly_review.html",
-        {"review": build_weekly_review(request.user)},
+        {"review": build_weekly_review(request.user, today=selected_date)},
     )
 
 
@@ -2581,6 +2645,13 @@ def history(request):
         entry.digital_summary_id: entry
         for entry in momentum_entries
     }
+    outcomes_by_summary_id = {
+        outcome.digital_summary_id: outcome
+        for outcome in GoalRescueOutcome.objects.filter(
+            user=request.user,
+            digital_summary__in=summaries,
+        )
+    }
 
     history_reports = []
 
@@ -2626,8 +2697,17 @@ def history(request):
         else:
             momentum = {
                 "is_completed": False,
+                "is_skipped": bool(
+                    outcomes_by_summary_id.get(summary_item.id)
+                    and outcomes_by_summary_id[summary_item.id].status
+                    == GoalRescueOutcome.STATUS_SKIPPED
+                ),
             }
 
+        rescue = goal_rescue_for_summary(summary_item)
+        outcome = outcomes_by_summary_id.get(summary_item.id)
+        if outcome and outcome.status == GoalRescueOutcome.STATUS_SKIPPED:
+            rescue["is_skipped"] = True
         history_reports.append(
             {
                 "id": summary_item.id,
@@ -2639,7 +2719,7 @@ def history(request):
                 "wellness_tone": wellness_tone,
                 "category": summary_item.category,
                 "insight": summary_item.insight,
-                "goal_rescue": goal_rescue_for_summary(summary_item),
+                "goal_rescue": rescue,
                 "momentum": momentum,
             }
         )

@@ -5,7 +5,7 @@ from django.db import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest.mock import patch
 
 from .models import (
@@ -16,6 +16,9 @@ from .models import (
     UserGoal,
 )
 from .services import (
+    build_goal_health,
+    build_goal_milestones,
+    build_goal_outcome_analytics,
     build_goal_progress,
     build_goal_rescue,
     build_weekly_review,
@@ -41,11 +44,11 @@ class HomeViewTests(TestCase):
             {"screen_time": 245, "mood": "Tired", "goal": "Presence"},
         )
 
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Here’s a note for")
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("core:summary"))
+        response = self.client.get(response.url)
         self.assertContains(response, "4h 05m")
-        self.assertContains(response, "Download PNG")
-        self.assertContains(response, "Copy entire postcard")
+        self.assertIn("postcard", self.client.session)
 
         png_response = self.client.get(reverse("core:download_postcard", args=["png"]))
         self.assertEqual(png_response.status_code, 200)
@@ -79,7 +82,8 @@ class HomeViewTests(TestCase):
     def test_download_requires_a_generated_postcard(self):
         response = self.client.get(reverse("core:download_postcard", args=["png"]))
 
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse("core:home"))
 
 
 class PostcardEngineTests(TestCase):
@@ -1781,3 +1785,190 @@ class WeeklyReviewTests(TestCase):
         self.assertContains(response,reverse("core:view_summary",args=[outcome.digital_summary_id]))
         ledger=self.client.get(reverse("core:momentum_ledger"))
         self.assertContains(ledger,reverse("core:weekly_review"))
+
+
+class MVPFinalizationTests(TestCase):
+    """Focused coverage for health, milestones, filters and review history."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="final-user", password="pw")
+        self.other = User.objects.create_user(username="final-other", password="pw")
+        self.client.force_login(self.user)
+        self.goal = UserGoal.objects.create(
+            user=self.user, title="Finish MVP", why_it_matters="Ship carefully",
+            progress_unit="sessions", weekly_target=10, is_primary=True,
+        )
+        for size, minutes, value in (("minimum", 10, 1), ("standard", 25, 3), ("deep", 60, 6)):
+            GoalAction.objects.create(goal=self.goal, size=size, title=f"{size} work", duration_minutes=minutes, progress_value=value)
+
+    def entry(self, *, goal=None, size="minimum", minutes=10, progress=1, when=None, unit=None):
+        goal = goal or self.goal
+        summary = DigitalSummary.objects.create(
+            user=goal.user, screen_time_minutes=120, wellness_score=80,
+            category="Good", insight="Stored",
+        )
+        entry = MomentumEntry.objects.create(
+            user=goal.user, goal=goal, digital_summary=summary,
+            action_title=f"{size} action", action_size=size,
+            duration_minutes=minutes, progress_value=progress,
+            progress_unit=unit or goal.progress_unit,
+        )
+        if when:
+            MomentumEntry.objects.filter(pk=entry.pk).update(completed_at=when)
+            entry.refresh_from_db()
+        return entry
+
+    def outcome(self, *, goal=None, size="minimum", status="shown", when=None):
+        goal = goal or self.goal
+        summary = DigitalSummary.objects.create(
+            user=goal.user, screen_time_minutes=100, wellness_score=75,
+            category="Good", insight="Stored",
+        )
+        return GoalRescueOutcome.objects.create(
+            user=goal.user, digital_summary=summary, goal=goal,
+            action_size=size, action_title=f"{size} action", status=status,
+            shown_at=when or timezone.now(),
+        )
+
+    def health(self, entries=(), outcomes=(), goal=None):
+        goal = goal or self.goal
+        progress = build_goal_progress(goal, entries)
+        return build_goal_health(goal, progress, entries, outcomes)["label"]
+
+    def test_goal_health_all_states_and_determinism(self):
+        self.assertEqual(self.health(), "No activity yet")
+        now = timezone.now()
+        one = self.entry(progress=1, when=now)
+        self.assertEqual(self.health([one]), "Building momentum")
+        eight = self.entry(progress=8, when=now)
+        self.assertEqual(self.health([eight]), "On track")
+        ten = self.entry(progress=10, when=now)
+        self.assertEqual(self.health([ten]), "Ahead")
+        old = self.entry(progress=1, when=now - timedelta(days=8))
+        self.assertEqual(self.health([old]), "Needs attention")
+        self.goal.status = UserGoal.STATUS_PAUSED
+        self.assertEqual(self.health([one]), "Paused")
+        self.goal.status = UserGoal.STATUS_COMPLETED
+        self.assertEqual(self.health([one]), "Completed")
+        self.goal.status = UserGoal.STATUS_ACTIVE
+        self.assertEqual(self.health([one]), self.health([one]))
+
+    def test_goal_health_repeated_skips_and_cross_goal_isolation(self):
+        entries = [self.entry(progress=1)]
+        skips = [self.outcome(status="skipped") for _ in range(3)]
+        self.assertEqual(self.health(entries, skips), "Needs attention")
+        other_goal = UserGoal.objects.create(user=self.other, title="Other", why_it_matters="x", progress_unit="items", weekly_target=1, is_primary=True)
+        other_entry = self.entry(goal=other_goal, progress=1)
+        self.assertEqual(self.health(entries), "Building momentum")
+        self.assertNotEqual(other_entry.goal_id, self.goal.id)
+
+    def test_curated_milestones_exact_thresholds_and_order(self):
+        entries = [self.entry(minutes=60 if i == 0 else 30, size="deep" if i == 0 else "minimum") for i in range(10)]
+        milestones = build_goal_milestones(self.goal, entries)
+        keys = [item["key"] for item in milestones]
+        for key in ("first_action", "five_actions", "ten_actions", "minutes_60", "minutes_300", "first_deep"):
+            self.assertIn(key, keys)
+        self.assertEqual(milestones, sorted(milestones, key=lambda item: (item["achieved_at"], item["key"])))
+
+    def test_weekly_target_milestones_and_no_fabrication(self):
+        self.assertEqual(build_goal_milestones(self.goal, []), [])
+        reached = self.entry(progress=10)
+        exceeded = self.entry(progress=1)
+        keys = {item["key"] for item in build_goal_milestones(self.goal, [reached, exceeded])}
+        self.assertIn("weekly_reached", keys)
+        self.assertIn("weekly_exceeded", keys)
+
+    def test_goal_progress_v2_outcomes_sizes_health_milestone_and_ownership(self):
+        self.entry(size="deep", minutes=60, progress=6)
+        self.outcome(size="deep", status="completed")
+        self.outcome(size="standard", status="skipped")
+        response = self.client.get(reverse("core:goal_progress", args=[self.goal.id]))
+        self.assertContains(response, "Recommendations shown")
+        self.assertContains(response, "Deep completed")
+        self.assertContains(response, "Standard skipped")
+        self.assertContains(response, "Momentum status")
+        self.assertContains(response, "60 reclaimed minutes")
+        private_goal = UserGoal.objects.create(user=self.other, title="Private", why_it_matters="x", progress_unit="x", weekly_target=1, is_primary=True)
+        self.assertEqual(self.client.get(reverse("core:goal_progress", args=[private_goal.id])).status_code, 404)
+
+    def test_goal_progress_paused_and_completed_preserve_analytics(self):
+        self.entry()
+        for status, label in ((UserGoal.STATUS_PAUSED, "Paused"), (UserGoal.STATUS_COMPLETED, "Completed")):
+            self.goal.status = status
+            self.goal.save(update_fields=["status"])
+            response = self.client.get(reverse("core:goal_progress", args=[self.goal.id]))
+            self.assertContains(response, label)
+            self.assertContains(response, "1")
+
+    def test_outcome_analytics_completion_percentage_and_breakdowns(self):
+        outcomes = [self.outcome(size="deep", status="completed"), self.outcome(size="deep", status="skipped"), self.outcome(size="minimum")]
+        result = build_goal_outcome_analytics(outcomes)
+        self.assertEqual((result["shown"], result["completed"], result["skipped"], result["pending"]), (3, 1, 1, 1))
+        self.assertEqual(result["completion_percent"], 33)
+
+    def test_momentum_filters_goal_size_period_invalid_and_totals(self):
+        self.entry(size="minimum", minutes=10)
+        self.entry(size="deep", minutes=60)
+        response = self.client.get(reverse("core:momentum_ledger"), {"goal": self.goal.id, "size": "deep", "period": "week"})
+        self.assertEqual(response.context["filtered_entry_count"], 1)
+        self.assertEqual(response.context["filtered_summary"]["reclaimed_time"], "1h")
+        response = self.client.get(reverse("core:momentum_ledger"), {"goal": "bad", "size": "unknown", "period": "nonsense"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["filtered_entry_count"], 2)
+        self.assertEqual(response.context["selected_period"], "all")
+
+    def test_momentum_30_day_all_time_empty_and_cross_user_exclusion(self):
+        old = self.entry(when=timezone.now() - timedelta(days=45))
+        self.entry()
+        private_goal = UserGoal.objects.create(user=self.other, title="Private", why_it_matters="x", progress_unit="x", weekly_target=1, is_primary=True)
+        self.entry(goal=private_goal)
+        recent = self.client.get(reverse("core:momentum_ledger"), {"period": "30days"})
+        self.assertEqual(recent.context["filtered_entry_count"], 1)
+        all_time = self.client.get(reverse("core:momentum_ledger"), {"period": "all"})
+        self.assertEqual(all_time.context["filtered_entry_count"], 2)
+        empty = self.client.get(reverse("core:momentum_ledger"), {"size": "deep"})
+        self.assertEqual(empty.context["filtered_entry_count"], 0)
+        self.assertNotContains(all_time, private_goal.title)
+        self.assertIsNotNone(old)
+
+    def test_weekly_history_boundaries_metrics_and_no_next_step(self):
+        selected = timezone.localdate() - timedelta(days=8)
+        week_start = selected - timedelta(days=selected.weekday())
+        when = timezone.make_aware(datetime.combine(week_start + timedelta(days=2), datetime.min.time()))
+        self.entry(progress=3, when=when)
+        self.outcome(status="skipped", when=when)
+        response = self.client.get(reverse("core:weekly_review"), {"week": selected.isoformat()})
+        review = response.context["review"]
+        self.assertEqual(review["week_start"], week_start)
+        self.assertEqual(review["week_end"], week_start + timedelta(days=6))
+        self.assertEqual(review["completed_actions"], 1)
+        self.assertEqual(review["recommendations_skipped"], 1)
+        self.assertIsNone(review["next_step"])
+        self.assertContains(response, "Historical review")
+
+    def test_weekly_history_future_and_malformed_dates_are_safe(self):
+        current = self.client.get(reverse("core:weekly_review"))
+        future = self.client.get(reverse("core:weekly_review"), {"week": (timezone.localdate() + timedelta(days=14)).isoformat()})
+        malformed = self.client.get(reverse("core:weekly_review"), {"week": "not-a-date"})
+        self.assertEqual(future.context["review"]["week_start"], current.context["review"]["week_start"])
+        self.assertEqual(malformed.context["review"]["week_start"], current.context["review"]["week_start"])
+
+    def test_historical_review_goal_attribution_mixed_units_and_lifecycle(self):
+        selected = timezone.localdate() - timedelta(days=8)
+        week_start = selected - timedelta(days=selected.weekday())
+        when = timezone.make_aware(datetime.combine(week_start, datetime.min.time()))
+        paused = UserGoal.objects.create(user=self.user, title="Paused history", why_it_matters="x", progress_unit="pages", weekly_target=5, status="paused")
+        self.entry(goal=paused, progress=2, when=when)
+        self.entry(progress=3, unit="sessions", when=when)
+        review = build_weekly_review(self.user, today=selected)
+        self.assertEqual({item["unit"] for item in review["progress_totals"]}, {"pages", "sessions"})
+        self.assertIn("Paused history", {row["title"] for row in review["goal_rows"]})
+
+    def test_protected_analytics_and_state_change_security(self):
+        self.client.logout()
+        for url in (reverse("core:weekly_review"), reverse("core:goal_progress", args=[self.goal.id]), reverse("core:momentum_ledger")):
+            self.assertEqual(self.client.get(url).status_code, 302)
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get(reverse("core:skip_goal_rescue")).status_code, 405)
+        self.assertEqual(self.client.get(reverse("core:complete_goal_rescue")).status_code, 405)
+        self.assertEqual(self.client.post(reverse("core:skip_goal_rescue"), {"summary_id": "bad"}).status_code, 404)

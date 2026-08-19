@@ -353,6 +353,8 @@
                         <span class="history-momentum-badge history-momentum-completed">
                           ✓ Completed
                         </span>
+                      {% elif report.momentum.is_skipped %}
+                        <span class="history-momentum-badge history-momentum-pending">Not now / Skipped</span>
                       {% else %}
                         <span class="history-momentum-badge history-momentum-pending">
                           Not completed
