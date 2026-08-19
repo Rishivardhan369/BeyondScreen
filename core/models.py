@@ -237,6 +237,58 @@ class MomentumEntry(models.Model):
             f"on {self.completed_at:%Y-%m-%d}"
         )
 
+
+class GoalRescueOutcome(models.Model):
+    STATUS_SHOWN = "shown"
+    STATUS_COMPLETED = "completed"
+    STATUS_SKIPPED = "skipped"
+    STATUS_CHOICES = [
+        (STATUS_SHOWN, "Shown"),
+        (STATUS_COMPLETED, "Completed"),
+        (STATUS_SKIPPED, "Skipped"),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="goal_rescue_outcomes",
+    )
+    digital_summary = models.OneToOneField(
+        DigitalSummary,
+        on_delete=models.CASCADE,
+        related_name="goal_rescue_outcome",
+    )
+    goal = models.ForeignKey(
+        UserGoal,
+        on_delete=models.SET_NULL,
+        related_name="goal_rescue_outcomes",
+        blank=True,
+        null=True,
+    )
+    action = models.ForeignKey(
+        GoalAction,
+        on_delete=models.SET_NULL,
+        related_name="goal_rescue_outcomes",
+        blank=True,
+        null=True,
+    )
+    action_size = models.CharField(max_length=20, choices=GoalAction.SIZE_CHOICES)
+    action_title = models.CharField(max_length=200)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_SHOWN,
+    )
+    shown_at = models.DateTimeField()
+    completed_at = models.DateTimeField(blank=True, null=True)
+    skipped_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-shown_at"]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.action_title} ({self.status})"
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:

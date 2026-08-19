@@ -1,6 +1,6 @@
 """Content generation and export helpers for digital postcards."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from io import BytesIO
 from itertools import count
 from textwrap import wrap
@@ -692,7 +692,14 @@ def _goal_rescue_progress_phrase(progress_unit, progress_value):
 
 
 
-def _select_adaptive_goal_action(goal, eligible_actions, recent_entries, *, now=None):
+def _select_adaptive_goal_action(
+    goal,
+    eligible_actions,
+    recent_entries,
+    recent_outcomes=None,
+    *,
+    now=None,
+):
     """Choose deterministically from eligible actions using completions only.
 
     BeyondScreen does not have trustworthy historical non-completion data for
@@ -710,7 +717,8 @@ def _select_adaptive_goal_action(goal, eligible_actions, recent_entries, *, now=
 
     fallback_action = eligible_actions[-1]
     recent_entries = list(recent_entries)
-    if len(recent_entries) < 3:
+    recent_outcomes = list(recent_outcomes or [])
+    if len(recent_entries) < 3 and len(recent_outcomes) < 4:
         return fallback_action, (
             "This is the largest step in your Goal DNA that fits a "
             "small, realistic slice of today's screen time."
@@ -739,11 +747,41 @@ def _select_adaptive_goal_action(goal, eligible_actions, recent_entries, *, now=
     weekly_target = Decimal(goal.weekly_target or 0)
     remaining_target = max(Decimal("0"), weekly_target - current_week_progress)
     repeated_size = None
-    if len(recent_entries) >= 2:
+    if len(recent_outcomes) >= 2:
+        latest_sizes = [outcome.action_size for outcome in recent_outcomes[:2]]
+        if latest_sizes[0] == latest_sizes[1]:
+            repeated_size = latest_sizes[0]
+    elif len(recent_entries) >= 2:
         latest_sizes = [entry.action_size for entry in recent_entries[:2]]
         if latest_sizes[0] == latest_sizes[1]:
             repeated_size = latest_sizes[0]
 
+    outcome_threshold_met = len(recent_outcomes) >= 4
+    shown_counts = Counter(outcome.action_size for outcome in recent_outcomes)
+    completed_outcome_counts = Counter(
+        outcome.action_size
+        for outcome in recent_outcomes
+        if outcome.status == "completed"
+    )
+    skipped_outcome_counts = Counter(
+        outcome.action_size
+        for outcome in recent_outcomes
+        if outcome.status == "skipped"
+    )
+    recent_completed_outcome_counts = Counter(
+        outcome.action_size
+        for outcome in recent_outcomes
+        if outcome.status == "completed"
+        and outcome.completed_at
+        and outcome.completed_at >= seven_day_start
+    )
+    recent_skipped_outcome_counts = Counter(
+        outcome.action_size
+        for outcome in recent_outcomes
+        if outcome.status == "skipped"
+        and outcome.skipped_at
+        and outcome.skipped_at >= seven_day_start
+    )
     scored_actions = []
     for fit_rank, action in enumerate(eligible_actions):
         score = Decimal(completion_counts[action.size] * 3)
@@ -765,10 +803,39 @@ def _select_adaptive_goal_action(goal, eligible_actions, recent_entries, *, now=
         if repeated_size == action.size:
             score -= Decimal("2")
 
-        scored_actions.append((score, action.duration_minutes, weekly_bonus, action))
+        outcome_bonus = Decimal("0")
+        size_shown = shown_counts[action.size]
+        if outcome_threshold_met and size_shown >= 2:
+            outcome_bonus += (
+                Decimal(completed_outcome_counts[action.size])
+                / Decimal(size_shown)
+                * Decimal("8")
+            )
+            outcome_bonus -= (
+                Decimal(skipped_outcome_counts[action.size])
+                / Decimal(size_shown)
+                * Decimal("6")
+            )
+            outcome_bonus += Decimal(
+                recent_completed_outcome_counts[action.size] * 2
+            )
+            outcome_bonus -= Decimal(
+                recent_skipped_outcome_counts[action.size] * 2
+            )
+            score += outcome_bonus
 
-    _score, _duration, weekly_bonus, selected_action = max(scored_actions)
-    if weekly_bonus >= Decimal("1.5") and remaining_target > 0:
+        scored_actions.append(
+            (score, action.duration_minutes, weekly_bonus, outcome_bonus, action)
+        )
+
+    _score, _duration, weekly_bonus, outcome_bonus, selected_action = max(
+        scored_actions
+    )
+    if outcome_threshold_met and outcome_bonus > 0:
+        selection_reason = (
+            "Recent activity suggests this action size works well for you."
+        )
+    elif weekly_bonus >= Decimal("1.5") and remaining_target > 0:
         selection_reason = (
             "This step fits your available time and helps close this "
             "week's remaining target."
@@ -894,7 +961,7 @@ def build_goal_rescue(user, screen_time_minutes):
     ]
 
     if eligible_actions:
-        from .models import MomentumEntry
+        from .models import GoalRescueOutcome, MomentumEntry
 
         recent_window_start = timezone.now() - timedelta(days=30)
         recent_entries = list(
@@ -911,10 +978,26 @@ def build_goal_rescue(user, screen_time_minutes):
             )
             .order_by("-completed_at", "-id")
         )
+        recent_outcomes = list(
+            GoalRescueOutcome.objects.filter(
+                user=user,
+                goal=goal,
+                shown_at__gte=recent_window_start,
+            )
+            .only(
+                "action_size",
+                "status",
+                "shown_at",
+                "completed_at",
+                "skipped_at",
+            )
+            .order_by("-shown_at", "-id")
+        )
         selected_action, selection_reason = _select_adaptive_goal_action(
             goal,
             eligible_actions,
             recent_entries,
+            recent_outcomes,
         )
     else:
         selected_action = smallest_action
@@ -1025,6 +1108,36 @@ def goal_rescue_for_summary(summary):
     return deepcopy(summary.goal_rescue_snapshot)
 
 
+def ensure_goal_rescue_outcome(summary):
+    """Create the one reliable interaction row for a usable frozen rescue."""
+    snapshot = goal_rescue_for_summary(summary)
+    if snapshot.get("status") != "ready":
+        return None
+
+    from .models import GoalAction, GoalRescueOutcome, UserGoal
+
+    goal = UserGoal.objects.filter(
+        id=snapshot.get("goal_id"),
+        user=summary.user,
+    ).first()
+    action = GoalAction.objects.filter(
+        id=snapshot.get("action_id"),
+        goal__user=summary.user,
+    ).first()
+    outcome, _created = GoalRescueOutcome.objects.get_or_create(
+        digital_summary=summary,
+        defaults={
+            "user": summary.user,
+            "goal": goal,
+            "action": action,
+            "action_size": snapshot["action_size"],
+            "action_title": snapshot["action_title"],
+            "shown_at": summary.created_at,
+        },
+    )
+    return outcome
+
+
 def build_goal_progress(goal, entries, *, today=None):
     """Derive one goal's progress without mixing incompatible units.
 
@@ -1115,4 +1228,217 @@ def build_goal_progress(goal, entries, *, today=None):
         "weekly_percent": weekly_percent,
         "last_completed_at": last_completed_at,
         "has_mixed_units": len(matching_unit_entries) != len(entries),
+    }
+
+
+def build_weekly_review(user, *, today=None):
+    """Build a query-batched, deterministic current-calendar-week review."""
+    from collections import Counter, defaultdict
+    from decimal import Decimal
+
+    from .models import GoalAction, GoalRescueOutcome, MomentumEntry, UserGoal
+
+    current_date = today or timezone.localdate()
+    week_start = current_date - timedelta(days=current_date.weekday())
+    week_start_at = timezone.make_aware(
+        datetime.combine(week_start, datetime.min.time())
+    )
+    recent_start_at = timezone.now() - timedelta(days=30)
+    goals = list(
+        UserGoal.objects.filter(user=user).prefetch_related("actions")
+    )
+    week_entries = list(
+        MomentumEntry.objects.filter(
+            user=user,
+            completed_at__gte=week_start_at,
+        )
+        .select_related("goal", "digital_summary")
+        .order_by("-completed_at", "-id")
+    )
+    recent_outcomes = list(
+        GoalRescueOutcome.objects.filter(
+            user=user,
+            shown_at__gte=recent_start_at,
+        )
+        .select_related("goal")
+        .order_by("-shown_at", "-id")
+    )
+    week_outcomes = [
+        outcome
+        for outcome in recent_outcomes
+        if timezone.localtime(outcome.shown_at).date() >= week_start
+    ]
+    entries_by_goal = defaultdict(list)
+    for entry in week_entries:
+        if entry.goal_id is not None:
+            entries_by_goal[entry.goal_id].append(entry)
+
+    relevant_goals = [
+        goal
+        for goal in goals
+        if goal.status == UserGoal.STATUS_ACTIVE or goal.id in entries_by_goal
+    ]
+    goal_rows = []
+    for goal in relevant_goals:
+        goal_entries = entries_by_goal[goal.id]
+        progress = build_goal_progress(goal, goal_entries, today=current_date)
+        goal_rows.append(
+            {
+                "id": goal.id,
+                "title": goal.title,
+                "status": goal.status,
+                "role": "Primary" if goal.is_primary else "Additional",
+                "progress": progress,
+            }
+        )
+
+    total_minutes = sum(entry.duration_minutes for entry in week_entries)
+    shown_count = len(week_outcomes)
+    completed_count = sum(
+        outcome.status == GoalRescueOutcome.STATUS_COMPLETED
+        for outcome in week_outcomes
+    )
+    skipped_count = sum(
+        outcome.status == GoalRescueOutcome.STATUS_SKIPPED
+        for outcome in week_outcomes
+    )
+    completion_percent = (
+        round(completed_count / shown_count * 100)
+        if shown_count
+        else 0
+    )
+    progress_by_unit = defaultdict(lambda: Decimal("0"))
+    for entry in week_entries:
+        progress_by_unit[entry.progress_unit] += Decimal(entry.progress_value)
+    progress_totals = [
+        {"unit": unit, "value": value}
+        for unit, value in sorted(progress_by_unit.items())
+    ]
+    most_active = max(
+        goal_rows,
+        key=lambda row: (
+            row["progress"]["total_completed_actions"],
+            row["progress"]["total_reclaimed_minutes"],
+            -row["id"],
+        ),
+        default=None,
+    )
+    if most_active and not most_active["progress"]["has_activity"]:
+        most_active = None
+    size_counts = Counter(entry.action_size for entry in week_entries)
+    most_completed_size = None
+    if size_counts:
+        size_order = {"minimum": 0, "standard": 1, "deep": 2}
+        size = max(size_counts, key=lambda item: (size_counts[item], size_order[item]))
+        most_completed_size = {
+            "size": size,
+            "label": dict(GoalAction.SIZE_CHOICES).get(size, "Goal Step"),
+            "count": size_counts[size],
+        }
+
+    insights = []
+    if total_minutes:
+        insights.append(f"You reclaimed {total_minutes} minutes this week.")
+    if most_active:
+        insights.append(
+            f"Your strongest momentum was toward {most_active['title']}."
+        )
+    if shown_count:
+        insights.append(
+            f"You completed {completed_count} of {shown_count} Goal Rescue recommendations."
+        )
+    elif not week_entries:
+        insights.append(
+            "No completed momentum yet this week — your next Rescue can start the week."
+        )
+    insights = insights[:3]
+
+    primary_goal = next(
+        (
+            goal
+            for goal in goals
+            if goal.status == UserGoal.STATUS_ACTIVE and goal.is_primary
+        ),
+        None,
+    )
+    next_step = build_weekly_next_step(
+        primary_goal,
+        entries_by_goal.get(primary_goal.id, []) if primary_goal else [],
+        [outcome for outcome in recent_outcomes if primary_goal and outcome.goal_id == primary_goal.id],
+    )
+
+    return {
+        "week_start": week_start,
+        "week_end": week_start + timedelta(days=6),
+        "has_activity": bool(week_entries or week_outcomes),
+        "completed_actions": len(week_entries),
+        "reclaimed_minutes": total_minutes,
+        "progress_totals": progress_totals,
+        "recommendations_shown": shown_count,
+        "recommendations_completed": completed_count,
+        "recommendations_skipped": skipped_count,
+        "completion_percent": completion_percent,
+        "most_active_goal": most_active,
+        "goal_rows": goal_rows,
+        "most_completed_size": most_completed_size,
+        "recent_activity": week_entries[:6],
+        "insights": insights,
+        "next_step": next_step,
+    }
+
+
+def build_weekly_next_step(goal, week_entries, recent_outcomes):
+    """Suggest one informational step without assuming screen-time budget."""
+    from collections import Counter
+    from decimal import Decimal
+
+    if goal is None:
+        return None
+    actions = {action.size: action for action in goal.actions.all()}
+    if not actions:
+        return None
+    week_progress = sum(
+        (
+            Decimal(entry.progress_value)
+            for entry in week_entries
+            if entry.progress_unit == goal.progress_unit
+        ),
+        Decimal("0"),
+    )
+    remaining = max(Decimal("0"), Decimal(goal.weekly_target) - week_progress)
+    completed = Counter(
+        outcome.action_size
+        for outcome in recent_outcomes
+        if outcome.status == "completed"
+    )
+    shown = Counter(outcome.action_size for outcome in recent_outcomes)
+
+    deep = actions.get("deep")
+    standard = actions.get("standard")
+    minimum = actions.get("minimum") or min(
+        actions.values(), key=lambda action: action.duration_minutes
+    )
+    if (
+        deep
+        and shown["deep"] >= 3
+        and completed["deep"] / shown["deep"] >= 0.6
+        and remaining >= Decimal(deep.progress_value)
+    ):
+        selected = deep
+        reason = "Recent Deep completions support a focused step toward the remaining target."
+    elif standard and len(week_entries) >= 2 and remaining >= Decimal(standard.progress_value):
+        selected = standard
+        reason = "Your week has steady momentum, and this step makes meaningful progress."
+    else:
+        selected = minimum
+        reason = "A small, concrete step is a realistic way to build this week's momentum."
+    return {
+        "goal_title": goal.title,
+        "action_title": selected.title,
+        "action_size": selected.size,
+        "action_size_label": selected.get_size_display(),
+        "duration_minutes": selected.duration_minutes,
+        "progress_value": selected.progress_value,
+        "progress_unit": goal.progress_unit,
+        "reason": reason,
     }

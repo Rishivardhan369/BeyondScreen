@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Weekly Review | BeyondScreen{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/weekly_review.css' %}">{% endblock %}
+
+{% block content %}
+<main class="weekly-review-page">
+  <div class="weekly-review-shell">
+    <nav><a href="{% url 'core:momentum_ledger' %}">← Momentum Ledger</a></nav>
+    <header class="weekly-review-hero">
+      <span>WEEKLY REVIEW</span>
+      <h1>Your week in reclaimed momentum</h1>
+      <p>{{ review.week_start|date:"M d" }} – {{ review.week_end|date:"M d, Y" }}</p>
+    </header>
+
+    <section class="weekly-review-metrics">
+      <article><span>Completed actions</span><strong>{{ review.completed_actions }}</strong></article>
+      <article><span>Reclaimed minutes</span><strong>{{ review.reclaimed_minutes }}</strong></article>
+      <article><span>Rescues shown</span><strong>{{ review.recommendations_shown }}</strong></article>
+      <article><span>Completed / skipped</span><strong>{{ review.recommendations_completed }} / {{ review.recommendations_skipped }}</strong></article>
+      <article><span>Completion rate</span><strong>{{ review.completion_percent }}%</strong></article>
+    </section>
+
+    {% if review.progress_totals %}
+      <section class="weekly-review-progress-totals">
+        <h2>Progress generated</h2>
+        {% for item in review.progress_totals %}
+          <span>{{ item.value }} {{ item.unit }}</span>
+        {% endfor %}
+      </section>
+    {% endif %}
+
+    <section class="weekly-review-insights">
+      <span>WEEKLY INSIGHTS</span>
+      {% for insight in review.insights %}<p>{{ insight }}</p>{% endfor %}
+    </section>
+
+    {% if review.next_step %}
+      <section class="weekly-review-next-step">
+        <div>
+          <span>NEXT BEST STEP · {{ review.next_step.action_size_label }}</span>
+          <h2>{{ review.next_step.action_title }}</h2>
+          <p>{{ review.next_step.reason }}</p>
+        </div>
+        <strong>{{ review.next_step.duration_minutes }} min · {{ review.next_step.progress_value }} {{ review.next_step.progress_unit }}</strong>
+      </section>
+    {% endif %}
+
+    <section class="weekly-review-goals">
+      <header><span>GOAL BY GOAL</span><h2>Where your momentum went</h2></header>
+      {% if review.goal_rows %}
+        <div class="weekly-review-goal-grid">
+          {% for row in review.goal_rows %}
+            <article>
+              <div class="weekly-review-goal-top"><span>{{ row.status }} · {{ row.role }}</span><b>{{ row.progress.weekly_percent }}%</b></div>
+              <h3>{{ row.title }}</h3>
+              <p>{{ row.progress.current_week_progress_display }} / {{ row.progress.weekly_target_display }} {{ row.progress.progress_unit }}</p>
+              <div class="weekly-review-track"><span style="width: {{ row.progress.weekly_percent }}%"></span></div>
+              <small>{{ row.progress.total_completed_actions }} actions · {{ row.progress.total_reclaimed_display }} reclaimed</small>
+              <a href="{% url 'core:goal_progress' row.id %}">View goal progress →</a>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="weekly-review-empty">No goals or goal activity to review yet.</div>
+      {% endif %}
+    </section>
+
+    <section class="weekly-review-activity">
+      <header>
+        <span>RECENT MOMENTUM</span><h2>This week's completed actions</h2>
+        {% if review.most_active_goal %}<p>Most active: {{ review.most_active_goal.title }}</p>{% endif %}
+        {% if review.most_completed_size %}<p>Most completed size: {{ review.most_completed_size.label }}</p>{% endif %}
+      </header>
+      {% if review.recent_activity %}
+        {% for entry in review.recent_activity %}
+          <article>
+            <time>{{ entry.completed_at|date:"M d · g:i A" }}</time>
+            <div><strong>{{ entry.action_title }}</strong><span>{{ entry.duration_minutes }} min · {{ entry.progress_value }} {{ entry.progress_unit }}</span></div>
+            <a href="{% url 'core:view_summary' entry.digital_summary_id %}">Source report →</a>
+          </article>
+        {% endfor %}
+      {% else %}
+        <div class="weekly-review-empty">No completed Momentum activity yet this week.</div>
+      {% endif %}
+    </section>
+  </div>
+</main>
+{% endblock %}

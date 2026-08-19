@@ -83,6 +83,12 @@ urlpatterns = [
         views.complete_goal_rescue,
         name="complete_goal_rescue",
     ),
+    path(
+        "momentum/skip/",
+        views.skip_goal_rescue,
+        name="skip_goal_rescue",
+    ),
+    path("weekly-review/", views.weekly_review, name="weekly_review"),
     path("postcard/download/<str:file_format>/", views.download_postcard, name="download_postcard"),
     # Dashboard
     path("dashboard/", views.dashboard, name="dashboard"),

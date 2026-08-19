@@ -125,6 +125,21 @@ Digital Wellness & Goal Rescue · {{ summary.created_at|date:"M d, Y" }} · Beyo
                         <p>{{ rescue.selection_reason }}</p>
                     </div>
 
+                    {% if not momentum_completion %}
+                        {% if rescue.is_skipped %}
+                            <div class="historical-empty-state">
+                                <strong>Marked Not now</strong>
+                                <p>No Momentum progress was recorded for this recommendation.</p>
+                            </div>
+                        {% else %}
+                            <form method="post" action="{% url 'core:skip_goal_rescue' %}">
+                                {% csrf_token %}
+                                <input type="hidden" name="summary_id" value="{{ summary.id }}">
+                                <button type="submit">Not now</button>
+                            </form>
+                        {% endif %}
+                    {% endif %}
+
                 {% elif rescue.status == "legacy_unavailable" %}
                     <div class="historical-empty-state">
                         <span class="historical-rescue-badge">HISTORICAL GOAL RESCUE</span>

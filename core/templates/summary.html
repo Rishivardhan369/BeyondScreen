@@ -74,6 +74,18 @@
                             <span class="gr-completed-heading-badge">
                                 COMPLETED
                             </span>
+                        {% elif rescue.is_skipped %}
+                            <div class="gr-completed-state">
+                                <div class="gr-completed-state-icon" aria-hidden="true">–</div>
+                                <div>
+                                    <span>GOAL RESCUE</span>
+                                    <h3>Marked Not now</h3>
+                                    <p>
+                                        This recommendation remains preserved,
+                                        and no Momentum progress was recorded.
+                                    </p>
+                                </div>
+                            </div>
                         {% else %}
                             <span class="gr-pending-badge">
                                 NOT COMPLETED YET
@@ -167,6 +179,16 @@
                                             class="gr-complete-button">
                                         Mark as completed
                                         <span aria-hidden="true">→</span>
+                                    </button>
+                                </form>
+
+                                <form method="post"
+                                      action="{% url 'core:skip_goal_rescue' %}"
+                                      class="gr-complete-form">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="summary_id" value="{{ rescue.summary_id }}">
+                                    <button type="submit" class="gr-secondary-button">
+                                        Not now
                                     </button>
                                 </form>
                             </div>

@@ -8,10 +8,18 @@ from django.utils import timezone
 from datetime import timedelta
 from unittest.mock import patch
 
-from .models import DigitalSummary, GoalAction, MomentumEntry, UserGoal
+from .models import (
+    DigitalSummary,
+    GoalAction,
+    GoalRescueOutcome,
+    MomentumEntry,
+    UserGoal,
+)
 from .services import (
     build_goal_progress,
     build_goal_rescue,
+    build_weekly_review,
+    ensure_goal_rescue_outcome,
     freeze_goal_rescue_snapshot,
     generate_postcard,
     goal_rescue_for_summary,
@@ -1541,3 +1549,235 @@ class AdaptiveGoalRescueTests(TestCase):
         self.assertEqual(entry.goal_id, self.primary.pk)
         self.assertEqual(entry.action_title, snapshot["action_title"])
         self.assertEqual(entry.action_size, snapshot["action_size"])
+
+
+class GoalRescueOutcomeAdaptiveV2Tests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="outcome-owner", password="pw")
+        self.other = User.objects.create_user(username="outcome-other", password="pw")
+        self.primary = self.create_goal("Outcome primary", True)
+        self.additional = self.create_goal("Outcome additional", False)
+        self.client.force_login(self.user)
+
+    def create_goal(self, title, primary):
+        goal = UserGoal.objects.create(
+            user=self.user, title=title, why_it_matters="Reliable outcomes",
+            progress_unit="sessions", weekly_target=8, is_primary=primary,
+        )
+        for size, minutes, value in (("minimum", 5, 1), ("standard", 20, 2), ("deep", 45, 4)):
+            GoalAction.objects.create(goal=goal, size=size, title=f"{title} {size}", duration_minutes=minutes, progress_value=value)
+        return goal
+
+    def ready_summary(self, goal=None, size=None):
+        goal = goal or self.primary
+        action = goal.actions.get(size=size) if size else goal.actions.get(size="deep")
+        snapshot = {
+            "status": "ready", "goal_id": goal.id, "goal_title": goal.title,
+            "action_id": action.id, "action_title": action.title,
+            "action_size": action.size, "action_minutes": action.duration_minutes,
+            "action_progress_value": str(action.progress_value),
+            "progress_unit": goal.progress_unit, "selection_reason": "Frozen reason",
+        }
+        return DigitalSummary.objects.create(
+            user=self.user, screen_time_minutes=500, wellness_score=70,
+            category="Good", insight="Outcome summary", goal_rescue_snapshot=snapshot,
+        )
+
+    def interaction(self, size, status, *, goal=None, shown_at=None):
+        goal = goal or self.primary
+        summary = self.ready_summary(goal, size)
+        outcome = ensure_goal_rescue_outcome(summary)
+        outcome.status = status
+        outcome.shown_at = shown_at or timezone.now()
+        if status == "completed":
+            outcome.completed_at = outcome.shown_at
+            action = goal.actions.get(size=size)
+            MomentumEntry.objects.create(
+                user=self.user, goal=goal, action=action, digital_summary=summary,
+                action_title=action.title, action_size=size,
+                duration_minutes=action.duration_minutes,
+                progress_value=action.progress_value, progress_unit=goal.progress_unit,
+            )
+        elif status == "skipped":
+            outcome.skipped_at = outcome.shown_at
+        outcome.save()
+        return outcome
+
+    def test_new_ready_summary_has_one_shown_outcome(self):
+        self.client.post(reverse("core:home"), {"screen_time": 500, "mood": "Calm", "goal": "Study"})
+        summary = DigitalSummary.objects.latest("id")
+        outcome = summary.goal_rescue_outcome
+        self.assertEqual(outcome.status, "shown")
+        self.assertEqual(outcome.goal_id, self.primary.id)
+        self.assertEqual(GoalRescueOutcome.objects.filter(digital_summary=summary).count(), 1)
+        ensure_goal_rescue_outcome(summary)
+        self.assertEqual(GoalRescueOutcome.objects.filter(digital_summary=summary).count(), 1)
+
+    def test_completion_updates_outcome_and_remains_idempotent(self):
+        summary = self.ready_summary()
+        self.client.post(reverse("core:complete_goal_rescue"), {"summary_id": summary.id})
+        self.client.post(reverse("core:complete_goal_rescue"), {"summary_id": summary.id})
+        outcome = GoalRescueOutcome.objects.get(digital_summary=summary)
+        self.assertEqual(outcome.status, "completed")
+        self.assertIsNotNone(outcome.completed_at)
+        self.assertEqual(MomentumEntry.objects.filter(digital_summary=summary).count(), 1)
+
+    def test_skip_is_idempotent_creates_no_momentum_and_cannot_override_completed(self):
+        summary = self.ready_summary()
+        url = reverse("core:skip_goal_rescue")
+        self.client.post(url, {"summary_id": summary.id})
+        self.client.post(url, {"summary_id": summary.id})
+        outcome = GoalRescueOutcome.objects.get(digital_summary=summary)
+        self.assertEqual(outcome.status, "skipped")
+        self.assertFalse(MomentumEntry.objects.filter(digital_summary=summary).exists())
+
+        completed = self.ready_summary(size="standard")
+        self.client.post(reverse("core:complete_goal_rescue"), {"summary_id": completed.id})
+        self.client.post(url, {"summary_id": completed.id})
+        self.assertEqual(completed.goal_rescue_outcome.status, "completed")
+
+    def test_skip_security_methods_and_legacy_guard(self):
+        self.assertEqual(self.client.get(reverse("core:skip_goal_rescue")).status_code, 405)
+        foreign = DigitalSummary.objects.create(user=self.other, screen_time_minutes=1, wellness_score=1, category="x", insight="x")
+        self.assertEqual(self.client.post(reverse("core:skip_goal_rescue"), {"summary_id": foreign.id}).status_code, 404)
+        legacy = DigitalSummary.objects.create(user=self.user, screen_time_minutes=1, wellness_score=1, category="x", insight="x")
+        self.client.post(reverse("core:skip_goal_rescue"), {"summary_id": legacy.id})
+        self.assertFalse(GoalRescueOutcome.objects.filter(digital_summary=legacy).exists())
+        self.client.logout()
+        response = self.client.post(reverse("core:skip_goal_rescue"), {"summary_id": legacy.id})
+        self.assertEqual(response.status_code, 302)
+
+    def test_foreign_summary_cannot_be_completed(self):
+        foreign = DigitalSummary.objects.create(user=self.other, screen_time_minutes=1, wellness_score=1, category="x", insight="x")
+        self.assertEqual(self.client.post(reverse("core:complete_goal_rescue"), {"summary_id": foreign.id}).status_code, 404)
+
+    def test_insufficient_outcomes_preserve_phase1_fallback(self):
+        self.interaction("deep", "skipped")
+        self.interaction("deep", "skipped")
+        self.assertEqual(build_goal_rescue(self.user, 500)["action_size"], "deep")
+
+    def test_completed_deep_wins_and_skipped_deep_allows_standard(self):
+        for _ in range(4): self.interaction("deep", "completed")
+        self.assertEqual(build_goal_rescue(self.user, 500)["action_size"], "deep")
+
+        GoalRescueOutcome.objects.all().delete(); MomentumEntry.objects.all().delete(); DigitalSummary.objects.all().delete()
+        for _ in range(3): self.interaction("deep", "skipped")
+        for _ in range(3): self.interaction("standard", "completed")
+        rescue = build_goal_rescue(self.user, 500)
+        self.assertEqual(rescue["action_size"], "standard")
+        self.assertIn("Recent activity", rescue["selection_reason"])
+
+    def test_minimum_evidence_ineligible_guard_and_other_goal_isolation(self):
+        for _ in range(4): self.interaction("minimum", "completed")
+        self.assertEqual(build_goal_rescue(self.user, 500)["action_size"], "minimum")
+        for _ in range(4): self.interaction("deep", "completed", goal=self.additional)
+        self.assertNotEqual(build_goal_rescue(self.user, 250)["action_size"], "deep")
+
+    def test_switch_old_data_and_thirty_day_expiry_are_isolated(self):
+        old = timezone.now() - timedelta(days=31)
+        for _ in range(4): self.interaction("minimum", "skipped", shown_at=old)
+        self.assertEqual(build_goal_rescue(self.user, 500)["action_size"], "deep")
+        for _ in range(4): self.interaction("standard", "completed", goal=self.additional)
+        self.client.post(reverse("core:make_primary_goal", args=[self.additional.id]))
+        self.assertEqual(build_goal_rescue(self.user, 500)["action_size"], "standard")
+
+    def test_legacy_momentum_is_positive_only_and_repetition_is_deterministic(self):
+        for _ in range(4):
+            action = self.primary.actions.get(size="minimum")
+            summary = self.ready_summary(size="minimum")
+            MomentumEntry.objects.create(user=self.user, goal=self.primary, action=action, digital_summary=summary, action_title=action.title, action_size="minimum", duration_minutes=5, progress_value=1, progress_unit="sessions")
+        first = build_goal_rescue(self.user, 500)
+        second = build_goal_rescue(self.user, 500)
+        self.assertEqual(first["action_id"], second["action_id"])
+        self.assertEqual(first["action_size"], "minimum")
+
+    def test_v2_snapshot_reason_freezes_and_weekly_signal_survives(self):
+        for _ in range(3): self.interaction("deep", "skipped")
+        for _ in range(3): self.interaction("standard", "completed")
+        snapshot = freeze_goal_rescue_snapshot(build_goal_rescue(self.user, 500))
+        summary = DigitalSummary.objects.create(user=self.user, screen_time_minutes=500, wellness_score=70, category="Good", insight="frozen", goal_rescue_snapshot=snapshot)
+        self.interaction("minimum", "completed")
+        self.assertEqual(goal_rescue_for_summary(summary), snapshot)
+        self.assertIn("Recent activity", snapshot["selection_reason"])
+
+
+class WeeklyReviewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="weekly-owner", password="pw")
+        self.other = User.objects.create_user(username="weekly-other", password="pw")
+        self.primary = self.goal("Weekly primary", True, "sessions", 5)
+        self.additional = self.goal("Weekly additional", False, "minutes", 60)
+        self.client.force_login(self.user)
+
+    def goal(self, title, primary, unit, target, status="active"):
+        goal = UserGoal.objects.create(user=self.user, title=title, why_it_matters="weekly", progress_unit=unit, weekly_target=target, is_primary=primary, status=status)
+        for size, minutes, value in (("minimum",5,1),("standard",20,2),("deep",45,4)):
+            GoalAction.objects.create(goal=goal,size=size,title=f"{title} {size}",duration_minutes=minutes,progress_value=value)
+        return goal
+
+    def activity(self, goal, size="standard", status="completed", when=None):
+        action=goal.actions.get(size=size); when=when or timezone.now()
+        summary=DigitalSummary.objects.create(user=self.user,screen_time_minutes=200,wellness_score=70,category="Good",insight="weekly",goal_rescue_snapshot={"status":"ready","goal_id":goal.id,"action_id":action.id,"action_size":size,"action_title":action.title,"action_minutes":action.duration_minutes,"action_progress_value":str(action.progress_value),"progress_unit":goal.progress_unit})
+        outcome=GoalRescueOutcome.objects.create(user=self.user,digital_summary=summary,goal=goal,action=action,action_size=size,action_title=action.title,status=status,shown_at=when,completed_at=when if status=="completed" else None,skipped_at=when if status=="skipped" else None)
+        if status=="completed":
+            entry=MomentumEntry.objects.create(user=self.user,goal=goal,action=action,digital_summary=summary,action_title=action.title,action_size=size,duration_minutes=action.duration_minutes,progress_value=action.progress_value,progress_unit=goal.progress_unit)
+            MomentumEntry.objects.filter(id=entry.id).update(completed_at=when)
+        return outcome
+
+    def test_empty_week_and_anonymous_redirect(self):
+        review=build_weekly_review(self.user)
+        self.assertFalse(review["has_activity"]); self.assertEqual(review["completed_actions"],0)
+        response=self.client.get(reverse("core:weekly_review")); self.assertContains(response,"No completed Momentum activity")
+        self.client.logout(); self.assertEqual(self.client.get(reverse("core:weekly_review")).status_code,302)
+
+    def test_weekly_totals_outcomes_percentage_and_units(self):
+        self.activity(self.primary,"minimum","completed")
+        self.activity(self.primary,"standard","skipped")
+        self.activity(self.additional,"standard","completed")
+        review=build_weekly_review(self.user)
+        self.assertEqual(review["completed_actions"],2)
+        self.assertEqual(review["reclaimed_minutes"],25)
+        self.assertEqual(review["recommendations_shown"],3)
+        self.assertEqual(review["recommendations_completed"],2)
+        self.assertEqual(review["recommendations_skipped"],1)
+        self.assertEqual(review["completion_percent"],67)
+        self.assertEqual({item["unit"] for item in review["progress_totals"]},{"sessions","minutes"})
+
+    def test_goal_values_separate_most_active_size_and_insights(self):
+        self.activity(self.primary,"standard","completed")
+        self.activity(self.primary,"standard","completed")
+        self.activity(self.additional,"minimum","completed")
+        review=build_weekly_review(self.user)
+        rows={row["id"]:row for row in review["goal_rows"]}
+        self.assertEqual(rows[self.primary.id]["progress"]["current_week_progress"],4)
+        self.assertEqual(rows[self.additional.id]["progress"]["current_week_progress"],1)
+        self.assertEqual(review["most_active_goal"]["id"],self.primary.id)
+        self.assertEqual(review["most_completed_size"]["size"],"standard")
+        self.assertTrue(any("reclaimed" in insight for insight in review["insights"]))
+
+    def test_recent_activity_newest_first_and_other_user_excluded(self):
+        older=self.activity(self.primary,when=timezone.now()-timedelta(days=1))
+        newer=self.activity(self.primary,when=timezone.now())
+        other_goal=UserGoal.objects.create(user=self.other,title="private",why_it_matters="private",progress_unit="sessions",weekly_target=1,is_primary=True)
+        other_summary=DigitalSummary.objects.create(user=self.other,screen_time_minutes=1,wellness_score=1,category="x",insight="x")
+        GoalRescueOutcome.objects.create(user=self.other,digital_summary=other_summary,goal=other_goal,action_size="minimum",action_title="private",shown_at=timezone.now())
+        review=build_weekly_review(self.user)
+        self.assertEqual([entry.digital_summary_id for entry in review["recent_activity"]],[newer.digital_summary_id,older.digital_summary_id])
+        self.assertEqual(review["recommendations_shown"],2)
+
+    def test_paused_completed_history_and_next_step_are_reported(self):
+        paused=self.goal("Paused weekly",False,"sessions",3,"paused")
+        completed=self.goal("Completed weekly",False,"sessions",3,"completed")
+        self.activity(paused); self.activity(completed)
+        review=build_weekly_review(self.user)
+        statuses={row["status"] for row in review["goal_rows"]}
+        self.assertIn("paused",statuses); self.assertIn("completed",statuses)
+        self.assertIsNotNone(review["next_step"])
+        self.assertEqual(review["next_step"]["goal_title"],self.primary.title)
+
+    def test_weekly_page_renders_source_and_discoverability(self):
+        outcome=self.activity(self.primary)
+        response=self.client.get(reverse("core:weekly_review"))
+        self.assertContains(response,reverse("core:view_summary",args=[outcome.digital_summary_id]))
+        ledger=self.client.get(reverse("core:momentum_ledger"))
+        self.assertContains(ledger,reverse("core:weekly_review"))

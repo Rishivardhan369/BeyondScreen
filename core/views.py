@@ -13,6 +13,7 @@ from django.conf import settings
 from .models import (
     DigitalSummary,
     GoalAction,
+    GoalRescueOutcome,
     MomentumEntry,
     Postcard,
     UserGoal,
@@ -28,6 +29,8 @@ from .forms import (
 from .services import (
     build_goal_progress,
     build_goal_rescue,
+    build_weekly_review,
+    ensure_goal_rescue_outcome,
     freeze_goal_rescue_snapshot,
     format_screen_time,
     generate_postcard,
@@ -1432,14 +1435,16 @@ def home(request):
                 goal_rescue_snapshot = freeze_goal_rescue_snapshot(
                     build_goal_rescue(request.user, minutes)
                 )
-                digital_summary = DigitalSummary.objects.create(
-                    user=request.user,
-                    screen_time_minutes=minutes,
-                    wellness_score=wellness_score,
-                    category=category,
-                    insight=insight,
-                    goal_rescue_snapshot=goal_rescue_snapshot,
-                )
+                with transaction.atomic():
+                    digital_summary = DigitalSummary.objects.create(
+                        user=request.user,
+                        screen_time_minutes=minutes,
+                        wellness_score=wellness_score,
+                        category=category,
+                        insight=insight,
+                        goal_rescue_snapshot=goal_rescue_snapshot,
+                    )
+                    ensure_goal_rescue_outcome(digital_summary)
                 request.session["summary_data"]["summary_id"] = (
                     digital_summary.id
                 )
@@ -1525,10 +1530,22 @@ def complete_goal_rescue(request):
 
     try:
         with transaction.atomic():
+            digital_summary = DigitalSummary.objects.select_for_update().get(
+                id=digital_summary.id,
+                user=request.user,
+            )
             _, created = MomentumEntry.objects.get_or_create(
                 digital_summary=digital_summary,
                 defaults=defaults,
             )
+            outcome = ensure_goal_rescue_outcome(digital_summary)
+            if outcome is not None and outcome.status != GoalRescueOutcome.STATUS_COMPLETED:
+                outcome.status = GoalRescueOutcome.STATUS_COMPLETED
+                outcome.completed_at = timezone.now()
+                outcome.skipped_at = None
+                outcome.save(
+                    update_fields=["status", "completed_at", "skipped_at"],
+                )
     except IntegrityError:
         created = False
 
@@ -1543,6 +1560,44 @@ def complete_goal_rescue(request):
             "This Goal Rescue is already in your Momentum Ledger.",
         )
 
+    return redirect("core:summary")
+
+
+@login_required
+@require_POST
+def skip_goal_rescue(request):
+    summary_id = request.POST.get("summary_id")
+    try:
+        summary_id = int(summary_id)
+    except (TypeError, ValueError):
+        raise Http404
+
+    with transaction.atomic():
+        digital_summary = get_object_or_404(
+            DigitalSummary.objects.select_for_update(),
+            id=summary_id,
+            user=request.user,
+        )
+        if goal_rescue_for_summary(digital_summary).get("status") != "ready":
+            messages.error(
+                request,
+                "This report does not have a saved Goal Rescue to skip.",
+            )
+            return redirect("core:summary")
+        if MomentumEntry.objects.filter(digital_summary=digital_summary).exists():
+            messages.info(request, "This Goal Rescue is already completed.")
+            return redirect("core:summary")
+
+        outcome = ensure_goal_rescue_outcome(digital_summary)
+        if outcome.status == GoalRescueOutcome.STATUS_COMPLETED:
+            messages.info(request, "This Goal Rescue is already completed.")
+        elif outcome.status == GoalRescueOutcome.STATUS_SKIPPED:
+            messages.info(request, "This Goal Rescue is already marked Not now.")
+        else:
+            outcome.status = GoalRescueOutcome.STATUS_SKIPPED
+            outcome.skipped_at = timezone.now()
+            outcome.save(update_fields=["status", "skipped_at"])
+            messages.success(request, "No problem — this Goal Rescue is marked Not now.")
     return redirect("core:summary")
 
 
@@ -1595,6 +1650,17 @@ def summary(request):
                 goal_rescue["completed_at"] = (
                     momentum_entry.completed_at
                 )
+            else:
+                outcome = GoalRescueOutcome.objects.filter(
+                    digital_summary=digital_summary,
+                    user=request.user,
+                ).first()
+                goal_rescue["is_skipped"] = bool(
+                    outcome
+                    and outcome.status == GoalRescueOutcome.STATUS_SKIPPED
+                )
+                if goal_rescue["is_skipped"]:
+                    goal_rescue["skipped_at"] = outcome.skipped_at
 
     display_summary["goal_rescue"] = goal_rescue
 
@@ -1918,6 +1984,15 @@ def momentum_ledger(request):
         request,
         "momentum_ledger.html",
         context,
+    )
+
+
+@login_required
+def weekly_review(request):
+    return render(
+        request,
+        "weekly_review.html",
+        {"review": build_weekly_review(request.user)},
     )
 
 
@@ -2777,6 +2852,16 @@ def view_summary(request, summary_id):
         goal_rescue["completed_at"] = (
             momentum_entry.completed_at
         )
+    else:
+        outcome = GoalRescueOutcome.objects.filter(
+            digital_summary=summary,
+            user=request.user,
+        ).first()
+        goal_rescue["is_skipped"] = bool(
+            outcome and outcome.status == GoalRescueOutcome.STATUS_SKIPPED
+        )
+        if goal_rescue["is_skipped"]:
+            goal_rescue["skipped_at"] = outcome.skipped_at
 
     context = {
         "summary": summary,
