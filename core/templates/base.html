@@ -11,95 +11,6 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     {% block extra_css %}{% endblock %}
-    <style>
-        /* Toast container */
-        #toast-container {
-            position: fixed;
-            top: 80px; /* Adjust based on navbar height */
-            right: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 1050;
-            pointer-events: auto;
-            width: 320px;
-            max-width: calc(100% - 40px);
-        }
-
-        /* Toast */
-        .toast {
-            position: relative;
-            min-height: 56px; /* Adjust as needed */
-            max-width: 100%;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            display: flex;
-            align-items: center;
-            padding: 12px 16px;
-            background-color: #fff;
-            border-left: 4px solid;
-            color: #333;
-            font-family: 'DM Sans', sans-serif;
-            font-size: 14px;
-            transition: opacity 0.3s ease, transform 0.3s ease;
-            will-change: opacity, transform;
-        }
-
-        /* Toast types based on message tags */
-        .toast-success { border-left-color: #4caf50; background-color: #e8f5e9; }
-        .toast-error { border-left-color: #f44336; background-color: #ffebee; }
-        .toast-warning { border-left-color: #ff9800; background-color: #fff3e0; }
-        .toast-info { border-left-color: #2196f3; background-color: #e3f2fd; }
-
-        /* Default to info if tag not matched */
-        .toast { border-left-color: #2196f3; background-color: #e3f2fd; }
-
-        /* Toast body */
-        .toast-body {
-            flex: 1;
-            margin-right: 12px;
-            word-break: break-word;
-        }
-
-        /* Toast close button */
-        .toast-close {
-            position: absolute;
-            top: 50%;
-            right: 12px;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            font-size: 24px;
-            line-height: 1;
-            color: #666;
-            cursor: pointer;
-            padding: 0;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: color 0.2s ease;
-        }
-        .toast-close:hover {
-            color: #333;
-        }
-
-        /* Hide animation */
-        .toast-hide {
-            opacity: 0;
-            transform: translateX(20px);
-            pointer-events: none;
-        }
-
-        /* Responsive adjustments */
-        @media (max-width: 480px) {
-            #toast-container {
-                width: calc(100% - 40px);
-                left: 20px;
-            }
-        }
-    </style>
 </head>
 <body>
     {% block header %}
@@ -108,8 +19,12 @@
             <a href="{% url 'core:home' %}" class="brand">beyondscreen<span>.</span></a>
             <div class="nav-links">
                 {% if user.is_authenticated %}
-                    <a href="{% url 'core:dashboard' %}" class="nav-link{% if request.path == '/dashboard/' %} active{% endif %}">Dashboard</a>
-                    <a href="{% url 'core:history' %}" class="nav-link{% if request.path == '/history/' %} active{% endif %}">History</a>
+                    <a href="{% url 'core:dashboard' %}" class="nav-link{% if request.resolver_match.url_name == 'dashboard' %} active{% endif %}"{% if request.resolver_match.url_name == 'dashboard' %} aria-current="page"{% endif %}>Dashboard</a>
+                    <a href="{% url 'core:home' %}#upload-report" class="nav-link{% if request.resolver_match.url_name == 'home' %} active{% endif %}"{% if request.resolver_match.url_name == 'home' %} aria-current="page"{% endif %}>New Summary</a>
+                    <a href="{% url 'core:goal_dna_management' %}" class="nav-link{% if 'goal' in request.resolver_match.url_name %} active{% endif %}"{% if 'goal' in request.resolver_match.url_name %} aria-current="page"{% endif %}>Goal DNA</a>
+                    <a href="{% url 'core:momentum_ledger' %}" class="nav-link{% if request.resolver_match.url_name == 'momentum_ledger' %} active{% endif %}"{% if request.resolver_match.url_name == 'momentum_ledger' %} aria-current="page"{% endif %}>Momentum</a>
+                    <a href="{% url 'core:weekly_review' %}" class="nav-link{% if request.resolver_match.url_name == 'weekly_review' %} active{% endif %}"{% if request.resolver_match.url_name == 'weekly_review' %} aria-current="page"{% endif %}>Weekly Review</a>
+                    <a href="{% url 'core:history' %}" class="nav-link{% if request.resolver_match.url_name == 'history' or request.resolver_match.url_name == 'view_summary' %} active{% endif %}"{% if request.resolver_match.url_name == 'history' or request.resolver_match.url_name == 'view_summary' %} aria-current="page"{% endif %}>History</a>
                     <a href="{% url 'core:profile' %}" class="nav-link{% if request.path == '/profile/' %} active{% endif %}">Profile</a>
                     <form action="{% url 'core:logout' %}" method="post" class="nav-link logout-form">
                         {% csrf_token %}
@@ -128,7 +43,7 @@
     <!-- Toast container -->
     <div id="toast-container" aria-live="polite">
         {% for message in messages %}
-        <div class="toast toast-{{ message.tags }}" role="alert">
+        <div class="toast toast-{{ message.tags|default:'info' }}" role="status">
             <div class="toast-body">
                 {{ message }}
             </div>

@@ -101,7 +101,7 @@
         <span>Goal Rescue</span>
       </a>
 
-      <a href="{% url 'core:dashboard' %}#today-focus" class="sidebar-link">
+      <a href="{% url 'core:weekly_review' %}" class="sidebar-link">
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="8"></circle>
           <circle cx="12" cy="12" r="3"></circle>
@@ -110,7 +110,7 @@
           <path d="m4.9 4.9 1.4 1.4"></path>
           <path d="m17.7 17.7 1.4 1.4"></path>
         </svg>
-        <span>Today's Focus</span>
+        <span>Weekly Review</span>
       </a>
 
       <a href="{% url 'core:momentum_ledger' %}" class="sidebar-link">
@@ -354,7 +354,7 @@
                           ✓ Completed
                         </span>
                       {% elif report.momentum.is_skipped %}
-                        <span class="history-momentum-badge history-momentum-pending">Not now / Skipped</span>
+                        <span class="history-momentum-badge history-momentum-pending">Not now</span>
                       {% else %}
                         <span class="history-momentum-badge history-momentum-pending">
                           Not completed

@@ -7,7 +7,10 @@
 {% block content %}
 <main class="weekly-review-page">
   <div class="weekly-review-shell">
-    <nav><a href="{% url 'core:momentum_ledger' %}">← Momentum Ledger</a></nav>
+    <nav class="weekly-review-context-nav" aria-label="Weekly review navigation">
+      <a href="{% url 'core:dashboard' %}">Dashboard</a>
+      <a href="{% url 'core:momentum_ledger' %}">Momentum</a>
+    </nav>
     <header class="weekly-review-hero">
       <span>WEEKLY REVIEW</span>
       <h1>Your week in reclaimed momentum</h1>
@@ -21,11 +24,11 @@
     </nav>
 
     <section class="weekly-review-metrics">
-      <article><span>Completed actions</span><strong>{{ review.completed_actions }}</strong></article>
       <article><span>Reclaimed minutes</span><strong>{{ review.reclaimed_minutes }}</strong></article>
-      <article><span>Rescues shown</span><strong>{{ review.recommendations_shown }}</strong></article>
-      <article><span>Completed / skipped / pending</span><strong>{{ review.recommendations_completed }} / {{ review.recommendations_skipped }} / {{ review.recommendations_pending }}</strong></article>
+      <article><span>Completed rescues</span><strong>{{ review.recommendations_completed }}</strong></article>
       <article><span>Completion rate</span><strong>{{ review.completion_percent }}%</strong></article>
+      <article><span>Completed actions</span><strong>{{ review.completed_actions }}</strong></article>
+      <article><span>Most active goal</span><strong class="weekly-review-metric-text">{% if review.most_active_goal %}{{ review.most_active_goal.title }}{% else %}No activity yet{% endif %}</strong></article>
     </section>
 
     {% if review.progress_totals %}
@@ -53,7 +56,7 @@
       </section>
     {% endif %}
 
-    {% if not review.is_current_week %}<p class="weekly-review-empty">Historical review — Next Best Step is available only for the current week.</p>{% endif %}
+    {% if not review.is_current_week %}<p class="weekly-review-empty"><strong>Historical review</strong><br>Next Best Step is intentionally available only for the current week.</p>{% endif %}
     {% if review.recent_milestone %}<section class="weekly-review-insights"><span>RECENT MILESTONE</span><p>{{ review.recent_milestone.goal_title }}: {{ review.recent_milestone.label }}</p></section>{% endif %}
 
     <section class="weekly-review-goals">
@@ -75,7 +78,7 @@
           {% endfor %}
         </div>
       {% else %}
-        <div class="weekly-review-empty">No goals or goal activity to review yet.</div>
+        <div class="weekly-review-empty"><strong>No goal activity this week.</strong><br>Create a Digital Summary and complete a Goal Rescue to build this review.</div>
       {% endif %}
     </section>
 
@@ -95,7 +98,7 @@
           </article>
         {% endfor %}
       {% else %}
-        <div class="weekly-review-empty">No completed Momentum activity yet this week.</div>
+        <div class="weekly-review-empty"><strong>No completed Momentum activity this week.</strong><br><a href="{% url 'core:home' %}#upload-report">Create a Digital Summary</a> to find your next Goal Rescue.</div>
       {% endif %}
     </section>
   </div>
