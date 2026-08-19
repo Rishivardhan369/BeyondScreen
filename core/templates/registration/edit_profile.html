@@ -44,6 +44,18 @@
                 <small style="color: #ff6b6b;">{{ form.newsletter_subscribe.errors }}</small>
                 {% endif %}
             </div>
+            <div class="input-box">
+                {{ form.default_momentum_period.label_tag }}
+                {{ form.default_momentum_period }}
+                {{ form.default_momentum_period.errors }}
+                <small>Used when you open Momentum without choosing a period.</small>
+            </div>
+            <div class="input-box">
+                {{ form.show_skipped_rescue_statistics.label_tag }}
+                {{ form.show_skipped_rescue_statistics }}
+                {{ form.show_skipped_rescue_statistics.errors }}
+                <small>Turn off to hide Not now totals from Personal Insights.</small>
+            </div>
             <div style="text-align: center; margin-top: 2rem;">
                 <button class="primary-button" type="submit">
                     <span>Save changes</span><span aria-hidden="true">→</span>

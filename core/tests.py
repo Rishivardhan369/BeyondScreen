@@ -10,6 +10,7 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 from unittest.mock import patch
 from io import StringIO
+import json
 
 from .models import (
     DigitalSummary,
@@ -30,6 +31,7 @@ from .services import (
     generate_postcard,
     goal_rescue_for_summary,
 )
+from .analytics import build_personal_insights
 
 
 class HomeViewTests(TestCase):
@@ -2006,3 +2008,131 @@ class SeedDemoDataCommandTests(TestCase):
     def test_command_is_disabled_outside_debug(self):
         with self.assertRaises(CommandError):
             call_command("seed_demo_data", stdout=StringIO())
+
+
+class FinalMissingFeaturesTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="feature-owner", password="pw", email="owner@example.com")
+        self.other = User.objects.create_user(username="feature-other", password="pw")
+        self.goal = UserGoal.objects.create(user=self.user, title="Ship =safe project", why_it_matters="Faculty demo", progress_unit="sessions", weekly_target=2, is_primary=True)
+        self.action = GoalAction.objects.create(goal=self.goal, size="minimum", title="=Review one slide", duration_minutes=10, progress_value=1)
+        self.client.force_login(self.user)
+
+    def summary(self, *, user=None, days=0, minutes=120, apps=None):
+        user = user or self.user
+        item = DigitalSummary.objects.create(user=user, screen_time_minutes=minutes, wellness_score=70, category="Balanced", insight="safe insight", app_usage=apps or [], goal_rescue_snapshot={"status":"ready","goal_id":self.goal.id,"action_id":self.action.id,"action_title":self.action.title,"action_size":"minimum","action_minutes":10,"action_progress_value":"1.00","progress_unit":"sessions"})
+        DigitalSummary.objects.filter(pk=item.pk).update(created_at=timezone.now()-timedelta(days=days))
+        item.refresh_from_db(); return item
+
+    def completion(self, *, days=0, status="completed"):
+        summary = self.summary(days=days)
+        when = timezone.now()-timedelta(days=days)
+        GoalRescueOutcome.objects.create(user=self.user,digital_summary=summary,goal=self.goal,action=self.action,action_size="minimum",action_title=self.action.title,status=status,shown_at=when,completed_at=when if status=="completed" else None,skipped_at=when if status=="skipped" else None)
+        if status == "completed":
+            entry=MomentumEntry.objects.create(user=self.user,goal=self.goal,action=self.action,digital_summary=summary,action_title=self.action.title,action_size="minimum",duration_minutes=10,progress_value=1,progress_unit="sessions")
+            MomentumEntry.objects.filter(pk=entry.pk).update(completed_at=when)
+        return summary
+
+    def test_insights_auth_empty_and_missing_days_not_zero(self):
+        self.client.logout(); self.assertEqual(self.client.get(reverse("core:insights")).status_code,302)
+        self.client.force_login(self.user)
+        empty=self.client.get(reverse("core:insights")); self.assertContains(empty,"No reliable app history")
+        self.summary(days=0,minutes=100); self.summary(days=3,minutes=200)
+        data=build_personal_insights(self.user)
+        self.assertEqual(data["screen_time"]["average_7"],150)
+        self.assertEqual(data["screen_time"]["reports_7"],2)
+        self.assertEqual(data["screen_time"]["direction"],"insufficient")
+
+    def test_insights_30_day_comparison_rescue_and_cross_user_isolation(self):
+        for days,minutes in ((0,100),(1,200),(7,300),(8,100),(20,500)):
+            self.summary(days=days,minutes=minutes)
+        self.completion(days=0); self.completion(days=1,status="skipped")
+        self.summary(user=self.other,minutes=9999)
+        data=build_personal_insights(self.user)
+        self.assertEqual(data["screen_time"]["average_7"],135)
+        self.assertEqual(data["screen_time"]["previous_average_7"],200)
+        self.assertEqual(data["screen_time"]["average_30"],205.7)
+        self.assertEqual(data["rescue"]["completed"],1); self.assertEqual(data["rescue"]["skipped"],1)
+
+    def test_streak_consistency_and_app_patterns(self):
+        self.completion(days=0); self.completion(days=1); self.completion(days=2); self.completion(days=5)
+        self.summary(apps=[{"name":"YouTube","minutes":80},{"name":"Mail","minutes":20}])
+        self.summary(days=1,apps=[{"name":"YouTube","minutes":60},{"name":"Mail","minutes":40}])
+        data=build_personal_insights(self.user)
+        self.assertEqual(data["momentum"]["current_streak"],3)
+        self.assertEqual(data["momentum"]["longest_streak"],3)
+        self.assertEqual(data["momentum"]["active_days_30"],4)
+        self.assertEqual(data["apps"]["most_frequent_top"],"YouTube")
+        self.assertEqual(data["apps"]["most_frequent_top_count"],2)
+
+    def test_weekly_csv_auth_headers_scope_units_and_formula_safety(self):
+        self.completion()
+        GoalAction.objects.create(goal=self.goal,size="standard",title="Normal",duration_minutes=20,progress_value=2)
+        response=self.client.get(reverse("core:weekly_review_csv"))
+        self.assertEqual(response["Content-Type"],"text/csv; charset=utf-8")
+        self.assertIn("attachment;",response["Content-Disposition"])
+        body=response.content.decode("utf-8-sig")
+        self.assertIn("'=Review one slide",body); self.assertIn("sessions",body)
+        self.assertNotIn(self.other.username,body)
+        self.client.logout(); self.assertEqual(self.client.get(reverse("core:weekly_review_csv")).status_code,302)
+
+    def test_weekly_pdf_historical_unicode_and_scope(self):
+        self.goal.title="Long Unicode goal café 漢字 "*12; self.goal.save(update_fields=["title"])
+        self.completion(days=8)
+        selected=(timezone.localdate()-timedelta(days=8)).isoformat()
+        response=self.client.get(reverse("core:weekly_review_pdf"),{"week":selected})
+        self.assertEqual(response["Content-Type"],"application/pdf")
+        self.assertTrue(response.content.startswith(b"%PDF")); self.assertIn(selected[:7],response["Content-Disposition"])
+
+    def test_personal_export_schema_headers_and_isolation(self):
+        self.completion(); self.summary(user=self.other,minutes=999)
+        response=self.client.get(reverse("core:export_personal_data"))
+        payload=json.loads(response.content)
+        self.assertEqual(payload["export_version"],1); datetime.fromisoformat(payload["exported_at"])
+        self.assertEqual(payload["profile"]["username"],self.user.username)
+        self.assertTrue(payload["goals"]); self.assertTrue(payload["digital_summaries"]); self.assertTrue(payload["goal_rescue_outcomes"]); self.assertTrue(payload["momentum_entries"])
+        text=response.content.decode(); self.assertNotIn("password",text.lower()); self.assertNotIn(self.other.username,text)
+        self.assertEqual(response["Content-Type"],"application/json; charset=utf-8"); self.assertIn("attachment;",response["Content-Disposition"])
+
+    def test_profile_preferences_update_and_affect_momentum(self):
+        profile=self.user.userprofile; self.assertEqual(profile.default_momentum_period,"all")
+        response=self.client.post(reverse("core:edit_profile"),{"bio":"","newsletter_subscribe":"","default_momentum_period":"week","show_skipped_rescue_statistics":""})
+        self.assertEqual(response.status_code,302); profile.refresh_from_db(); self.assertEqual(profile.default_momentum_period,"week"); self.assertFalse(profile.show_skipped_rescue_statistics)
+        ledger=self.client.get(reverse("core:momentum_ledger")); self.assertEqual(ledger.context["selected_period"],"week")
+        data=build_personal_insights(self.user); self.assertIsNone(data["rescue"]["skipped"])
+        bad=self.client.post(reverse("core:edit_profile"),{"default_momentum_period":"invalid"}); self.assertEqual(bad.status_code,200)
+
+    def test_history_momentum_and_postcard_pagination_are_scoped_and_safe(self):
+        for i in range(35): self.summary(days=i%20,minutes=100+i)
+        other_summary=DigitalSummary.objects.create(user=self.other,screen_time_minutes=999,wellness_score=1,category="Other",insight="foreign")
+        history=self.client.get(reverse("core:history"),{"page":"invalid","period":"30days"})
+        self.assertEqual(history.status_code,200); self.assertEqual(len(history.context["history_reports"]),20); self.assertNotContains(history,"foreign")
+        for i in range(31): self.completion(days=i%5)
+        ledger=self.client.get(reverse("core:momentum_ledger"),{"period":"all"}); self.assertEqual(len(ledger.context["page_obj"].object_list),30)
+        from .models import Postcard
+        for i in range(20): Postcard.objects.create(user=self.user,mood="Calm",goal="Study",haiku=f"h{i}",reflection="r",action="a",pledge="p")
+        Postcard.objects.create(user=self.other,mood="Calm",goal="Study",haiku="foreign-card",reflection="r",action="a",pledge="p")
+        cards=self.client.get(reverse("core:postcard_history"),{"page":2,"mood":"Calm"}); self.assertEqual(cards.status_code,200); self.assertNotContains(cards,"foreign-card")
+
+    def test_history_filtering_rescue_and_momentum(self):
+        completed=self.completion(); skipped=self.completion(days=1,status="skipped")
+        response=self.client.get(reverse("core:history"),{"rescue":"completed","momentum":"completed"})
+        ids=[item["id"] for item in response.context["history_reports"]]
+        self.assertIn(completed.id,ids); self.assertNotIn(skipped.id,ids)
+
+    def test_new_feature_endpoints_in_functional_flow(self):
+        summary=self.completion()
+        for name in ("momentum_ledger","weekly_review","insights","history","profile"):
+            self.assertEqual(self.client.get(reverse(f"core:{name}")).status_code,200)
+        self.assertEqual(self.client.get(reverse("core:goal_progress",args=[self.goal.id])).status_code,200)
+        self.assertEqual(self.client.get(reverse("core:weekly_review_csv")).status_code,200)
+        self.assertEqual(self.client.get(reverse("core:weekly_review_pdf")).status_code,200)
+        self.assertEqual(self.client.get(reverse("core:export_personal_data")).status_code,200)
+
+    def test_ocr_optional_corrupt_and_manual_fallback(self):
+        from services import screen_time_parser
+        with patch.object(screen_time_parser, "TESSERACT_AVAILABLE", False):
+            self.assertIsNone(screen_time_parser.parse_screen_time_report(StringIO("not an image")))
+        response=self.client.post(reverse("core:home"),{"screen_time":135,"mood":"Calm","goal":"Study"})
+        self.assertEqual(response.status_code,302)
+        self.assertEqual(DigitalSummary.objects.filter(user=self.user).latest("id").screen_time_minutes,135)

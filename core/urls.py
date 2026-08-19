@@ -89,6 +89,9 @@ urlpatterns = [
         name="skip_goal_rescue",
     ),
     path("weekly-review/", views.weekly_review, name="weekly_review"),
+    path("weekly-review/export/csv/", views.weekly_review_csv, name="weekly_review_csv"),
+    path("weekly-review/export/pdf/", views.weekly_review_pdf, name="weekly_review_pdf"),
+    path("insights/", views.insights, name="insights"),
     path("postcard/download/<str:file_format>/", views.download_postcard, name="download_postcard"),
     # Dashboard
     path("dashboard/", views.dashboard, name="dashboard"),
@@ -97,6 +100,7 @@ urlpatterns = [
     # Profile
     path("profile/", views.profile, name="profile"),
     path("profile/edit/", views.edit_profile, name="edit_profile"),
+    path("profile/export-data/", views.export_personal_data, name="export_personal_data"),
     path("password/change/", views.change_password, name="change_password"),
     # Authentication
     path("login/", views.user_login, name="login"),

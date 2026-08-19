@@ -19,6 +19,11 @@
       {% if not review.is_current_week %}<a href="{% url 'core:weekly_review' %}">Current week</a>{% endif %}
       {% if review.next_week %}<a href="{% url 'core:weekly_review' %}?week={{ review.next_week|date:'Y-m-d' }}">Next week</a>{% endif %}
     </nav>
+    <div class="weekly-review-downloads" aria-label="Weekly review downloads">
+      <a href="{% url 'core:weekly_review_csv' %}?week={{ review.week_start|date:'Y-m-d' }}">Download CSV</a>
+      <a href="{% url 'core:weekly_review_pdf' %}?week={{ review.week_start|date:'Y-m-d' }}">Download PDF</a>
+      <a href="{% url 'core:insights' %}">View Personal Insights</a>
+    </div>
 
     <section class="weekly-review-metrics">
       <article><span>Completed actions</span><strong>{{ review.completed_actions }}</strong></article>

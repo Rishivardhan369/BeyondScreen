@@ -6,10 +6,22 @@ from django.core.exceptions import ValidationError
 
 
 class UserProfile(models.Model):
+    MOMENTUM_PERIOD_CHOICES = [
+        ("all", "All time"),
+        ("week", "This week"),
+        ("month", "This month"),
+        ("30days", "Last 30 days"),
+    ]
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     bio = models.TextField(max_length=500, blank=True)
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     newsletter_subscribe = models.BooleanField(default=False)
+    default_momentum_period = models.CharField(
+        max_length=10,
+        choices=MOMENTUM_PERIOD_CHOICES,
+        default="all",
+    )
+    show_skipped_rescue_statistics = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -51,6 +63,7 @@ class DigitalSummary(models.Model):
     # snapshots existed. An empty/no-rescue result is stored as a real
     # dictionary so it cannot later acquire a recommendation.
     goal_rescue_snapshot = models.JSONField(blank=True, null=True)
+    app_usage = models.JSONField(default=list, blank=True)
 
     class Meta:
         ordering = ['-created_at']

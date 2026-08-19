@@ -3,12 +3,17 @@ from django.contrib.auth import login, authenticate, logout, update_session_auth
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib import messages
-from django.http import HttpResponse, Http404
-from django.db.models import Avg, Q
+from django.http import HttpResponse, Http404, JsonResponse
+from django.db.models import Avg, Q, Sum, Count
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 import os
+import csv
+import json
+from io import BytesIO
+from textwrap import wrap
 from django.conf import settings
 from .models import (
     DigitalSummary,
@@ -41,6 +46,9 @@ from .services import (
     render_postcard_pdf,
     render_postcard_png,
 )
+from .analytics import build_personal_insights
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 from services.screen_time_parser import parse_screen_time_report
 from datetime import date, time, timedelta
 from django.db import IntegrityError, transaction
@@ -1479,6 +1487,7 @@ def home(request):
                         category=category,
                         insight=insight,
                         goal_rescue_snapshot=goal_rescue_snapshot,
+                        app_usage=request.session.get("ocr_apps", []),
                     )
                     ensure_goal_rescue_outcome(digital_summary)
                 request.session["summary_data"]["summary_id"] = (
@@ -1775,7 +1784,7 @@ def momentum_ledger(request):
         GoalAction.SIZE_DEEP: "Bigger Step",
     }
 
-    all_entries = list(
+    all_entries = (
         MomentumEntry.objects.filter(
             user=request.user,
         )
@@ -1787,27 +1796,15 @@ def momentum_ledger(request):
         .order_by("-completed_at")
     )
 
-    total_completed_actions = len(all_entries)
-    total_reclaimed_minutes = sum(
-        entry.duration_minutes
-        for entry in all_entries
-    )
-    goals_advanced = len(
-        {
-            entry.goal_id
-            for entry in all_entries
-            if entry.goal_id is not None
-        }
-    )
+    totals = all_entries.aggregate(actions=Count("id"), minutes=Sum("duration_minutes"), goals=Count("goal", distinct=True))
+    total_completed_actions = totals["actions"] or 0
+    total_reclaimed_minutes = totals["minutes"] or 0
+    goals_advanced = totals["goals"] or 0
 
     today = timezone.localdate()
     week_start = today - timedelta(days=today.weekday())
 
-    this_week_entries = [
-        entry
-        for entry in all_entries
-        if local_completed_at(entry).date() >= week_start
-    ]
+    this_week_entries = list(all_entries.filter(completed_at__date__gte=week_start))
 
     primary_goal = UserGoal.objects.filter(
         user=request.user,
@@ -1864,7 +1861,9 @@ def momentum_ledger(request):
 
     selected_goal = request.GET.get("goal", "all").strip()
     selected_size = request.GET.get("size", "all").strip()
-    selected_period = request.GET.get("period", "all").strip()
+    selected_period = request.GET.get(
+        "period", request.user.userprofile.default_momentum_period
+    ).strip()
 
     if selected_goal != "all":
         try:
@@ -1901,18 +1900,10 @@ def momentum_ledger(request):
     filtered_entries = all_entries
 
     if selected_goal_id is not None:
-        filtered_entries = [
-            entry
-            for entry in filtered_entries
-            if entry.goal_id == selected_goal_id
-        ]
+        filtered_entries = filtered_entries.filter(goal_id=selected_goal_id)
 
     if selected_size != "all":
-        filtered_entries = [
-            entry
-            for entry in filtered_entries
-            if entry.action_size == selected_size
-        ]
+        filtered_entries = filtered_entries.filter(action_size=selected_size)
 
     if selected_period == "week":
         period_start = week_start
@@ -1924,15 +1915,16 @@ def momentum_ledger(request):
         period_start = None
 
     if period_start is not None:
-        filtered_entries = [
-            entry
-            for entry in filtered_entries
-            if local_completed_at(entry).date() >= period_start
-        ]
+        filtered_entries = filtered_entries.filter(completed_at__date__gte=period_start)
+
+    filtered_totals = filtered_entries.aggregate(
+        actions=Count("id"), minutes=Sum("duration_minutes"), goals=Count("goal", distinct=True)
+    )
+    page_obj = Paginator(filtered_entries.order_by("-completed_at", "-id"), 30).get_page(request.GET.get("page"))
 
     timeline_groups = []
 
-    for entry in filtered_entries:
+    for entry in page_obj.object_list:
         completed_at = local_completed_at(entry)
         completed_date = completed_at.date()
 
@@ -1976,16 +1968,12 @@ def momentum_ledger(request):
             selected_period != "all",
         )
     )
-    filtered_reclaimed_minutes = sum(
-        entry.duration_minutes for entry in filtered_entries
-    )
-    filtered_goals_advanced = len(
-        {entry.goal_id for entry in filtered_entries if entry.goal_id}
-    )
+    filtered_reclaimed_minutes = filtered_totals["minutes"] or 0
+    filtered_goals_advanced = filtered_totals["goals"] or 0
 
     context = {
         "ledger_summary": {
-            "has_entries": bool(all_entries),
+            "has_entries": total_completed_actions > 0,
             "total_completed_actions": total_completed_actions,
             "total_reclaimed_time": format_minutes(
                 total_reclaimed_minutes
@@ -2014,9 +2002,10 @@ def momentum_ledger(request):
             "percent": weekly_progress_percent,
         },
         "timeline_groups": timeline_groups,
-        "filtered_entry_count": len(filtered_entries),
+        "filtered_entry_count": filtered_totals["actions"] or 0,
+        "page_obj": page_obj,
         "filtered_summary": {
-            "completed_actions": len(filtered_entries),
+            "completed_actions": filtered_totals["actions"] or 0,
             "reclaimed_time": format_minutes(filtered_reclaimed_minutes),
             "goals_advanced": filtered_goals_advanced,
         },
@@ -2036,28 +2025,166 @@ def momentum_ledger(request):
 
 @login_required
 def weekly_review(request):
-    requested_week = request.GET.get("week", "").strip()
+    selected_date = _normalized_review_date(request.GET.get("week", ""))
+    return render(
+        request,
+        "weekly_review.html",
+        {"review": build_weekly_review(request.user, today=selected_date)},
+    )
+
+
+def _normalized_review_date(requested_week):
+    requested_week = str(requested_week or "").strip()
     today = timezone.localdate()
     selected_date = today
     if requested_week:
         try:
             selected_date = date.fromisoformat(requested_week)
         except ValueError:
-            messages.info(
-                request,
-                "That week was not recognized. Showing the current week.",
-            )
             selected_date = today
     current_week_start = today - timedelta(days=today.weekday())
     selected_week_start = selected_date - timedelta(days=selected_date.weekday())
     if selected_week_start > current_week_start:
-        messages.info(request, "Future weekly reviews are not available.")
         selected_date = today
-    return render(
-        request,
-        "weekly_review.html",
-        {"review": build_weekly_review(request.user, today=selected_date)},
+    return selected_date
+
+
+def _csv_safe(value):
+    text = str(value if value is not None else "")
+    return "'" + text if text.startswith(("=", "+", "-", "@")) else text
+
+
+@login_required
+def weekly_review_csv(request):
+    review = build_weekly_review(
+        request.user, today=_normalized_review_date(request.GET.get("week"))
     )
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    filename = f"beyondscreen-weekly-review-{review['week_start'].isoformat()}.csv"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response.write("\ufeff")
+    writer = csv.writer(response)
+    writer.writerow(["BeyondScreen Weekly Review", review["week_start"], review["week_end"]])
+    writer.writerow(["Metric", "Value", "Unit"])
+    for label, value, unit in (
+        ("Completed rescues", review["recommendations_completed"], "count"),
+        ("Not now", review["recommendations_skipped"], "count"),
+        ("Pending rescues", review["recommendations_pending"], "count"),
+        ("Completion percentage", review["completion_percent"], "percent"),
+        ("Reclaimed time", review["reclaimed_minutes"], "minutes"),
+    ):
+        writer.writerow([label, value, unit])
+    writer.writerow([])
+    writer.writerow(["Goal", "Role", "Status", "Health", "Weekly progress", "Target", "Unit"])
+    for row in review["goal_rows"]:
+        writer.writerow([
+            _csv_safe(row["title"]), row["role"], row["status"], row["health"]["label"],
+            row["progress"]["current_week_progress_display"], row["progress"]["weekly_target_display"],
+            _csv_safe(row["progress"]["progress_unit"]),
+        ])
+    writer.writerow([])
+    writer.writerow(["Completed at", "Action", "Size", "Minutes", "Progress", "Unit"])
+    for entry in review["recent_activity"]:
+        writer.writerow([
+            entry.completed_at.isoformat(), _csv_safe(entry.action_title), entry.get_action_size_display(),
+            entry.duration_minutes, entry.progress_value, _csv_safe(entry.progress_unit),
+        ])
+    return response
+
+
+@login_required
+def weekly_review_pdf(request):
+    review = build_weekly_review(
+        request.user, today=_normalized_review_date(request.GET.get("week"))
+    )
+    output = BytesIO()
+    pdf = canvas.Canvas(output, pagesize=A4)
+    width, height = A4
+    y = height - 54
+
+    def line(text, *, size=10, gap=15):
+        nonlocal y
+        safe = str(text).encode("latin-1", "replace").decode("latin-1")
+        for part in wrap(safe, 95) or [""]:
+            if y < 54:
+                pdf.showPage(); y = height - 54
+            pdf.setFont("Helvetica-Bold" if size >= 14 else "Helvetica", size)
+            pdf.drawString(54, y, part)
+            y -= gap
+
+    line("BeyondScreen", size=18, gap=24)
+    line(f"Weekly Review: {review['week_start']} to {review['week_end']}", size=14, gap=22)
+    line(f"Reclaimed: {review['reclaimed_minutes']} minutes | Completed rescues: {review['recommendations_completed']} | Not now: {review['recommendations_skipped']} | Pending: {review['recommendations_pending']} | Completion: {review['completion_percent']}%")
+    y -= 8
+    line("Insights", size=14, gap=20)
+    for insight in review["insights"]:
+        line(f"- {insight}")
+    y -= 8
+    line("Goal-by-goal progress", size=14, gap=20)
+    for row in review["goal_rows"]:
+        line(f"{row['title']} — {row['health']['label']}", size=11)
+        line(f"{row['progress']['current_week_progress_display']} / {row['progress']['weekly_target_display']} {row['progress']['progress_unit']}; rescues {row['outcomes']['completed']} completed, {row['outcomes']['skipped']} not now")
+        if row["latest_milestone"]:
+            line(f"Milestone: {row['latest_milestone']['label']}")
+    pdf.save()
+    response = HttpResponse(output.getvalue(), content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="beyondscreen-weekly-review-{review["week_start"].isoformat()}.pdf"'
+    return response
+
+
+@login_required
+def insights(request):
+    return render(request, "insights.html", {"insights": build_personal_insights(request.user)})
+
+
+@login_required
+def export_personal_data(request):
+    goals = list(request.user.goals.prefetch_related("actions").order_by("created_at", "id"))
+    summaries = list(request.user.digital_summaries.order_by("created_at", "id"))
+    outcomes = list(request.user.goal_rescue_outcomes.order_by("shown_at", "id"))
+    momentum = list(request.user.momentum_entries.order_by("completed_at", "id"))
+    postcards = list(request.user.postcards.order_by("created_at", "id"))
+    payload = {
+        "export_version": 1,
+        "exported_at": timezone.now().isoformat(),
+        "profile": {
+            "username": request.user.username, "email": request.user.email,
+            "first_name": request.user.first_name, "last_name": request.user.last_name,
+            "bio": request.user.userprofile.bio,
+            "preferences": {
+                "default_momentum_period": request.user.userprofile.default_momentum_period,
+                "show_skipped_rescue_statistics": request.user.userprofile.show_skipped_rescue_statistics,
+            },
+        },
+        "goals": [{
+            "id": goal.id, "title": goal.title, "why_it_matters": goal.why_it_matters,
+            "current_focus": goal.current_focus, "progress_unit": goal.progress_unit,
+            "weekly_target": str(goal.weekly_target), "status": goal.status,
+            "is_primary": goal.is_primary, "created_at": goal.created_at.isoformat(),
+            "actions": [{"id": a.id, "size": a.size, "title": a.title, "duration_minutes": a.duration_minutes, "progress_value": str(a.progress_value), "progress_unit": goal.progress_unit} for a in goal.actions.all()],
+        } for goal in goals],
+        "digital_summaries": [{
+            "id": s.id, "created_at": s.created_at.isoformat(), "screen_time_minutes": s.screen_time_minutes,
+            "wellness_score": s.wellness_score, "category": s.category, "insight": s.insight,
+            "app_usage": s.app_usage, "goal_rescue_snapshot": s.goal_rescue_snapshot,
+        } for s in summaries],
+        "goal_rescue_outcomes": [{
+            "summary_id": o.digital_summary_id, "goal_id": o.goal_id, "action_id": o.action_id,
+            "action_size": o.action_size, "action_title": o.action_title, "status": o.status,
+            "shown_at": o.shown_at.isoformat(), "completed_at": o.completed_at.isoformat() if o.completed_at else None,
+            "skipped_at": o.skipped_at.isoformat() if o.skipped_at else None,
+        } for o in outcomes],
+        "momentum_entries": [{
+            "summary_id": e.digital_summary_id, "goal_id": e.goal_id, "action_id": e.action_id,
+            "action_title": e.action_title, "action_size": e.action_size, "duration_minutes": e.duration_minutes,
+            "progress_value": str(e.progress_value), "progress_unit": e.progress_unit,
+            "completed_at": e.completed_at.isoformat(),
+        } for e in momentum],
+        "postcards": [{"id": p.id, "created_at": p.created_at.isoformat(), "mood": p.mood, "goal": p.goal, "screen_time": p.screen_time, "has_report": p.has_report} for p in postcards],
+    }
+    response = HttpResponse(json.dumps(payload, ensure_ascii=False, indent=2), content_type="application/json; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="beyondscreen-personal-data-v1.json"'
+    return response
 
 
 @login_required
@@ -2579,6 +2706,9 @@ def history(request):
     query = request.GET.get("q", "").strip()
     category = request.GET.get("category", "all").strip()
     sort = request.GET.get("sort", "newest").strip()
+    period = request.GET.get("period", "all").strip()
+    rescue_state = request.GET.get("rescue", "all").strip()
+    momentum_state = request.GET.get("momentum", "all").strip()
 
     summaries = base_summaries
 
@@ -2591,6 +2721,24 @@ def history(request):
     if category != "all":
         summaries = summaries.filter(category=category)
 
+    period_days = {"7days": 7, "30days": 30, "90days": 90}
+    if period in period_days:
+        summaries = summaries.filter(created_at__date__gte=timezone.localdate() - timedelta(days=period_days[period] - 1))
+    else:
+        period = "all"
+    if rescue_state in {"completed", "skipped", "shown"}:
+        summaries = summaries.filter(goal_rescue_outcome__status=rescue_state)
+    elif rescue_state == "unavailable":
+        summaries = summaries.filter(goal_rescue_outcome__isnull=True)
+    else:
+        rescue_state = "all"
+    if momentum_state == "completed":
+        summaries = summaries.filter(momentum_entry__isnull=False)
+    elif momentum_state == "not_completed":
+        summaries = summaries.filter(momentum_entry__isnull=True)
+    else:
+        momentum_state = "all"
+
     sort_fields = {
         "newest": "-created_at",
         "oldest": "created_at",
@@ -2601,7 +2749,10 @@ def history(request):
     if sort not in sort_fields:
         sort = "newest"
 
-    summaries = summaries.order_by(sort_fields[sort])
+    summaries = summaries.order_by(sort_fields[sort], "-id" if sort != "oldest" else "id")
+    filtered_report_count = summaries.count()
+    page_obj = Paginator(summaries, 20).get_page(request.GET.get("page"))
+    page_summaries = list(page_obj.object_list)
 
     def format_minutes(minutes):
         try:
@@ -2635,7 +2786,7 @@ def history(request):
 
     momentum_entries = MomentumEntry.objects.filter(
         user=request.user,
-        digital_summary__in=summaries,
+        digital_summary__in=page_summaries,
     ).select_related(
         "goal",
         "digital_summary",
@@ -2649,13 +2800,13 @@ def history(request):
         outcome.digital_summary_id: outcome
         for outcome in GoalRescueOutcome.objects.filter(
             user=request.user,
-            digital_summary__in=summaries,
+            digital_summary__in=page_summaries,
         )
     }
 
     history_reports = []
 
-    for summary_item in summaries:
+    for summary_item in page_summaries:
         wellness_score = max(
             0,
             min(100, int(summary_item.wellness_score or 0)),
@@ -2732,7 +2883,8 @@ def history(request):
 
     context = {
         "history_reports": history_reports,
-        "filtered_report_count": len(history_reports),
+        "filtered_report_count": filtered_report_count,
+        "page_obj": page_obj,
         "total_reports": total_reports,
         "avg_wellness": avg_wellness,
         "latest_summary": latest_summary,
@@ -2744,6 +2896,9 @@ def history(request):
         "query": query,
         "category": category,
         "sort": sort,
+        "period": period,
+        "rescue_state": rescue_state,
+        "momentum_state": momentum_state,
     }
 
     return render(request, "history.html", context)
@@ -2792,14 +2947,17 @@ def postcard_history(request):
         postcards = postcards.filter(mood=mood_filter)
 
     if sort == "oldest":
-        postcards = postcards.order_by("created_at")
+        postcards = postcards.order_by("created_at", "id")
     else:
         sort = "newest"
-        postcards = postcards.order_by("-created_at")
+        postcards = postcards.order_by("-created_at", "-id")
+
+    filtered_postcard_count = postcards.count()
+    page_obj = Paginator(postcards, 18).get_page(request.GET.get("page"))
 
     postcard_cards = []
 
-    for postcard in postcards:
+    for postcard in page_obj.object_list:
         haiku_lines = [
             line.strip()
             for line in str(postcard.haiku or "").splitlines()
@@ -2834,7 +2992,8 @@ def postcard_history(request):
 
     context = {
         "postcard_cards": postcard_cards,
-        "filtered_postcard_count": len(postcard_cards),
+        "filtered_postcard_count": filtered_postcard_count,
+        "page_obj": page_obj,
         "total_postcards": total_postcards,
         "latest_postcard": latest_postcard,
         "latest_screen_time": (

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Personal Insights | BeyondScreen{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/insights.css' %}">{% endblock %}
+{% block content %}
+<main class="insights-page"><div class="insights-shell">
+  <nav class="insights-nav" aria-label="Insights navigation"><a href="{% url 'core:weekly_review' %}">Weekly Review</a><a href="{% url 'core:momentum_ledger' %}">Momentum</a></nav>
+  <header class="insights-hero"><span>PERSONAL INSIGHTS</span><h1>Patterns from your recorded activity</h1><p>Only days and reports you recorded are included. Missing days are never counted as zero.</p></header>
+
+  <section class="insights-section"><header><span>SCREEN TIME TRENDS</span><h2>Recorded screen time</h2></header>
+    <div class="insights-grid">
+      <article><small>7-day recorded average</small><strong>{% if insights.screen_time.average_7 is not None %}{{ insights.screen_time.average_7 }} min{% else %}Not enough data{% endif %}</strong><p>{{ insights.screen_time.reports_7 }} applicable report{{ insights.screen_time.reports_7|pluralize }}</p></article>
+      <article><small>Previous comparable 7 days</small><strong>{% if insights.screen_time.previous_average_7 is not None %}{{ insights.screen_time.previous_average_7 }} min{% else %}Not enough data{% endif %}</strong></article>
+      <article><small>30-day recorded average</small><strong>{% if insights.screen_time.average_30 is not None %}{{ insights.screen_time.average_30 }} min{% else %}Not enough data{% endif %}</strong><p>{{ insights.screen_time.reports_30 }} reports</p></article>
+      <article><small>Direction</small><strong>{% if insights.screen_time.direction == 'insufficient' %}More samples needed{% else %}{{ insights.screen_time.change_percent }}% {{ insights.screen_time.direction }}{% endif %}</strong></article>
+    </div>
+    {% if insights.screen_time.highest %}<p class="insights-fact">Highest recorded: {{ insights.screen_time.highest.screen_time_minutes }} minutes on {{ insights.screen_time.highest.created_at|date:"M d" }}. Lowest recorded: {{ insights.screen_time.lowest.screen_time_minutes }} minutes on {{ insights.screen_time.lowest.created_at|date:"M d" }}.</p>{% endif %}
+  </section>
+
+  <section class="insights-section"><header><span>RECLAIMED TIME</span><h2>Recent Momentum</h2></header><div class="insights-grid">
+    <article><small>Last 7 days</small><strong>{{ insights.momentum.reclaimed_7 }} min</strong><p>{{ insights.momentum.completed_7 }} completed actions</p></article>
+    <article><small>Previous 7 days</small><strong>{{ insights.momentum.previous_reclaimed_7 }} min</strong><p>{{ insights.momentum.previous_completed_7 }} completed actions</p></article>
+  </div></section>
+
+  <section class="insights-section"><header><span>MOMENTUM CONSISTENCY</span><h2>Consistency from completion dates</h2></header><div class="insights-grid">
+    <article><small>Current streak</small><strong>{{ insights.momentum.current_streak }} day{{ insights.momentum.current_streak|pluralize }}</strong></article>
+    <article><small>Longest streak</small><strong>{{ insights.momentum.longest_streak }} days</strong></article>
+    <article><small>Active days, last 30</small><strong>{{ insights.momentum.active_days_30 }}</strong></article>
+    <article><small>Consecutive active weeks</small><strong>{{ insights.momentum.consecutive_weeks }}</strong><p>{{ insights.momentum.weeks_with_momentum }} active weeks recorded; {{ insights.momentum.target_weeks_reached }} reached a stored goal target</p></article>
+  </div></section>
+
+  <section class="insights-section"><header><span>GOAL RESCUE BEHAVIOR</span><h2>Last 30 days</h2></header><div class="insights-grid">
+    <article><small>Shown</small><strong>{{ insights.rescue.shown }}</strong></article><article><small>Completed</small><strong>{{ insights.rescue.completed }}</strong></article>
+    {% if insights.rescue.show_skipped %}<article><small>Not now</small><strong>{{ insights.rescue.skipped }}</strong></article>{% endif %}<article><small>Completion rate</small><strong>{% if insights.rescue.completion_percent is not None %}{{ insights.rescue.completion_percent }}%{% else %}Not enough data{% endif %}</strong></article>
+  </div></section>
+
+  <section class="insights-section"><header><span>ACTION SIZE PATTERNS</span><h2>Completed in the last 30 days</h2></header><div class="insights-grid">{% for size in insights.action_sizes %}<article><small>{{ size.label }}</small><strong>{{ size.count }}</strong></article>{% endfor %}</div></section>
+
+  <section class="insights-section"><header><span>APP PATTERNS</span><h2>Only reports with reliable app details</h2></header>
+    {% if insights.apps.applicable_reports %}<div class="insights-grid"><article><small>Most frequently highest</small><strong>{{ insights.apps.most_frequent_top }}</strong><p>Highest recorded app on {{ insights.apps.most_frequent_top_count }} of {{ insights.apps.applicable_reports }} applicable reports.</p></article><article><small>Greatest cumulative usage</small><strong>{{ insights.apps.cumulative_leader }}</strong><p>{{ insights.apps.cumulative_minutes }} recorded minutes across {{ insights.apps.appearance_count }} reports.{% if insights.apps.recent_change %} Its per-report average was {{ insights.apps.recent_change.minutes }} minutes {{ insights.apps.recent_change.direction }} in the recent half of these reports.{% endif %}</p></article><article><small>Average top-app concentration</small><strong>{{ insights.apps.average_top_concentration }}%</strong></article></div>{% else %}<div class="insights-empty"><strong>No reliable app history yet</strong><p>App patterns appear only when reports contain parsed app usage. Manual totals remain fully supported.</p></div>{% endif %}
+  </section>
+</div></main>
+{% endblock %}

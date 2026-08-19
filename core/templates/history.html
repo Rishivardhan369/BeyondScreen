@@ -318,6 +318,9 @@
               </option>
             </select>
           </label>
+          <label class="history-select-field"><span>Period</span><select name="period"><option value="all">All time</option><option value="7days" {% if period == '7days' %}selected{% endif %}>Last 7 days</option><option value="30days" {% if period == '30days' %}selected{% endif %}>Last 30 days</option><option value="90days" {% if period == '90days' %}selected{% endif %}>Last 90 days</option></select></label>
+          <label class="history-select-field"><span>Goal Rescue</span><select name="rescue"><option value="all">All states</option><option value="completed" {% if rescue_state == 'completed' %}selected{% endif %}>Completed</option><option value="skipped" {% if rescue_state == 'skipped' %}selected{% endif %}>Not now</option><option value="shown" {% if rescue_state == 'shown' %}selected{% endif %}>Ready</option><option value="unavailable" {% if rescue_state == 'unavailable' %}selected{% endif %}>Historical unavailable</option></select></label>
+          <label class="history-select-field"><span>Momentum</span><select name="momentum"><option value="all">All activity</option><option value="completed" {% if momentum_state == 'completed' %}selected{% endif %}>Completed</option><option value="not_completed" {% if momentum_state == 'not_completed' %}selected{% endif %}>Not completed</option></select></label>
 
           <button type="submit" class="history-filter-button">
             Apply
@@ -448,6 +451,7 @@
               </a>
             {% endfor %}
           </div>
+          {% if page_obj.paginator.num_pages > 1 %}<nav class="history-pagination" aria-label="History pages">{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&q={{ query|urlencode }}&category={{ category|urlencode }}&sort={{ sort }}&period={{ period }}&rescue={{ rescue_state }}&momentum={{ momentum_state }}">Previous</a>{% endif %}<span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&q={{ query|urlencode }}&category={{ category|urlencode }}&sort={{ sort }}&period={{ period }}&rescue={{ rescue_state }}&momentum={{ momentum_state }}">Next</a>{% endif %}</nav>{% endif %}
         {% else %}
           <div class="history-empty-state">
             <div class="history-empty-icon">â—´</div>

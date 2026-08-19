@@ -432,6 +432,7 @@
               </section>
             {% endfor %}
           </div>
+          {% if page_obj.paginator.num_pages > 1 %}<nav class="momentum-pagination" aria-label="Momentum pages">{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&goal={{ selected_goal }}&size={{ selected_size }}&period={{ selected_period }}">Previous</a>{% endif %}<span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&goal={{ selected_goal }}&size={{ selected_size }}&period={{ selected_period }}">Next</a>{% endif %}</nav>{% endif %}
         {% else %}
           <div class="momentum-empty-state">
             <div class="momentum-empty-icon" aria-hidden="true">✓</div>

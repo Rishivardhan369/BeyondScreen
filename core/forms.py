@@ -461,7 +461,13 @@ class UserLoginForm(AuthenticationForm):
 class UserProfileForm(forms.ModelForm):
     class Meta:
         model = UserProfile
-        fields = ("bio", "avatar", "newsletter_subscribe")
+        fields = (
+            "bio",
+            "avatar",
+            "newsletter_subscribe",
+            "default_momentum_period",
+            "show_skipped_rescue_statistics",
+        )
         widgets = {
             "bio": forms.Textarea(attrs={"rows": 4, "placeholder": "Tell us about yourself..."}),
             "avatar": forms.ClearableFileInput(attrs={"accept": ".jpg,.jpeg,.png"}),

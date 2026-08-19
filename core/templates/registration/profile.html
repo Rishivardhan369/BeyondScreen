@@ -55,5 +55,17 @@
             </div>
         </div>
     </section>
+
+    <section class="ritual-section">
+        <div class="auth-card auth-card--profile">
+            <p class="eyebrow">Data &amp; privacy</p>
+            <h2>Your BeyondScreen data</h2>
+            <p>Goal Rescue personalization uses activity saved inside BeyondScreen. Historical recommendations remain frozen, so later goal edits do not rewrite what was previously shown. OCR is optional and manual screen-time entry remains available.</p>
+            <div class="profile-actions">
+                <a href="{% url 'core:export_personal_data' %}" class="auth-button">Export My BeyondScreen Data</a>
+                <a href="{% url 'core:insights' %}" class="text-button">View Personal Insights</a>
+            </div>
+        </div>
+    </section>
 </main>
 {% endblock %}

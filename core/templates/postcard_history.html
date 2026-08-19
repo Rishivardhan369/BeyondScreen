@@ -391,6 +391,7 @@
               </article>
             {% endfor %}
           </div>
+          {% if page_obj.paginator.num_pages > 1 %}<nav class="postcard-pagination" aria-label="Postcard pages">{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&q={{ query|urlencode }}&mood={{ mood_filter|urlencode }}&sort={{ sort }}">Previous</a>{% endif %}<span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&q={{ query|urlencode }}&mood={{ mood_filter|urlencode }}&sort={{ sort }}">Next</a>{% endif %}</nav>{% endif %}
         {% else %}
           <div class="postcard-empty-state">
             <div class="postcard-empty-icon">✦</div>
