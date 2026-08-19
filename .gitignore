@@ -1,6 +1,12 @@
 __pycache__/
 *.py[cod]
 db.sqlite3
+*.sqlite3
+*.jks
+*.keystore
+local.properties
+.gradle/
+build/
 .env
 .venv/
 staticfiles/

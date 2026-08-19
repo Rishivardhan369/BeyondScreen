@@ -10,6 +10,12 @@ BeyondScreen turns recorded phone activity into an explainable Usage Assessment,
 - **Goal Rescue** selects one concrete action from the active primary goal that can be completed and recorded in **Momentum**.
 - **Goal Progress**, **Weekly Review**, and **Personal Insights** show health, milestones, consistency, app patterns, and longer-term trends.
 - Weekly CSV/PDF downloads and the personal JSON export remain user-scoped.
+- **App Preferences** let each user assign a neutral category/purpose and optional Goal link without rewriting frozen history.
+- **Targets** support optional overall, app, and category daily limits chosen by the user.
+- **Monthly Review** adds long-term recorded totals, averages, apps, interaction metrics, Momentum, and Rescue outcomes with CSV/PDF exports.
+- **Reminders and Notifications** are opt-in, timezone/quiet-hour aware, and dispatched by an explicit scheduler command.
+- **Device Sync** pairs revocable companion credentials and accepts idempotent, versioned aggregate analytics.
+- The native Kotlin Android companion source lives in `mobile/android/`.
 
 ## Local setup
 
@@ -39,3 +45,27 @@ Persistent avatars/media require a durable `DJANGO_MEDIA_ROOT` and must be inclu
 Back up `db.sqlite3` for development data. In production, use database/provider-native backups and separately back up persistent media. A safe deployment order is: configure environment, install dependencies, take a backup, run `python manage.py migrate`, run `python manage.py collectstatic`, start the server, then perform a health check and authenticated smoke test.
 
 Generated downloads are derived per request. Infrastructure should provide TLS, request-size enforcement, rate limiting, access logs that exclude sensitive bodies, and durable static/media serving. A minimal deployment probe is available at `/health/` and returns only `{"status": "ok"}`.
+
+`/ready/` performs a minimal database query and reports only `ready` or `unavailable`. Request responses include a correlation ID; application logs exclude request bodies, secrets, raw OCR, notification content, and analytics payloads.
+
+## Scheduled operations and retention
+
+Run these commands through cron, Task Scheduler, or the deployment scheduler:
+
+- `python manage.py process_reminders` at a suitable short interval.
+- `python manage.py cleanup_pairing_codes` daily.
+- `python manage.py cleanup_notifications` daily or weekly.
+
+Read notifications older than 180 days may be removed. Unread notifications and historical user summaries are not silently purged. Expired pairing records are temporary; device credentials remain until rotation, revocation, or account deletion. Job status is recorded without private payloads.
+
+## Backup and restore
+
+For SQLite development, stop writers, copy `db.sqlite3`, and validate the copy with SQLite integrity/table-count checks before migration. Restore only while the application is stopped, after separately preserving the current file. Production PostgreSQL should use provider/native point-in-time backups and tested restore procedures. Back up persistent media separately; uploaded analytics reports are processed transiently, while avatars may be persistent.
+
+## Device sync and Android
+
+The versioned API contract and privacy guarantees are documented in `docs/device-sync-api.md`. Device pairing requires explicit disclosure consent, pairing codes expire after ten minutes and are single-use, credentials are hashed at rest, and retries are idempotent.
+
+Open `mobile/android/` with Android Studio, SDK 35, and JDK 17. Supply `BEYONDSCREEN_API_URL` as a Gradle property and local/CI signing configuration; no keystore or secret belongs in Git. Release traffic is HTTPS-only. Usage access is required for app-duration aggregates, notification-listener access is optional and counts events without reading content, and unsupported pickup metrics remain null. WorkManager supports conservative daily sync and retry. Native iOS collection is not included because Apple Screen Time APIs require entitlement approval; iOS remains supported as an API platform and by web screenshot parsing.
+
+Real SMTP, FCM, production database, and deployment-provider credentials are environment-owned. A disabled push-provider boundary and local Android reminders allow safe development without cloud credentials.

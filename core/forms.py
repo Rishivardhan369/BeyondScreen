@@ -1,11 +1,12 @@
 from pathlib import Path
 from datetime import date
+from zoneinfo import available_timezones
 
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.models import User
 
-from .models import UserGoal, UserProfile
+from .models import Reminder, ScreenTimeTarget, UserAppPreference, UserGoal, UserProfile
 
 ALLOWED_UPLOAD_EXTENSIONS = {".csv", ".jpg", ".jpeg", ".pdf", ".png", ".txt"}
 
@@ -474,6 +475,17 @@ class UserLoginForm(AuthenticationForm):
 
 
 class UserProfileForm(forms.ModelForm):
+    preferred_reminder_days = forms.MultipleChoiceField(
+        choices=DAY_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Preferred reminder days",
+    )
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["timezone"].required = False
+        self.fields["preferred_reminder_days"].required = False
+
     class Meta:
         model = UserProfile
         fields = (
@@ -486,6 +498,19 @@ class UserProfileForm(forms.ModelForm):
             "show_interaction_metrics",
             "show_actionable_inputs",
             "preferred_daily_screen_time_minutes",
+            "timezone",
+            "reminders_enabled",
+            "email_reminders",
+            "in_app_reminders",
+            "device_reminders",
+            "weekly_review_reminder",
+            "target_reminder",
+            "goal_reminders",
+            "stale_device_reminder",
+            "quiet_hours_start",
+            "quiet_hours_end",
+            "preferred_reminder_time",
+            "preferred_reminder_days",
         )
         widgets = {
             "bio": forms.Textarea(attrs={"rows": 4, "placeholder": "Tell us about yourself..."}),
@@ -493,6 +518,10 @@ class UserProfileForm(forms.ModelForm):
             "preferred_daily_screen_time_minutes": forms.NumberInput(
                 attrs={"min": 1, "max": 1440, "inputmode": "numeric", "placeholder": "Optional, e.g. 240"}
             ),
+            "timezone": forms.Select(choices=[(zone, zone) for zone in sorted(available_timezones())]),
+            "quiet_hours_start": forms.TimeInput(attrs={"type": "time"}),
+            "quiet_hours_end": forms.TimeInput(attrs={"type": "time"}),
+            "preferred_reminder_time": forms.TimeInput(attrs={"type": "time"}),
         }
 
     def clean_preferred_daily_screen_time_minutes(self):
@@ -500,3 +529,46 @@ class UserProfileForm(forms.ModelForm):
         if value is not None and not 1 <= value <= 1440:
             raise forms.ValidationError("Choose a target between 1 and 1,440 minutes.")
         return value
+
+    def clean_timezone(self):
+        value = self.cleaned_data.get("timezone") or "UTC"
+        if value not in available_timezones():
+            raise forms.ValidationError("Choose a valid IANA timezone.")
+        return value
+
+    def clean_preferred_reminder_days(self):
+        return self.cleaned_data.get("preferred_reminder_days") or []
+
+
+class UserAppPreferenceForm(forms.ModelForm):
+    class Meta:
+        model = UserAppPreference
+        fields = ("display_name", "category", "purpose", "linked_goal")
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["linked_goal"].queryset = UserGoal.objects.filter(user=user, status=UserGoal.STATUS_ACTIVE) if user else UserGoal.objects.none()
+
+
+class ScreenTimeTargetForm(forms.ModelForm):
+    class Meta:
+        model = ScreenTimeTarget
+        fields = ("target_type", "key", "daily_minutes", "enabled")
+
+    def clean(self):
+        cleaned = super().clean()
+        kind, key = cleaned.get("target_type"), " ".join((cleaned.get("key") or "").strip().split())
+        if kind in (ScreenTimeTarget.TYPE_APP, ScreenTimeTarget.TYPE_CATEGORY) and not key:
+            self.add_error("key", "Choose an app or category for this target.")
+        if kind == ScreenTimeTarget.TYPE_OVERALL:
+            cleaned["key"] = ""
+        else:
+            cleaned["key"] = key
+        return cleaned
+
+
+class ReminderForm(forms.ModelForm):
+    class Meta:
+        model = Reminder
+        fields = ("reminder_type", "title", "message", "link", "due_at", "enabled")
+        widgets = {"due_at": forms.DateTimeInput(attrs={"type": "datetime-local"})}

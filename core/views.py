@@ -62,6 +62,7 @@ from datetime import date, time, timedelta
 from django.db import IntegrityError, transaction
 from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
+from .platform_services import issue_email_verification, record_security_event, throttle
 
 
 @require_GET
@@ -1011,7 +1012,17 @@ def additional_goal_onboarding(request):
                 "core:additional_goal_confirmation"
             )
     else:
-        form = GoalDNAForm()
+        templates = {
+            "study": ("Focused study", "Build consistent study progress", "Study", "sessions"),
+            "coding": ("Coding practice", "Grow practical coding skill", "Build", "tasks"),
+            "reading": ("Reading habit", "Make space for focused reading", "Read", "pages"),
+            "fitness": ("Fitness routine", "Build sustainable physical consistency", "Train", "workouts"),
+            "language": ("Language learning", "Practice a language consistently", "Practice", "sessions"),
+            "portfolio": ("Portfolio project", "Ship meaningful project work", "Create", "tasks"),
+            "exam": ("Exam preparation", "Prepare steadily for the exam", "Revise", "sessions"),
+        }
+        selected = templates.get(request.GET.get("template"))
+        form = GoalDNAForm(initial={"title": selected[0], "why_it_matters": selected[1], "current_focus": selected[2], "progress_unit": selected[3]} if selected else None)
 
     return render(
         request,
@@ -2244,9 +2255,11 @@ def weekly_review_pdf(request):
 
 @login_required
 def insights(request):
+    period = request.GET.get("period", "90d")
+    days = {"7d": 7, "30d": 30, "90d": 90, "6m": 183, "1y": 365, "all": None}.get(period, 90)
     insight_data = build_personal_insights(request.user)
-    insight_data["mobile"] = build_mobile_insights(request.user)
-    return render(request, "insights.html", {"insights": insight_data})
+    insight_data["mobile"] = build_mobile_insights(request.user, days=days)
+    return render(request, "insights.html", {"insights": insight_data, "selected_period": period})
 
 
 @login_required
@@ -2304,6 +2317,10 @@ def export_personal_data(request):
             "input_type": item.input_type, "outcome": item.outcome,
             "created_at": item.created_at.isoformat(),
         } for item in request.user.actionable_input_feedback.order_by("created_at", "id")],
+        "app_preferences": [{"app_key": item.normalized_app_name, "display_name": item.display_name, "category": item.category, "purpose": item.purpose, "linked_goal_id": item.linked_goal_id, "updated_at": item.updated_at.isoformat()} for item in request.user.app_preferences.order_by("normalized_app_name")],
+        "screen_time_targets": [{"type": item.target_type, "key": item.key, "daily_minutes": item.daily_minutes, "enabled": item.enabled, "updated_at": item.updated_at.isoformat()} for item in request.user.screen_time_targets.order_by("target_type", "key")],
+        "notifications": [{"type": item.notification_type, "title": item.title, "read_at": item.read_at.isoformat() if item.read_at else None, "created_at": item.created_at.isoformat()} for item in request.user.notifications.order_by("created_at")],
+        "devices": [{"public_id": str(item.public_id), "name": item.name, "platform": item.platform, "app_version": item.app_version, "created_at": item.created_at.isoformat(), "last_sync_at": item.last_successful_sync_at.isoformat() if item.last_successful_sync_at else None, "is_active": item.is_active, "revoked_at": item.revoked_at.isoformat() if item.revoked_at else None} for item in request.user.devices.order_by("created_at")],
     }
     response = HttpResponse(json.dumps(payload, ensure_ascii=False, indent=2), content_type="application/json; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="beyondscreen-personal-data-v1.json"'
@@ -2765,6 +2782,10 @@ def change_password(request):
 
 def user_login(request):
     if request.method == "POST":
+        throttle_key = f"login:{request.META.get('REMOTE_ADDR', 'unknown')}:{request.POST.get('username', '').casefold()}"
+        if not throttle(throttle_key, limit=10, seconds=900):
+            messages.error(request, "Too many sign-in attempts. Please wait and try again.")
+            return render(request, "registration/login.html", {"form": UserLoginForm(request, data=request.POST)}, status=429)
         form = UserLoginForm(request, data=request.POST)
         if form.is_valid():
             username = form.cleaned_data.get("username")
@@ -2772,6 +2793,7 @@ def user_login(request):
             user = authenticate(username=username, password=password)
             if user is not None:
                 login(request, user)
+                record_security_event(user, "login")
                 messages.info(request, f"You are now logged in as {username}.")
                 return redirect("core:dashboard")
             else:
@@ -2792,6 +2814,8 @@ def register(request):
             username = form.cleaned_data.get("username")
             messages.success(request, f"Account created for {username}!")
             login(request, user)
+            issue_email_verification(user)
+            record_security_event(user, "registration")
             return redirect("core:dashboard")
         else:
             for msg in form.error_messages:

@@ -1,0 +1,1 @@
+<resources><style name="Theme.BeyondScreen" parent="Theme.MaterialComponents.DayNight.NoActionBar"><item name="colorPrimary">#D9B45B</item><item name="colorSecondary">#5ED7CF</item><item name="android:fontFamily">sans</item><item name="android:navigationBarColor">#071018</item><item name="android:statusBarColor">#071018</item></style></resources>

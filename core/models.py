@@ -3,6 +3,8 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.core.exceptions import ValidationError
+from django.utils import timezone
+import uuid
 
 
 class UserProfile(models.Model):
@@ -29,6 +31,21 @@ class UserProfile(models.Model):
         blank=True,
         null=True,
     )
+    timezone = models.CharField(max_length=64, default="UTC")
+    reminders_enabled = models.BooleanField(default=False)
+    email_reminders = models.BooleanField(default=False)
+    in_app_reminders = models.BooleanField(default=True)
+    device_reminders = models.BooleanField(default=False)
+    weekly_review_reminder = models.BooleanField(default=False)
+    target_reminder = models.BooleanField(default=False)
+    goal_reminders = models.BooleanField(default=False)
+    stale_device_reminder = models.BooleanField(default=False)
+    quiet_hours_start = models.TimeField(blank=True, null=True)
+    quiet_hours_end = models.TimeField(blank=True, null=True)
+    preferred_reminder_time = models.TimeField(blank=True, null=True)
+    preferred_reminder_days = models.JSONField(default=list, blank=True)
+    email_verified_at = models.DateTimeField(blank=True, null=True)
+    pending_email = models.EmailField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -365,6 +382,172 @@ class ActionableInputFeedback(models.Model):
 
     def __str__(self):
         return f"{self.user.username}: {self.input_type} ({self.outcome})"
+
+
+APP_CATEGORY_CHOICES = [
+    (value, value) for value in (
+        "Social", "Entertainment", "Education", "Productivity", "Communication",
+        "Games", "Browser", "Utilities", "Health/Fitness", "Finance", "Work",
+        "Other", "Unknown",
+    )
+]
+
+
+class UserAppPreference(models.Model):
+    PURPOSE_CHOICES = [(value, value) for value in (
+        "Goal aligned", "Useful", "Neutral", "Distracting", "Mixed", "Unknown",
+    )]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="app_preferences")
+    normalized_app_name = models.CharField(max_length=160)
+    display_name = models.CharField(max_length=160)
+    category = models.CharField(max_length=32, choices=APP_CATEGORY_CHOICES, default="Unknown")
+    purpose = models.CharField(max_length=24, choices=PURPOSE_CHOICES, default="Unknown")
+    linked_goal = models.ForeignKey(UserGoal, on_delete=models.SET_NULL, null=True, blank=True, related_name="app_preferences")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["display_name"]
+        constraints = [models.UniqueConstraint(fields=["user", "normalized_app_name"], name="unique_user_app_preference")]
+        indexes = [models.Index(fields=["user", "normalized_app_name"], name="app_pref_user_name_idx")]
+
+
+class ScreenTimeTarget(models.Model):
+    TYPE_OVERALL = "overall"
+    TYPE_APP = "app"
+    TYPE_CATEGORY = "category"
+    TYPE_CHOICES = [(TYPE_OVERALL, "Overall"), (TYPE_APP, "App"), (TYPE_CATEGORY, "Category")]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="screen_time_targets")
+    target_type = models.CharField(max_length=16, choices=TYPE_CHOICES)
+    key = models.CharField(max_length=160, blank=True)
+    daily_minutes = models.PositiveSmallIntegerField()
+    enabled = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "target_type", "key"], name="unique_user_screen_target"),
+            models.CheckConstraint(condition=models.Q(daily_minutes__gt=0), name="screen_target_minutes_gt_zero"),
+        ]
+        indexes = [models.Index(fields=["user", "target_type", "enabled"], name="target_user_type_idx")]
+
+
+class Reminder(models.Model):
+    TYPE_CHOICES = [(value, label) for value, label in (
+        ("goal", "Goal action"), ("weekly", "Weekly Review"), ("deadline", "Goal deadline"),
+        ("resume", "Resume paused goal"), ("target", "Screen-time target"), ("device", "Device sync stale"),
+    )]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reminders")
+    reminder_type = models.CharField(max_length=16, choices=TYPE_CHOICES)
+    title = models.CharField(max_length=160)
+    message = models.CharField(max_length=400)
+    link = models.CharField(max_length=240, blank=True)
+    due_at = models.DateTimeField()
+    enabled = models.BooleanField(default=True)
+    last_dispatched_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["enabled", "due_at"], name="reminder_due_idx")]
+
+
+class InAppNotification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="notifications")
+    notification_type = models.CharField(max_length=24)
+    title = models.CharField(max_length=160)
+    message = models.CharField(max_length=400)
+    link = models.CharField(max_length=240, blank=True)
+    read_at = models.DateTimeField(blank=True, null=True)
+    dedupe_key = models.CharField(max_length=160, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [models.UniqueConstraint(fields=["user", "dedupe_key"], condition=~models.Q(dedupe_key=""), name="unique_notification_dedupe")]
+        indexes = [models.Index(fields=["user", "read_at", "-created_at"], name="notification_user_idx")]
+
+
+class EmailVerification(models.Model):
+    PURPOSE_VERIFY = "verify"
+    PURPOSE_CHANGE = "change"
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="email_verifications")
+    purpose = models.CharField(max_length=12, choices=[(PURPOSE_VERIFY, "Verify"), (PURPOSE_CHANGE, "Change")])
+    email = models.EmailField()
+    token_hash = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class SecurityEvent(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="security_events")
+    event_type = models.CharField(max_length=40)
+    occurred_at = models.DateTimeField(auto_now_add=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-occurred_at"]
+        indexes = [models.Index(fields=["user", "-occurred_at"], name="security_user_event_idx")]
+
+
+class UserDevice(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="devices")
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    name = models.CharField(max_length=120)
+    platform = models.CharField(max_length=16, choices=[("android", "Android"), ("ios", "iOS")])
+    app_version = models.CharField(max_length=32, blank=True)
+    device_model = models.CharField(max_length=80, blank=True)
+    os_version = models.CharField(max_length=32, blank=True)
+    token_hash = models.CharField(max_length=64, unique=True)
+    token_rotated_at = models.DateTimeField(default=timezone.now)
+    consent_version = models.CharField(max_length=16)
+    consent_accepted_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(blank=True, null=True)
+    last_sync_attempt_at = models.DateTimeField(blank=True, null=True)
+    last_successful_sync_at = models.DateTimeField(blank=True, null=True)
+    last_sync_status = models.CharField(max_length=24, blank=True)
+    last_sync_error_code = models.CharField(max_length=40, blank=True)
+    is_active = models.BooleanField(default=True)
+    revoked_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["user", "is_active", "-last_successful_sync_at"], name="device_user_status_idx")]
+
+
+class DevicePairingCode(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="pairing_codes")
+    code_hash = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(blank=True, null=True)
+    consent_version = models.CharField(max_length=16)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["expires_at", "consumed_at"], name="pairing_expiry_idx")]
+
+
+class DeviceAnalyticsReport(models.Model):
+    device = models.ForeignKey(UserDevice, on_delete=models.CASCADE, related_name="reports")
+    summary = models.OneToOneField(DigitalSummary, on_delete=models.CASCADE, related_name="device_report")
+    device_report_id = models.CharField(max_length=120)
+    schema_version = models.PositiveSmallIntegerField(default=1)
+    received_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["device", "device_report_id"], name="unique_device_report_id")]
+        indexes = [models.Index(fields=["device", "-received_at"], name="device_report_received_idx")]
+
+
+class MaintenanceJobRun(models.Model):
+    job_name = models.CharField(max_length=80, unique=True)
+    last_run_at = models.DateTimeField()
+    last_success_at = models.DateTimeField(blank=True, null=True)
+    last_failure_at = models.DateTimeField(blank=True, null=True)
+    processed_count = models.PositiveIntegerField(default=0)
+    status = models.CharField(max_length=16)
+    error_code = models.CharField(max_length=40, blank=True)
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):

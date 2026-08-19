@@ -8,7 +8,8 @@ from django.utils import timezone
 
 from services.screen_time_parser import normalize_mobile_analytics
 
-from .models import ActionableInputFeedback, DigitalSummary, GoalRescueOutcome, MomentumEntry, UserGoal
+from .models import ActionableInputFeedback, DigitalSummary, GoalRescueOutcome, MomentumEntry, ScreenTimeTarget, UserAppPreference, UserGoal
+from .platform_services import normalize_app_key
 from .services import build_goal_health, build_goal_progress
 
 ASSESSMENT_VERSION = 1
@@ -108,13 +109,16 @@ def _metric_history_comparison(daily, field, current):
     return _comparison(recent, current)
 
 
-def _distribution(analytics):
+def _distribution(analytics, user=None):
     apps = sorted(analytics.get("apps", []), key=lambda app: app.get("minutes", 0), reverse=True)
     total = analytics.get("total_minutes") or sum(app.get("minutes", 0) for app in apps)
+    overrides = {item.normalized_app_name: item for item in UserAppPreference.objects.filter(user=user)} if user and getattr(user, "is_authenticated", False) else {}
     display_apps = [
         {
             **app,
-            "category": _category(app),
+            "category": overrides.get(normalize_app_key(app.get("name"))).category if overrides.get(normalize_app_key(app.get("name"))) else _category(app),
+            "purpose": overrides.get(normalize_app_key(app.get("name"))).purpose if overrides.get(normalize_app_key(app.get("name"))) else "Unknown",
+            "goal_aligned": bool(overrides.get(normalize_app_key(app.get("name"))) and overrides[normalize_app_key(app.get("name"))].purpose == "Goal aligned"),
             "share": _round(min(100, app.get("minutes", 0) / total * 100)) if total else None,
         }
         for app in apps
@@ -126,8 +130,8 @@ def _distribution(analytics):
     if top_share is not None:
         concentration = "Distributed" if top_share < 40 else "Moderately concentrated" if top_share < 65 else "Highly concentrated"
     categories = defaultdict(int)
-    for app in apps:
-        categories[_category(app)] += app.get("minutes", 0)
+    for app in display_apps:
+        categories[app["category"]] += app.get("minutes", 0)
     category_rows = [
         {"category": name, "minutes": minutes, "share": _round(min(100, minutes / total * 100)) if total else None}
         for name, minutes in sorted(categories.items(), key=lambda item: item[1], reverse=True)
@@ -170,6 +174,16 @@ def _actionable_inputs(user, analytics, baseline, distribution, goal, signals):
     actions = sorted(goal.get("actions", []), key=lambda action: action["duration_minutes"])
     personal_target = user.userprofile.preferred_daily_screen_time_minutes
     total_minutes = analytics.get("total_minutes")
+    target_rows = list(ScreenTimeTarget.objects.filter(user=user, enabled=True))
+    for target in target_rows:
+        actual = None
+        if target.target_type == ScreenTimeTarget.TYPE_APP:
+            actual = sum(app.get("minutes", 0) for app in analytics.get("apps", []) if normalize_app_key(app.get("name")) == normalize_app_key(target.key))
+        elif target.target_type == ScreenTimeTarget.TYPE_CATEGORY:
+            actual = sum(row.get("minutes", 0) for row in distribution.get("categories", []) if row.get("category", "").casefold() == target.key.casefold())
+        if actual is not None and actual > target.daily_minutes:
+            kind = "app_target" if target.target_type == ScreenTimeTarget.TYPE_APP else "category_target"
+            candidates.append((103, {"id": f"{kind}-{target.pk}", "type": kind, "title": f"Review your {target.key} target", "explanation": f"Recorded {actual} minutes against your {target.daily_minutes}-minute target.", "source_signal": "User-defined app/category target", "recommended_action": "Use the difference as a small reclaim opportunity", "estimated_duration_minutes": min(30, actual-target.daily_minutes), "goal_id": goal.get("goal_id"), "goal_title": goal.get("goal_title"), "priority": "high", "why": "Based only on a target you explicitly configured."}))
     if personal_target and total_minutes is not None and total_minutes > personal_target:
         action = next((item for item in actions if item["duration_minutes"] <= total_minutes - personal_target), None)
         candidates.append((105, {"id": "personal-target", "type": "personal_target", "title": "Use your personal screen-time target", "explanation": f"This report is {total_minutes - personal_target} minutes above your {personal_target}-minute personal target.", "source_signal": "User-defined daily screen-time target", "recommended_action": action["title"] if action else "Use the difference as a small reclaim opportunity", "estimated_duration_minutes": action["duration_minutes"] if action else None, "goal_id": goal.get("goal_id"), "goal_title": goal.get("goal_title"), "priority": "high", "why": "Based only on the daily target you set in Profile."}))
@@ -202,9 +216,12 @@ def _actionable_inputs(user, analytics, baseline, distribution, goal, signals):
     return [item for _, item in candidates[:3]]
 
 
-def build_mobile_insights(user, *, today=None):
+def build_mobile_insights(user, *, today=None, days=90):
     today = today or timezone.localdate()
-    summaries = list(DigitalSummary.objects.filter(user=user, created_at__date__gte=today - timedelta(days=89)).only("created_at", "screen_time_minutes", "mobile_analytics_snapshot", "mobile_assessment_snapshot"))
+    query = DigitalSummary.objects.filter(user=user)
+    if days:
+        query = query.filter(created_at__date__gte=today - timedelta(days=days - 1))
+    summaries = list(query.only("created_at", "screen_time_minutes", "mobile_analytics_snapshot", "mobile_assessment_snapshot"))
     metric_rows = {}
     for field in ("pickups", "notifications", "longest_session_minutes"):
         applicable = [(timezone.localtime(item.created_at).date(), (item.mobile_analytics_snapshot or {}).get(field)) for item in summaries]
@@ -243,7 +260,7 @@ def build_mobile_analytics_assessment(summary):
     }
     for field in ("pickups", "notifications", "sessions", "longest_session_minutes"):
         baseline[field] = _metric_history_comparison(daily, field, analytics.get(field))
-    distribution = _distribution(analytics)
+    distribution = _distribution(analytics, summary.user)
     signals = []
     if baseline["seven_day"].get("available"):
         signals.append({"type": "baseline", "label": f"{baseline['seven_day']['direction'].title()} recent baseline", "explanation": f"This report is {abs(baseline['seven_day']['difference']):g} minutes {baseline['seven_day']['direction']} your recent recorded average."})

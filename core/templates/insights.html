@@ -4,7 +4,8 @@
 {% block extra_css %}<link rel="stylesheet" href="{% static 'css/insights.css' %}">{% endblock %}
 {% block content %}
 <main class="insights-page"><div class="insights-shell">
-  <nav class="insights-nav" aria-label="Insights navigation"><a href="{% url 'core:weekly_review' %}">Weekly Review</a><a href="{% url 'core:momentum_ledger' %}">Momentum</a></nav>
+  <nav class="insights-nav" aria-label="Insights navigation"><a href="{% url 'core:weekly_review' %}">Weekly Review</a><a href="{% url 'core:monthly_review' %}">Monthly Review</a><a href="{% url 'core:app_preferences' %}">App Preferences</a><a href="{% url 'core:momentum_ledger' %}">Momentum</a></nav>
+  <nav class="insights-nav" aria-label="Insight period"><a href="?period=7d">7D</a><a href="?period=30d">30D</a><a href="?period=90d">90D</a><a href="?period=6m">6M</a><a href="?period=1y">1Y</a><a href="?period=all">All</a></nav>
   <header class="insights-hero"><div><span>PERSONAL INSIGHTS</span><h1>Patterns from your recorded digital activity</h1><p>Only days and reports you recorded are included. Missing days are never counted as zero.</p></div><div class="insights-hero-orbit" aria-hidden="true"><span>{{ insights.momentum.current_streak }}</span><small>day current streak</small></div></header>
 
   <section class="insights-section"><header><span>SCREEN TIME TRENDS</span><h2>Recorded screen time</h2></header>

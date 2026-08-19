@@ -9,6 +9,9 @@ from .models import (
     UserGoal,
     UserProfile,
     ActionableInputFeedback,
+    DeviceAnalyticsReport, DevicePairingCode, EmailVerification, InAppNotification,
+    MaintenanceJobRun, Reminder, ScreenTimeTarget, SecurityEvent, UserAppPreference,
+    UserDevice,
 )
 
 
@@ -95,3 +98,6 @@ class ActionableInputFeedbackAdmin(admin.ModelAdmin):
     list_filter = ("input_type", "outcome", "created_at")
     search_fields = ("user__username", "input_id", "input_type")
     readonly_fields = ("user", "digital_summary", "input_id", "input_type", "outcome", "created_at")
+
+for model in (UserAppPreference, ScreenTimeTarget, Reminder, InAppNotification, EmailVerification, SecurityEvent, UserDevice, DevicePairingCode, DeviceAnalyticsReport, MaintenanceJobRun):
+    admin.site.register(model)

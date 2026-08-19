@@ -1,10 +1,12 @@
 from django.urls import path
 from . import views
+from . import platform_views
 
 app_name = "core"
 
 urlpatterns = [
     path("health/", views.health, name="health"),
+    path("ready/", platform_views.ready, name="ready"),
     path("", views.home, name="home"),
     path(
         "goals/",
@@ -94,6 +96,11 @@ urlpatterns = [
     path("weekly-review/export/csv/", views.weekly_review_csv, name="weekly_review_csv"),
     path("weekly-review/export/pdf/", views.weekly_review_pdf, name="weekly_review_pdf"),
     path("insights/", views.insights, name="insights"),
+    path("insights/apps/<path:app_key>/", platform_views.app_detail, name="app_detail"),
+    path("monthly-review/", platform_views.monthly_review, name="monthly_review"),
+    path("monthly-review/export/csv/", platform_views.monthly_review_csv, name="monthly_review_csv"),
+    path("monthly-review/export/pdf/", platform_views.monthly_review_pdf, name="monthly_review_pdf"),
+    path("search/", platform_views.search, name="search"),
     path("postcard/download/<str:file_format>/", views.download_postcard, name="download_postcard"),
     # Dashboard
     path("dashboard/", views.dashboard, name="dashboard"),
@@ -103,6 +110,35 @@ urlpatterns = [
     path("profile/", views.profile, name="profile"),
     path("profile/edit/", views.edit_profile, name="edit_profile"),
     path("profile/export-data/", views.export_personal_data, name="export_personal_data"),
+    path("profile/privacy/", platform_views.privacy_center, name="privacy_center"),
+    path("profile/delete-account/", platform_views.delete_account, name="delete_account"),
+    path("profile/sessions/", platform_views.sessions, name="sessions"),
+    path("profile/sessions/logout-others/", platform_views.logout_other_sessions, name="logout_other_sessions"),
+    path("profile/apps/", platform_views.app_preferences, name="app_preferences"),
+    path("profile/apps/<path:app_key>/edit/", platform_views.app_preference_edit, name="app_preference_edit"),
+    path("profile/apps/<path:app_key>/reset/", platform_views.app_preference_reset, name="app_preference_reset"),
+    path("profile/targets/", platform_views.targets, name="targets"),
+    path("profile/targets/<int:target_id>/delete/", platform_views.target_delete, name="target_delete"),
+    path("profile/devices/", platform_views.devices, name="devices"),
+    path("profile/devices/pair/", platform_views.device_pairing_create, name="device_pairing_create"),
+    path("profile/devices/<int:device_id>/revoke/", platform_views.device_revoke, name="device_revoke"),
+    path("profile/devices/<int:device_id>/delete-data/", platform_views.device_delete_data, name="device_delete_data"),
+    path("notifications/", platform_views.notifications, name="notifications"),
+    path("notifications/new/", platform_views.reminder_create, name="reminder_create"),
+    path("notifications/<int:notification_id>/read/", platform_views.notification_read, name="notification_read"),
+    path("notifications/read-all/", platform_views.notifications_read_all, name="notifications_read_all"),
+    path("email/verify/resend/", platform_views.email_verification_resend, name="email_verification_resend"),
+    path("email/change/", platform_views.email_change, name="email_change"),
+    path("email/verify/<str:token>/", platform_views.verify_email, name="verify_email"),
+    path("privacy/", platform_views.privacy_policy, name="privacy_policy"),
+    path("terms/", platform_views.terms, name="terms"),
+    path("history/<int:summary_id>/delete/", platform_views.delete_summary, name="delete_summary"),
+    path("history/<int:summary_id>/delete-confirm/", platform_views.delete_summary_confirm, name="delete_summary_confirm"),
+    path("api/v1/pair/", platform_views.api_pair_device, name="api_pair_device"),
+    path("api/v1/mobile-analytics/", platform_views.api_mobile_analytics, name="api_mobile_analytics"),
+    path("api/v1/device/token/rotate/", platform_views.api_rotate_device_token, name="api_rotate_device_token"),
+    path("api/v1/device/revoke/", platform_views.api_revoke_device, name="api_revoke_device"),
+    path("api/v1/compatibility/", platform_views.api_compatibility, name="api_compatibility"),
     path("password/change/", views.change_password, name="change_password"),
     # Authentication
     path("login/", views.user_login, name="login"),
