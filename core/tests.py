@@ -2,11 +2,14 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.db import IntegrityError
-from django.test import TestCase
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from datetime import datetime, timedelta
 from unittest.mock import patch
+from io import StringIO
 
 from .models import (
     DigitalSummary,
@@ -1972,3 +1975,34 @@ class MVPFinalizationTests(TestCase):
         self.assertEqual(self.client.get(reverse("core:skip_goal_rescue")).status_code, 405)
         self.assertEqual(self.client.get(reverse("core:complete_goal_rescue")).status_code, 405)
         self.assertEqual(self.client.post(reverse("core:skip_goal_rescue"), {"summary_id": "bad"}).status_code, 404)
+
+
+class SeedDemoDataCommandTests(TestCase):
+    @override_settings(DEBUG=True)
+    def test_command_is_repeatable_and_scoped_to_demo_user(self):
+        ordinary = User.objects.create_user(username="ordinary-user", password="pw")
+        call_command("seed_demo_data", stdout=StringIO())
+        demo = User.objects.get(username="beyondscreen_demo")
+        first_counts = (
+            demo.goals.count(),
+            demo.digital_summaries.count(),
+            demo.momentum_entries.count(),
+            demo.goal_rescue_outcomes.count(),
+        )
+
+        call_command("seed_demo_data", stdout=StringIO())
+        demo.refresh_from_db()
+
+        self.assertEqual(first_counts, (2, 9, 6, 9))
+        self.assertEqual(first_counts, (
+            demo.goals.count(),
+            demo.digital_summaries.count(),
+            demo.momentum_entries.count(),
+            demo.goal_rescue_outcomes.count(),
+        ))
+        self.assertTrue(User.objects.filter(pk=ordinary.pk).exists())
+
+    @override_settings(DEBUG=False)
+    def test_command_is_disabled_outside_debug(self):
+        with self.assertRaises(CommandError):
+            call_command("seed_demo_data", stdout=StringIO())

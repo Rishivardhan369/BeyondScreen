@@ -32,6 +32,9 @@ class Postcard(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=["user", "-created_at"], name="postcard_user_created_idx"),
+        ]
 
     def __str__(self):
         return f"{self.user.username}'s postcard from {self.created_at.strftime('%Y-%m-%d')}"
@@ -51,6 +54,9 @@ class DigitalSummary(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=["user", "-created_at"], name="summary_user_created_idx"),
+        ]
 
 
     def __str__(self):
@@ -220,6 +226,9 @@ class MomentumEntry(models.Model):
 
     class Meta:
         ordering = ["-completed_at"]
+        indexes = [
+            models.Index(fields=["user", "-completed_at"], name="momentum_user_done_idx"),
+        ]
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(duration_minutes__gt=0),
@@ -285,6 +294,9 @@ class GoalRescueOutcome(models.Model):
 
     class Meta:
         ordering = ["-shown_at"]
+        indexes = [
+            models.Index(fields=["user", "-shown_at"], name="rescue_user_shown_idx"),
+        ]
 
     def __str__(self):
         return f"{self.user.username}: {self.action_title} ({self.status})"

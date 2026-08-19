@@ -7,7 +7,10 @@ except ImportError:
     Image = None
     TESSERACT_AVAILABLE = False
 import re
+import logging
 from typing import Dict, List, Union, Optional
+
+logger = logging.getLogger(__name__)
 
 
 def parse_screen_time_report(uploaded_file) -> Optional[Dict[str, Union[int, List[Dict[str, int]]]]]:
@@ -46,8 +49,9 @@ def parse_screen_time_report(uploaded_file) -> Optional[Dict[str, Union[int, Lis
             "total_screen_time": total_minutes,
             "apps": apps
         }
-    except Exception:
+    except Exception as exc:
         # Any error results in fallback to manual entry
+        logger.warning("Screen-time OCR failed (%s).", type(exc).__name__)
         return None
 
 
@@ -83,7 +87,7 @@ def _extract_apps(text: str) -> Optional[List[Dict[str, int]]]:
     apps_start = -1
     for i, line in enumerate(lines):
         if re.search(r'^Apps?$', line, re.IGNORECASE):
-            app_index = i
+            apps_start = i
             break
 
     if apps_start == -1:
