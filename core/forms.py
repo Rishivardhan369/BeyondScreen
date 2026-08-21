@@ -8,7 +8,7 @@ from django.contrib.auth.models import User
 
 from .models import Reminder, ScreenTimeTarget, UserAppPreference, UserGoal, UserProfile
 
-ALLOWED_UPLOAD_EXTENSIONS = {".csv", ".jpg", ".jpeg", ".pdf", ".png", ".txt"}
+ALLOWED_UPLOAD_EXTENSIONS = {".csv", ".jpg", ".jpeg", ".pdf", ".png", ".txt", ".webp"}
 
 class PostcardForm(forms.Form):
     """Collect the small amount of context needed to make a postcard."""
@@ -17,7 +17,7 @@ class PostcardForm(forms.Form):
         required=False,
         label="Screen Time report (optional)",
         help_text="A screenshot, PDF, CSV, or text export is welcome.",
-        widget=forms.ClearableFileInput(attrs={"accept": ".csv,.pdf,.png,.jpg,.jpeg,.txt"}),
+        widget=forms.ClearableFileInput(attrs={"accept": ".csv,.pdf,.png,.jpg,.jpeg,.webp,.txt"}),
     )
     screen_time = forms.IntegerField(
         required=False,
@@ -75,9 +75,64 @@ class PostcardForm(forms.Form):
             raise forms.ValidationError("Please choose a file smaller than 10 MB.")
 
         if Path(uploaded_file.name).suffix.lower() not in ALLOWED_UPLOAD_EXTENSIONS:
-            raise forms.ValidationError("Choose a CSV, PDF, PNG, JPG, or text file.")
+            raise forms.ValidationError("Choose a CSV, PDF, PNG, JPG, or text file. WEBP is also supported.")
+
+        if Path(uploaded_file.name).suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}:
+            from services.image_preprocessing import ImageTooLarge, InvalidImage, load_safe_image
+            try:
+                load_safe_image(uploaded_file)
+            except ImageTooLarge:
+                raise forms.ValidationError("This screenshot is too large to process safely.")
+            except InvalidImage:
+                raise forms.ValidationError("This image appears to be damaged or unsupported.")
+            finally:
+                uploaded_file.seek(0)
 
         return uploaded_file
+
+
+class ScreenshotReviewForm(forms.Form):
+    report_date = forms.DateField(widget=forms.DateInput(attrs={"type": "date"}))
+    total_minutes = forms.IntegerField(required=False, min_value=0, max_value=1440)
+    pickups = forms.IntegerField(required=False, min_value=0, max_value=10000)
+    unlocks = forms.IntegerField(required=False, min_value=0, max_value=10000)
+    notifications = forms.IntegerField(required=False, min_value=0, max_value=100000)
+    sessions = forms.IntegerField(required=False, min_value=0, max_value=10000)
+    longest_session_minutes = forms.IntegerField(required=False, min_value=0, max_value=1440)
+
+    def clean_report_date(self):
+        value = self.cleaned_data["report_date"]
+        from django.utils import timezone
+        if value > timezone.localdate():
+            raise forms.ValidationError("Choose today or an earlier report date.")
+        return value
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("total_minutes") is None and not self.data.get("apps-TOTAL_FORMS"):
+            raise forms.ValidationError("Add total screen time or at least one app before saving.")
+        return cleaned
+
+
+class ScreenshotAppRowForm(forms.Form):
+    name = forms.CharField(required=False, max_length=120)
+    minutes = forms.IntegerField(required=False, min_value=0, max_value=1440)
+    DELETE = forms.BooleanField(required=False)
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("DELETE"):
+            return cleaned
+        name, minutes = (cleaned.get("name") or "").strip(), cleaned.get("minutes")
+        if name and minutes is None:
+            self.add_error("minutes", "Enter the app duration in minutes.")
+        if minutes is not None and not name:
+            self.add_error("name", "Enter an app name for this duration.")
+        cleaned["name"] = " ".join(name.split())
+        return cleaned
+
+
+ScreenshotAppFormSet = forms.formset_factory(ScreenshotAppRowForm, extra=1, max_num=50, validate_max=True)
 
 
 DAY_CHOICES = [

@@ -101,7 +101,7 @@
                 type="file"
                 name="{{ form.file.html_name }}"
                 id="{{ form.file.id_for_label }}"
-                accept=".csv,.pdf,.png,.jpg,.jpeg,.txt"
+                accept=".csv,.pdf,.png,.jpg,.jpeg,.webp,.txt"
               >
               <label for="{{ form.file.id_for_label }}">
                 <span class="home-upload-icon">
@@ -113,7 +113,7 @@
                 </span>
                 <span class="home-upload-copy">
                   <strong>Upload a Screen Time report</strong>
-                  <small id="home-file-name">PDF, PNG, JPG, CSV or TXT · up to 10 MB</small>
+                  <small id="home-file-name">PNG, JPG, WEBP, CSV, TXT or PDF · up to 10 MB</small>
                 </span>
                 <span class="home-upload-button">Choose file</span>
               </label>
@@ -282,7 +282,7 @@
       const file = input.files && input.files[0];
       label.textContent = file
         ? file.name
-        : "PDF, PNG, JPG, CSV or TXT · up to 10 MB";
+        : "PNG, JPG, WEBP, CSV, TXT or PDF · up to 10 MB";
     });
   });
 </script>

@@ -8,6 +8,7 @@ urlpatterns = [
     path("health/", views.health, name="health"),
     path("ready/", platform_views.ready, name="ready"),
     path("", views.home, name="home"),
+    path("analytics/screenshot-review/", views.screenshot_review, name="screenshot_review"),
     path(
         "goals/",
         views.goal_dna_management,

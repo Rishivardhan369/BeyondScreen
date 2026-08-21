@@ -26,7 +26,7 @@ BeyondScreen turns recorded phone activity into an explainable Usage Assessment,
 5. Run `python manage.py migrate`.
 6. Start the application with `python manage.py runserver`.
 
-OCR is optional. Manual minutes are enough to create a report. For local image OCR, install the optional `pytesseract` Python package and the native Tesseract executable separately; without them, BeyondScreen fails safely back to manual entry. Uploads are limited to one supported file under 10 MB per request. PDF input currently uses the same manual fallback because no PDF text parser is required at runtime.
+Manual minutes remain enough to create a report. The required Python OCR bridge (`pytesseract`) is installed by `requirements.txt`; image OCR additionally needs the native Tesseract executable. BeyondScreen resolves it from `TESSERACT_CMD`, the system `PATH`, or standard Windows installation folders, in that order. Run `python manage.py check_ocr` for a privacy-safe runtime diagnostic. If native OCR is unavailable, the UI explains the limitation and preserves manual entry. PNG, JPEG, and WEBP screenshots are content-validated, processed in memory, and never stored with raw OCR text. Partial results open an editable confirmation screen instead of being discarded. Uploads remain limited to one supported file under 10 MB per request. PDF input uses manual fallback because no reliable PDF parser is required at runtime.
 
 ## Demo data
 

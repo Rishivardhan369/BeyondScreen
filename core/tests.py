@@ -2131,8 +2131,8 @@ class FinalMissingFeaturesTests(TestCase):
 
     def test_ocr_optional_corrupt_and_manual_fallback(self):
         from services import screen_time_parser
-        with patch.object(screen_time_parser, "TESSERACT_AVAILABLE", False):
-            self.assertIsNone(screen_time_parser.parse_screen_time_report(StringIO("not an image")))
+        result = screen_time_parser.parse_screen_time_report(StringIO("not an image"))
+        self.assertEqual(result["status"], "INVALID_IMAGE")
         response=self.client.post(reverse("core:home"),{"screen_time":135,"mood":"Calm","goal":"Study"})
         self.assertEqual(response.status_code,302)
         self.assertEqual(DigitalSummary.objects.filter(user=self.user).latest("id").screen_time_minutes,135)

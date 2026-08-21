@@ -31,6 +31,8 @@ from .forms import (
     SignUpForm,
     UserLoginForm,
     UserProfileForm,
+    ScreenshotReviewForm,
+    ScreenshotAppFormSet,
 )
 from .services import (
     build_goal_health,
@@ -1379,17 +1381,42 @@ def home(request):
         form = PostcardForm(request.POST, request.FILES)
         if form.is_valid():
             data = form.cleaned_data
-            filename = data["file"].name if data["file"] else None
+            confirmed_ocr = request.session.pop("confirmed_ocr", None)
+            filename = (confirmed_ocr or {}).pop("filename", None) or (data["file"].name if data["file"] else None)
             # Try to extract screen time from uploaded file using OCR
-            ocr_result = None
+            ocr_result = confirmed_ocr
             minutes_from_ocr = None
-            if data["file"]:
+            if data["file"] and not confirmed_ocr:
                 ocr_result = parse_screen_time_report(data["file"])
-                if ocr_result and isinstance(ocr_result, dict):
-                    minutes_from_ocr = ocr_result.get("total_screen_time")
+                status = (ocr_result or {}).get("status")
+                if status == "SUCCESS":
+                    request.session["screenshot_review"] = {
+                        "extraction": ocr_result,
+                        "filename": filename,
+                        "mood": data["mood"],
+                        "goal": data["goal"],
+                        "manual_total": data.get("screen_time"),
+                    }
+                    return redirect("core:screenshot_review")
+                if status in ("LIBRARY_UNAVAILABLE", "ENGINE_UNAVAILABLE"):
+                    messages.info(request, "Automatic screenshot reading is unavailable on this server. You can still enter your report manually.")
+                elif status == "INVALID_IMAGE":
+                    messages.error(request, "This image appears to be damaged or unsupported.")
+                elif status == "IMAGE_TOO_LARGE":
+                    messages.error(request, "This screenshot is too large to process safely.")
+                elif status == "NO_ANALYTICS_FOUND":
+                    messages.info(request, "We couldn't find recognizable screen-time analytics in this image. Try another screenshot or enter the report manually.")
+                elif status == "UNSUPPORTED_REPORT":
+                    messages.info(request, "Automatic reading is not available for this report format. Enter the report manually instead.")
                 else:
-                    # OCR unavailable or failed
-                    messages.info(request, "Automatic report parsing is currently unavailable. Please enter your screen time manually.")
+                    messages.info(request, "Automatic screenshot reading could not finish. You can still enter your report manually.")
+                if data.get("screen_time") is None:
+                    return render(request, "home.html", {"form": form})
+                ocr_result = None
+            if ocr_result and isinstance(ocr_result, dict):
+                minutes_from_ocr = ocr_result.get("total_screen_time")
+                if minutes_from_ocr is None and ocr_result.get("apps"):
+                    minutes_from_ocr = sum(app.get("minutes", 0) for app in ocr_result["apps"])
             # Determine minutes to use: OCR if successful, else form input
             if minutes_from_ocr is not None:
                 minutes = minutes_from_ocr
@@ -1407,15 +1434,21 @@ def home(request):
                 if "ocr_apps" in request.session:
                     del request.session["ocr_apps"]
 
+            report_date = timezone.localdate()
+            if ocr_result and ocr_result.get("report_date"):
+                try:
+                    report_date = date.fromisoformat(ocr_result["report_date"])
+                except (TypeError, ValueError):
+                    pass
             mobile_analytics = build_mobile_analytics_snapshot(
                 parsed=ocr_result,
-                manual_total=minutes,
+                manual_total=None if ocr_result else minutes,
                 manual_metrics={
                     "pickups": data.get("pickups"),
                     "notifications": data.get("notifications"),
                     "longest_session_minutes": data.get("longest_session_minutes"),
                 },
-                report_date=timezone.localdate(),
+                report_date=report_date,
             )
 
             postcard_data = generate_postcard(
@@ -1555,6 +1588,61 @@ def home(request):
         form = PostcardForm()
 
     return render(request, "home.html", {"form": form})
+
+
+def screenshot_review(request):
+    pending = request.session.get("screenshot_review")
+    if not pending:
+        messages.info(request, "Upload a screenshot before opening the review page.")
+        return redirect("core:home")
+    extraction = pending["extraction"]
+    initial = {
+        "report_date": timezone.localdate(),
+        "total_minutes": extraction.get("total_minutes"),
+        "pickups": extraction.get("pickups"), "unlocks": extraction.get("unlocks"),
+        "notifications": extraction.get("notifications"), "sessions": extraction.get("sessions"),
+        "longest_session_minutes": extraction.get("longest_session_minutes"),
+    }
+    if request.method == "POST":
+        form, app_formset = ScreenshotReviewForm(request.POST), ScreenshotAppFormSet(request.POST, prefix="apps")
+        if form.is_valid() and app_formset.is_valid():
+            apps, seen = [], set()
+            for row in app_formset.cleaned_data:
+                if not row or row.get("DELETE") or not row.get("name"):
+                    continue
+                key = row["name"].casefold()
+                if key in seen:
+                    continue
+                seen.add(key)
+                apps.append({"name": row["name"], "minutes": row["minutes"], "category": None})
+            if form.cleaned_data["total_minutes"] is None and not apps:
+                form.add_error(None, "Add total screen time or at least one app before saving.")
+            else:
+                confirmed = {key: value for key, value in extraction.items() if key not in ("processing_metadata", "warnings")}
+                confirmed.update(form.cleaned_data)
+                confirmed["apps"] = apps
+                confirmed["total_screen_time"] = confirmed.get("total_minutes")
+                confirmed["report_date"] = form.cleaned_data["report_date"].isoformat()
+                confirmed["filename"] = pending.get("filename")
+                request.session.pop("screenshot_review", None)
+                request.session["confirmed_ocr"] = confirmed
+                post = request.POST.copy()
+                post.update({"mood": pending["mood"], "goal": pending["goal"], "screen_time": confirmed.get("total_minutes") or ""})
+                request.POST = post
+                return home(request)
+    else:
+        form = ScreenshotReviewForm(initial=initial)
+        app_formset = ScreenshotAppFormSet(initial=extraction.get("apps", []), prefix="apps")
+    displayed_apps = extraction.get("apps", [])
+    if request.method == "POST" and app_formset.is_valid():
+        displayed_apps = [row for row in app_formset.cleaned_data if row and not row.get("DELETE") and row.get("name")]
+    displayed_app_total = sum(row.get("minutes") or 0 for row in displayed_apps)
+    displayed_total = form.cleaned_data.get("total_minutes") if form.is_bound and form.is_valid() else extraction.get("total_minutes")
+    return render(request, "analytics/screenshot_review.html", {
+        "form": form, "app_formset": app_formset, "extraction": extraction,
+        "recognized_total": displayed_app_total,
+        "app_total_exceeds": displayed_total is not None and displayed_app_total > displayed_total,
+    })
 
 
 

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Review screenshot analytics | BeyondScreen{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/analytics_review.css' %}">{% endblock %}
+{% block content %}
+<main class="analytics-review">
+  <header class="review-header">
+    <p class="review-kicker">Mobile Analytics</p>
+    <h1>Review what we detected</h1>
+    <p>Automatic reading can be imperfect. Your confirmed values—not the OCR guess—become the trusted report.</p>
+    <div class="review-status" data-confidence="{{ extraction.confidence|lower }}">
+      <strong>{{ extraction.confidence|title }} confidence</strong>
+      <span>{{ extraction.provider|title }}</span>
+    </div>
+  </header>
+
+  {% if extraction.warnings %}
+    <section class="review-notice" aria-labelledby="review-warning-title">
+      <h2 id="review-warning-title">Please check these details</h2>
+      {% for warning in extraction.warnings %}<p>{{ warning }}</p>{% endfor %}
+    </section>
+  {% endif %}
+
+  <form method="post" class="review-form" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="review-errors">{{ form.non_field_errors }}</div>{% endif %}
+    <section class="review-card" aria-labelledby="report-details-title">
+      <div class="review-card-heading"><div><p class="review-step">01</p><h2 id="report-details-title">Report details</h2></div><p>Correct anything that OCR misread.</p></div>
+      <div class="review-grid">
+        {% for field in form %}
+          <label class="review-field" for="{{ field.id_for_label }}"><span>{{ field.label }}</span>{{ field }}{% for error in field.errors %}<small class="review-error">{{ error }}</small>{% endfor %}</label>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="review-card" aria-labelledby="apps-title">
+      <div class="review-card-heading"><div><p class="review-step">02</p><h2 id="apps-title">Detected apps</h2></div><p>Recognized app total: <strong>{{ recognized_total }} minutes</strong></p></div>
+      {{ app_formset.management_form }}
+      {% if app_formset.non_form_errors %}<div class="review-errors">{{ app_formset.non_form_errors }}</div>{% endif %}
+      {% if app_total_exceeds %}<p class="review-consistency"><strong>Check these values:</strong> app durations exceed the reported total. We will preserve your confirmed values, but they may represent a cropped or overlapping report.</p>{% endif %}
+      <div class="review-apps" id="review-apps">
+        {% for app_form in app_formset %}
+          <fieldset class="review-app-row">
+            <legend>App {{ forloop.counter }}</legend>
+            <label for="{{ app_form.name.id_for_label }}"><span>App name</span>{{ app_form.name }}</label>
+            <label for="{{ app_form.minutes.id_for_label }}"><span>Minutes</span>{{ app_form.minutes }}</label>
+            <label class="review-delete" for="{{ app_form.DELETE.id_for_label }}">{{ app_form.DELETE }} <span>Remove</span></label>
+            {% for error in app_form.name.errors %}<small class="review-error">{{ error }}</small>{% endfor %}
+            {% for error in app_form.minutes.errors %}<small class="review-error">{{ error }}</small>{% endfor %}
+          </fieldset>
+        {% endfor %}
+      </div>
+      <template id="empty-app-row">
+        <fieldset class="review-app-row">
+          <legend>New app</legend>
+          <label for="{{ app_formset.empty_form.name.id_for_label }}"><span>App name</span>{{ app_formset.empty_form.name }}</label>
+          <label for="{{ app_formset.empty_form.minutes.id_for_label }}"><span>Minutes</span>{{ app_formset.empty_form.minutes }}</label>
+          <label class="review-delete" for="{{ app_formset.empty_form.DELETE.id_for_label }}">{{ app_formset.empty_form.DELETE }} <span>Remove</span></label>
+        </fieldset>
+      </template>
+      <button class="review-add" type="button" id="add-app-row">+ Add another app</button>
+    </section>
+
+    <div class="review-actions">
+      <button type="submit" class="review-confirm">Confirm and create report</button>
+      <a href="{% url 'core:home' %}#upload-report" class="review-secondary">Try another screenshot</a>
+      <a href="{% url 'core:home' %}#upload-report" class="review-text">Enter report manually</a>
+    </div>
+  </form>
+</main>
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const add = document.getElementById('add-app-row');
+  const total = document.getElementById('id_apps-TOTAL_FORMS');
+  const rows = document.getElementById('review-apps');
+  const template = document.getElementById('empty-app-row');
+  if (!add || !total || !rows || !template) return;
+  add.addEventListener('click', () => {
+    const index = Number(total.value);
+    if (index >= 50) return;
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = template.innerHTML.replaceAll('__prefix__', String(index));
+    rows.appendChild(wrapper.firstElementChild);
+    total.value = String(index + 1);
+  });
+})();
+</script>
+{% endblock %}

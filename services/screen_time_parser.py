@@ -1,67 +1,135 @@
-"""Defensive ingestion helpers for user-supplied mobile analytics reports."""
+"""Defensive parsing for user-supplied mobile analytics reports."""
+from __future__ import annotations
+
 import csv
 import io
-import logging
 import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
-try:
-    import pytesseract
-    from PIL import Image
-    TESSERACT_AVAILABLE = True
-except ImportError:
-    pytesseract = None
-    Image = None
-    TESSERACT_AVAILABLE = False
+from .screenshot_ingestion import extract_screenshot
 
-logger = logging.getLogger(__name__)
+MAX_DAILY_MINUTES = 1440
+
+
+def normalize_ocr_text(text):
+    text = unicodedata.normalize("NFKC", str(text or ""))
+    text = text.translate(str.maketrans({"：": ":", "–": "-", "—": "-", "•": " ", "·": " "}))
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    return "\n".join(re.sub(r"[\t \u00a0]+", " ", line).strip() for line in text.split("\n") if line.strip())
+
+
+def _duration_context(value):
+    return re.sub(
+        r"(?i)\b([0-9oOilI]{1,4})(?=\s*(?:h|hr|hrs|hour|hours|m|min|mins|minute|minutes)\b)",
+        lambda match: match.group(1).translate(str.maketrans({"O": "0", "o": "0", "I": "1", "l": "1", "i": "1"})),
+        value,
+    )
 
 
 def normalize_minutes(value):
     if value is None or isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        return int(value) if value >= 0 else None
-    text = str(value).strip().lower()
-    if not text:
+        number = int(value)
+        return number if 0 <= number <= MAX_DAILY_MINUTES else None
+    text = _duration_context(normalize_ocr_text(value).casefold()).strip().rstrip(".")
+    if not text or text.startswith("-"):
         return None
-    if text.startswith("-"):
+    text = re.sub(r"(?<=\d)(?=[hm])|(?<=[hm])(?=\d)", " ", text)
+    if re.fullmatch(r"\d{1,4}", text):
+        number = int(text)
+        return number if number <= MAX_DAILY_MINUTES else None
+    hours = re.search(r"\b(\d{1,3})\s*(?:h|hr|hrs|hour|hours)\.?\b", text)
+    minutes = re.search(r"\b(\d{1,4})\s*(?:m|min|mins|minute|minutes)\.?\b", text)
+    if not hours and not minutes:
         return None
-    plain = re.fullmatch(r"(\d{1,4})\s*(?:minutes?|mins?)", text)
-    if plain:
-        return int(plain.group(1))
-    hours = re.search(r"(\d{1,3})\s*(?:h|hr|hrs|hours?)\b", text)
-    minutes = re.search(r"(\d{1,3})\s*(?:m|min|mins|minutes?)\b", text)
-    if hours or minutes:
-        return (int(hours.group(1)) * 60 if hours else 0) + (int(minutes.group(1)) if minutes else 0)
-    return int(text) if re.fullmatch(r"\d{1,4}", text) else None
+    total = (int(hours.group(1)) * 60 if hours else 0) + (int(minutes.group(1)) if minutes else 0)
+    return total if 0 <= total <= MAX_DAILY_MINUTES else None
+
+
+def detect_screenshot_provider(text):
+    lowered = normalize_ocr_text(text).casefold()
+    groups = {
+        "SAMSUNG_DIGITAL_WELLBEING": {"digital wellbeing and parental controls": 5, "device care": 4, "app timers": 2, "most used apps": 2, "screen time": 1},
+        "ANDROID_DIGITAL_WELLBEING": {"digital wellbeing": 4, "ways to disconnect": 4, "focus mode": 3, "dashboard": 2, "unlocks": 2, "app timers": 2, "screen time": 1},
+        "IOS_SCREEN_TIME": {"see all app & website activity": 5, "app & website activity": 4, "daily average": 3, "most used": 2, "pickups": 2, "categories": 2, "screen time": 1},
+        "GENERIC_USAGE_ANALYTICS": {"screen time": 2, "app usage": 2, "usage": 1},
+    }
+    scores = {provider: sum(weight for term, weight in terms.items() if term in lowered) for provider, terms in groups.items()}
+    provider, score = max(scores.items(), key=lambda item: item[1])
+    if score < 2:
+        return {"provider": "UNKNOWN", "platform": "unknown", "confidence": "NONE", "score": score}
+    ordered = sorted(scores.values(), reverse=True)
+    if len(ordered) > 1 and score == ordered[1] and provider != "GENERIC_USAGE_ANALYTICS":
+        provider = "GENERIC_USAGE_ANALYTICS"
+    confidence = "HIGH" if score >= 7 else "MEDIUM" if score >= 4 else "LOW"
+    platform = "ios" if provider == "IOS_SCREEN_TIME" else "android" if provider in ("ANDROID_DIGITAL_WELLBEING", "SAMSUNG_DIGITAL_WELLBEING") else "generic"
+    return {"provider": provider, "platform": platform, "confidence": confidence, "score": score}
 
 
 def detect_report_platform(text):
-    lowered = text.lower()
-    android = sum(term in lowered for term in ("digital wellbeing", "app timers", "unlocks", "dashboard"))
-    ios = sum(term in lowered for term in ("daily average", "most used", "pickups", "screen time", "categories"))
-    if android >= 2 and android > ios:
-        return {"platform": "android", "confidence": "high" if android >= 3 else "moderate"}
-    if ios >= 3 and ios > android:
-        return {"platform": "ios", "confidence": "high" if ios >= 4 else "moderate"}
-    if "screen time" in lowered or re.search(r"\d+\s*(?:h|hr).*\d+\s*(?:m|min)", lowered):
-        return {"platform": "generic", "confidence": "limited"}
-    return {"platform": "unknown", "confidence": "unknown"}
+    result = detect_screenshot_provider(text)
+    return {"platform": result["platform"], "confidence": result["confidence"].lower()}
 
 
-def _count(text, labels):
-    for pattern in (rf"(?:{labels})\s*[:\-]?\s*(\d{{1,6}})\b", rf"(\d{{1,6}})\s*(?:{labels})\b"):
+def _count(text, label):
+    for pattern in (rf"(?:{label})\s*[:\-]?\s*(\d{{1,6}})\b", rf"\b(\d{{1,6}})\s*(?:{label})\b"):
         match = re.search(pattern, text, re.I)
         if match:
             return int(match.group(1))
     return None
 
 
-def _duration(text, labels):
-    match = re.search(rf"(?:{labels})\s*[:\-]?\s*((?:\d+\s*(?:h|hr|hrs|hours?))?\s*(?:\d+\s*(?:m|min|mins|minutes?))?)", text, re.I)
+DURATION_FRAGMENT = r"(?:[0-9oOilI]{1,3}\s*(?:h|hr|hrs|hour|hours)\.?\s*)?(?:[0-9oOilI]{1,4}\s*(?:m|min|mins|minute|minutes)\.?)?"
+RESERVED = re.compile(r"screen time|daily average|pickups?|unlocks?|notifications?|sessions?|most used|categories|longest session|dashboard|digital wellbeing|device care|first use|first pickup|last use|latest use|today|yesterday", re.I)
+
+
+def _duration_for_label(text, labels):
+    match = re.search(rf"(?:{labels})\s*[:\-]?\s*([^\n]{{1,40}})", text, re.I)
     return normalize_minutes(match.group(1)) if match and match.group(1).strip() else None
+
+
+def _extract_total(text):
+    labels = r"total\s+screen\s+time|screen\s+time|daily\s+average"
+    value = _duration_for_label(text, labels)
+    if value is not None:
+        return value
+    lines = text.splitlines()
+    for index, line in enumerate(lines[:-1]):
+        if re.fullmatch(labels, line, re.I):
+            value = normalize_minutes(lines[index + 1])
+            if value is not None:
+                return value
+    return None
+
+
+def _clean_name(value):
+    return re.sub(r"\s+", " ", value).strip(" :|,-")[:120]
+
+
+def _is_app_name(line):
+    return bool(2 <= len(line) <= 120 and re.search(r"[A-Za-z]", line) and not RESERVED.search(line) and normalize_minutes(line) is None and len(line.split()) <= 10)
+
+
+def _extract_apps(text):
+    lines, found = [line for line in text.splitlines() if line], []
+    duration_re = re.compile(rf"(?P<duration>{DURATION_FRAGMENT})\s*$", re.I)
+    for index, line in enumerate(lines):
+        match = duration_re.search(line)
+        minutes = normalize_minutes(match.group("duration")) if match and match.group("duration").strip() else None
+        name = _clean_name(line[:match.start()]) if minutes is not None else ""
+        if minutes is not None and _is_app_name(name):
+            found.append({"name": name, "minutes": minutes, "category": None})
+        elif _is_app_name(line) and index + 1 < len(lines) and normalize_minutes(lines[index + 1]) is not None:
+            found.append({"name": _clean_name(line), "minutes": normalize_minutes(lines[index + 1]), "category": None})
+        elif minutes is not None and not name and index > 0 and _is_app_name(lines[index - 1]):
+            found.append({"name": _clean_name(lines[index - 1]), "minutes": minutes, "category": None})
+    unique = {}
+    for app in found:
+        unique.setdefault(app["name"].casefold(), app)
+    return list(unique.values())[:50]
 
 
 def _clock(text, labels):
@@ -76,142 +144,91 @@ def _clock(text, labels):
     return value
 
 
-def _extract_total_screen_time(text):
-    labels = r"total\s+screen\s+time|screen\s+time|daily\s+average"
-    value = _duration(text, labels)
-    if value is not None:
-        return value
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    for index, line in enumerate(lines):
-        if re.fullmatch(labels, line, re.I) and index + 1 < len(lines):
-            value = normalize_minutes(lines[index + 1])
-            if value is not None:
-                return value
-    return None
-
-
-def _clean_name(value):
-    return re.sub(r"\s+", " ", value).strip(" \t:|-")[:120]
-
-
-def _extract_apps(text):
-    apps = []
-    reserved = re.compile(r"screen time|daily average|pickups?|unlocks?|notifications?|sessions?|most used|categories|longest session|dashboard|digital wellbeing|first use|first pickup|last use|latest use", re.I)
-    pattern = re.compile(r"^(?P<name>[^|,:]{2,120}?)\s*(?:\||,|:|\s{2,})\s*(?P<duration>(?:\d+\s*(?:h|hr|hrs|hours?))?\s*(?:\d+\s*(?:m|min|mins|minutes?)))\s*$", re.I)
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-    for index, line in enumerate(lines):
-        match = pattern.match(line)
-        if match and not reserved.search(match.group("name")):
-            name, minutes = _clean_name(match.group("name")), normalize_minutes(match.group("duration"))
-        elif index + 1 < len(lines) and not reserved.search(line) and len(line.split()) <= 8 and re.fullmatch(r"(?:\d+\s*(?:h|hr|hrs|hours?))?\s*(?:\d+\s*(?:m|min|mins|minutes?))", lines[index + 1], re.I):
-            name, minutes = _clean_name(line), normalize_minutes(lines[index + 1])
-        else:
-            continue
-        if name and minutes is not None:
-            apps.append({"name": name, "minutes": minutes, "category": None})
-    unique = {}
-    for app in apps:
-        unique.setdefault(app["name"].casefold(), app)
-    return list(unique.values())[:50]
+def parse_screenshot_text(text):
+    text = normalize_ocr_text(text)
+    detected, apps, total = detect_screenshot_provider(text), _extract_apps(text), _extract_total(text)
+    pickups, unlocks = _count(text, r"pickups?"), _count(text, r"unlocks?")
+    structured_count = int(total is not None) + len(apps) + int(pickups is not None) + int(unlocks is not None)
+    confidence = detected["confidence"]
+    if structured_count and confidence == "NONE":
+        confidence = "LOW"
+    elif structured_count >= 3 and confidence in ("LOW", "MEDIUM"):
+        confidence = "MEDIUM"
+    warnings = []
+    if total is None and apps:
+        warnings.append("Official total was not detected; the app total is shown separately.")
+    if structured_count and confidence == "LOW":
+        warnings.append("Automatic extraction was partial. Review every detected value before saving.")
+    return {"provider": detected["provider"], "confidence": confidence, "total_minutes": total, "apps": apps,
+            "pickups": pickups, "unlocks": unlocks, "notifications": _count(text, r"notifications?"),
+            "sessions": _count(text, r"sessions?"), "longest_session_minutes": _duration_for_label(text, r"longest\s+session"),
+            "first_use_time": _clock(text, r"first\s+(?:pickup|use)"), "last_use_time": _clock(text, r"(?:last|latest)\s+(?:pickup|use)"),
+            "has_analytics": bool(structured_count), "warnings": warnings}
 
 
 def normalize_mobile_analytics(payload):
-    normalized = {
-        "schema_version": 1,
-        "source_type": payload.get("source_type") or "unknown",
-        "platform": payload.get("platform") or "unknown",
-        "detection_confidence": payload.get("detection_confidence") or "unknown",
-    }
-    for field in ("total_minutes", "pickups", "notifications", "sessions", "longest_session_minutes"):
+    normalized = {"schema_version": 1, "source_type": payload.get("source_type") or "unknown", "platform": payload.get("platform") or "unknown", "detection_confidence": payload.get("detection_confidence") or "unknown", "apps": []}
+    for field in ("total_minutes", "pickups", "unlocks", "notifications", "sessions", "longest_session_minutes"):
         try:
             value = int(payload[field])
         except (KeyError, TypeError, ValueError):
             continue
-        if value >= 0:
+        maximum = MAX_DAILY_MINUTES if field in ("total_minutes", "longest_session_minutes") else 1_000_000
+        if 0 <= value <= maximum:
             normalized[field] = value
     for field in ("first_use_time", "last_use_time", "device", "report_date"):
         value = payload.get(field)
         if isinstance(value, str) and value.strip():
             normalized[field] = value.strip()[:120]
-    apps = []
-    for item in payload.get("apps", []) if isinstance(payload.get("apps", []), list) else []:
+    for item in payload.get("apps", []) if isinstance(payload.get("apps"), list) else []:
         if not isinstance(item, dict):
             continue
-        try:
-            minutes = int(item.get("minutes"))
-        except (TypeError, ValueError):
-            continue
-        name = _clean_name(str(item.get("name", "")))
-        if name and minutes >= 0:
-            category = item.get("category")
-            apps.append({"name": name, "minutes": minutes, "category": _clean_name(str(category)) if category else None})
-    normalized["apps"] = apps[:100]
+        minutes, name = normalize_minutes(item.get("minutes")), _clean_name(str(item.get("name", "")))
+        if name and minutes is not None:
+            normalized["apps"].append({"name": name, "minutes": minutes, "category": item.get("category") or None})
     return normalized
 
 
 def parse_mobile_analytics_text(text, source_hint=None):
-    detected = detect_report_platform(text)
-    source = source_hint
-    if not source:
-        source = {"android": "android_digital_wellbeing", "ios": "ios_screen_time"}.get(detected["platform"], "generic_ocr" if text.strip() else "unknown")
-    return normalize_mobile_analytics({
-        "source_type": source,
-        "platform": detected["platform"],
-        "detection_confidence": detected["confidence"],
-        "total_minutes": _extract_total_screen_time(text),
-        "apps": _extract_apps(text),
-        "pickups": _count(text, r"pickups?|unlocks?"),
-        "notifications": _count(text, r"notifications?"),
-        "sessions": _count(text, r"sessions?"),
-        "longest_session_minutes": _duration(text, r"longest\s+session"),
-        "first_use_time": _clock(text, r"first\s+(?:pickup|use)"),
-        "last_use_time": _clock(text, r"(?:last|latest)\s+(?:pickup|use)"),
-    })
+    result, detected = parse_screenshot_text(text), detect_screenshot_provider(text)
+    return normalize_mobile_analytics({**result, "source_type": source_hint or {"android": "android_digital_wellbeing", "ios": "ios_screen_time"}.get(detected["platform"], "generic_ocr"), "platform": detected["platform"], "detection_confidence": result["confidence"].lower()})
 
 
 def _parse_csv(data):
-    text = data.decode("utf-8-sig", errors="replace")
-    rows, apps = list(csv.DictReader(io.StringIO(text))), []
-    values = {"total_minutes": None, "pickups": None, "notifications": None, "sessions": None, "longest_session_minutes": None}
+    rows, apps, values = list(csv.DictReader(io.StringIO(data.decode("utf-8-sig", errors="replace")))), [], {}
     for row in rows[:500]:
         fields = {str(key).strip().casefold(): value for key, value in row.items() if key}
         name = fields.get("app") or fields.get("app name") or fields.get("application")
         minutes = normalize_minutes(fields.get("minutes") or fields.get("duration") or fields.get("screen time"))
         if name and minutes is not None:
             apps.append({"name": name, "minutes": minutes, "category": fields.get("category") or None})
-        values["total_minutes"] = values["total_minutes"] if values["total_minutes"] is not None else normalize_minutes(fields.get("total screen time"))
-        for key in ("pickups", "notifications", "sessions"):
-            if values[key] is None and str(fields.get(key, "")).strip().isdigit():
+        total = normalize_minutes(fields.get("total screen time"))
+        if total is not None and "total_minutes" not in values:
+            values["total_minutes"] = total
+        for key in ("pickups", "unlocks", "notifications", "sessions"):
+            if key not in values and str(fields.get(key, "")).strip().isdigit():
                 values[key] = int(fields[key])
-        values["longest_session_minutes"] = values["longest_session_minutes"] if values["longest_session_minutes"] is not None else normalize_minutes(fields.get("longest session"))
-    if values["total_minutes"] is None and apps:
-        values["total_minutes"] = sum(app["minutes"] for app in apps)
-    detected = detect_report_platform(text)
-    return normalize_mobile_analytics({**values, "source_type": "csv", "platform": detected["platform"], "detection_confidence": detected["confidence"], "apps": apps})
+    result = normalize_mobile_analytics({**values, "source_type": "csv", "platform": "generic", "apps": apps})
+    result["recognized_app_total_minutes"] = sum(app["minutes"] for app in result["apps"])
+    return result
 
 
 def parse_screen_time_report(uploaded_file):
-    """Return structured metrics only; raw report content is never persisted."""
-    suffix = Path(getattr(uploaded_file, "name", "")).suffix.lower()
-    try:
-        if suffix == ".csv":
-            result = _parse_csv(uploaded_file.read())
-        elif suffix == ".txt":
-            result = parse_mobile_analytics_text(uploaded_file.read().decode("utf-8-sig", errors="replace"), "text")
-        elif suffix == ".pdf":
-            return None
-        else:
-            if not TESSERACT_AVAILABLE:
-                return None
-            image = Image.open(uploaded_file)
-            image.verify()
-            uploaded_file.seek(0)
-            result = parse_mobile_analytics_text(pytesseract.image_to_string(Image.open(uploaded_file)))
+    """Return typed public metadata and normalized fields; never raw OCR text."""
+    suffix = Path(getattr(uploaded_file, "name", "")).suffix.casefold()
+    if suffix == ".csv":
+        result = _parse_csv(uploaded_file.read())
+        result.update(status="SUCCESS" if result["apps"] or result.get("total_minutes") is not None else "NO_ANALYTICS_FOUND", confidence="HIGH")
         result["total_screen_time"] = result.get("total_minutes")
-        return result if result.get("total_minutes") is not None or result.get("apps") or any(result.get(key) is not None for key in ("pickups", "notifications", "sessions")) else None
-    except Exception as exc:
-        logger.warning("Mobile analytics extraction failed (%s).", type(exc).__name__)
-        return None
+        return result
+    if suffix == ".txt":
+        result = parse_mobile_analytics_text(uploaded_file.read().decode("utf-8-sig", errors="replace"), "text")
+        result.update(status="SUCCESS" if result["apps"] or result.get("total_minutes") is not None else "NO_ANALYTICS_FOUND", confidence="MEDIUM")
+        result["total_screen_time"] = result.get("total_minutes")
+        return result
+    if suffix == ".pdf":
+        return {"status": "UNSUPPORTED_REPORT", "apps": []}
+    return extract_screenshot(uploaded_file, parse_screenshot_text).to_payload()
 
 
 _parse_time_string = normalize_minutes

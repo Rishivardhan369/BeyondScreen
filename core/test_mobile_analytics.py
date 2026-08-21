@@ -124,7 +124,8 @@ class MobileNormalizationTests(TestCase):
         text = """Digital Wellbeing\nDashboard\nTotal Screen Time: 5h 40m\nUnlocks: 68\nNotifications: 124\nSessions: 20\nLongest session: 42m\nFirst use: 7:15 AM\nLatest use: 11:48 PM\nInstagram  1h 20m\nNotion  45m"""
         parsed = parse_mobile_analytics_text(text)
         self.assertEqual(parsed["total_minutes"], 340)
-        self.assertEqual(parsed["pickups"], 68)
+        self.assertNotIn("pickups", parsed)
+        self.assertEqual(parsed["unlocks"], 68)
         self.assertEqual(parsed["notifications"], 124)
         self.assertEqual(parsed["sessions"], 20)
         self.assertEqual(parsed["longest_session_minutes"], 42)
@@ -141,18 +142,14 @@ class MobileNormalizationTests(TestCase):
         self.assertEqual(parsed["pickups"], 44)
         csv_upload = SimpleUploadedFile("report.csv", b"app,minutes,category,pickups\nNotion,30,Productivity,22\nInstagram,45,Social,\n")
         parsed_csv = parse_screen_time_report(csv_upload)
-        self.assertEqual(parsed_csv["total_minutes"], 75)
+        self.assertNotIn("total_minutes", parsed_csv)
+        self.assertEqual(parsed_csv["recognized_app_total_minutes"], 75)
         self.assertEqual(parsed_csv["pickups"], 22)
         self.assertEqual(len(parsed_csv["apps"]), 2)
 
     def test_pdf_corrupt_and_optional_ocr_fall_back(self):
-        self.assertIsNone(parse_screen_time_report(SimpleUploadedFile("report.pdf", b"not-pdf")))
-        with patch.object(screen_time_parser, "TESSERACT_AVAILABLE", False):
-            self.assertIsNone(parse_screen_time_report(SimpleUploadedFile("report.png", b"bad")))
-        fake_image_module = Mock()
-        fake_image_module.open.side_effect = OSError("corrupt")
-        with patch.object(screen_time_parser, "TESSERACT_AVAILABLE", True), patch.object(screen_time_parser, "Image", fake_image_module):
-            self.assertIsNone(parse_screen_time_report(SimpleUploadedFile("report.png", b"bad")))
+        self.assertEqual(parse_screen_time_report(SimpleUploadedFile("report.pdf", b"not-pdf"))["status"], "UNSUPPORTED_REPORT")
+        self.assertEqual(parse_screen_time_report(SimpleUploadedFile("report.png", b"bad"))["status"], "INVALID_IMAGE")
 
 
 class MobileAssessmentTests(MobileTestMixin, TestCase):
