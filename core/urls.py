@@ -142,6 +142,7 @@ urlpatterns = [
     path("password/change/", views.change_password, name="change_password"),
     # Authentication
     path("login/", views.user_login, name="login"),
+    path("login/google-unavailable/", views.google_auth_unavailable, name="google_auth_unavailable"),
     path("register/", views.register, name="register"),
     path("logout/", views.user_logout, name="logout"),
     # History

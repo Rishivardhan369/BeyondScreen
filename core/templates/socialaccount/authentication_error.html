@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Google Sign-In unavailable - BeyondScreen{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/auth.css' %}"><link rel="stylesheet" href="{% static 'css/auth_google.css' %}">{% endblock %}
+{% block content %}<main class="auth-page"><section class="ritual-section"><div class="auth-card"><p class="eyebrow">Sign-in interrupted</p><h2>Google Sign-In could not be completed</h2><p class="hero-lede">The authorization response was invalid, expired, or unavailable. Nothing was changed on your account.</p><a class="auth-google-button" href="{% url 'core:login' %}">Return to login</a></div></section></main>{% endblock %}

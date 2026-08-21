@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% load static %}
 
 {% block title %}Register - BeyondScreen{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/auth.css' %}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/auth.css' %}"><link rel="stylesheet" href="{% static 'css/auth_google.css' %}">{% endblock %}
 
 {% block content %}
 <main class="auth-page">
@@ -84,6 +84,7 @@
                     <span>Create account</span><span aria-hidden="true">→</span>
                 </button>
             </form>
+            {% include "registration/includes/google_auth_button.html" with button_label="Sign up with Google" %}
             <p class="auth-text-link" style="text-align: center;">
                 Already have an account? <a href="{% url 'core:login' %}">Log in</a>
             </p>

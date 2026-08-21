@@ -2806,14 +2806,25 @@ def user_login(request):
     return render(request, "registration/login.html", {"form": form})
 
 
+def google_auth_unavailable(request):
+    messages.info(request, "Google Sign-In is not configured for this environment. Use your BeyondScreen username and password instead.")
+    return redirect("core:login")
+
+
 def register(request):
     if request.method == "POST":
         form = SignUpForm(request.POST)
         if form.is_valid():
             user = form.save()
+            from allauth.account.models import EmailAddress
+            EmailAddress.objects.get_or_create(
+                user=user,
+                email=user.email,
+                defaults={"verified": False, "primary": True},
+            )
             username = form.cleaned_data.get("username")
             messages.success(request, f"Account created for {username}!")
-            login(request, user)
+            login(request, user, backend="django.contrib.auth.backends.ModelBackend")
             issue_email_verification(user)
             record_security_event(user, "registration")
             return redirect("core:dashboard")

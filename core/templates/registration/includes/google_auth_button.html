@@ -1,0 +1,10 @@
+{% load socialaccount %}
+<div class="auth-divider" role="separator"><span>or</span></div>
+{% if google_oauth_configured %}
+<form method="post" action="{% provider_login_url 'google' process='login' %}" class="auth-social-form">
+    {% csrf_token %}
+    <button type="submit" class="auth-google-button">{% include "registration/includes/google_icon.html" %}<span>{{ button_label }}</span></button>
+</form>
+{% else %}
+<a class="auth-google-button" href="{% url 'core:google_auth_unavailable' %}">{% include "registration/includes/google_icon.html" %}<span>{{ button_label }}</span></a>
+{% endif %}

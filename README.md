@@ -38,6 +38,12 @@ Set `DJANGO_DEBUG=False`, a strong `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS`, 
 
 Password-reset email uses the console backend by default. Configure the `EMAIL_*` variables from `.env.example` for SMTP; never commit credentials. Local SQLite remains the default. PostgreSQL is optional through the discrete `DB_*` variables and requires an installed PostgreSQL driver.
 
+### Google Sign-In
+
+Google Sign-In is optional and uses django-allauth's Google OAuth 2.0/OpenID Connect provider. Set `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` in the environment; when either is absent, password login remains available and the Google action shows a safe configuration message. Only `openid`, `email`, and `profile` scopes are requested, and access tokens are not stored.
+
+Configure the local Google authorized JavaScript origin as `http://127.0.0.1:8000` and the exact authorized redirect URI as `http://127.0.0.1:8000/accounts/google/login/callback/`. In production use `https://YOUR_DOMAIN` and `https://YOUR_DOMAIN/accounts/google/login/callback/`. Google-verified email can securely authenticate and connect to an existing account with the same email; unverified provider claims are never used for linking. Password registrations retain BeyondScreen's existing verification flow.
+
 Persistent avatars/media require a durable `DJANGO_MEDIA_ROOT` and must be included in backup and restore planning. Report uploads are processed in-memory and are not retained as public files; database records store only existing metadata.
 
 ## Backup and deployment

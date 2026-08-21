@@ -1,3 +1,4 @@
 Django==6.0.6
+django-allauth[socialaccount]==65.19.0
 Pillow==12.1.1
 reportlab==4.4.10

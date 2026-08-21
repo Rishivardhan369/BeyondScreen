@@ -1,7 +1,7 @@
 {% extends "base.html" %}{% load static %}
 
 {% block title %}Log in - BeyondScreen{% endblock %}
-{% block extra_css %}<link rel="stylesheet" href="{% static 'css/auth.css' %}">{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/auth.css' %}"><link rel="stylesheet" href="{% static 'css/auth_google.css' %}">{% endblock %}
 
 {% block content %}
 <main class="auth-page">
@@ -48,6 +48,7 @@
                     <span>Log in</span><span aria-hidden="true">→</span>
                 </button>
             </form>
+            {% include "registration/includes/google_auth_button.html" with button_label="Continue with Google" %}
             <p class="auth-text-link" style="text-align: center;">
                 Forgot your password? <a href="{% url 'password_reset' %}">Reset it</a>
             </p>

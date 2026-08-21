@@ -250,6 +250,12 @@ def verify_email(request, token):
             if verification.purpose == EmailVerification.PURPOSE_CHANGE:
                 verification.user.email = verification.email; verification.user.save(update_fields=["email"]); verification.user.userprofile.pending_email = ""
             verification.user.userprofile.email_verified_at = timezone.now(); verification.user.userprofile.save(update_fields=["pending_email", "email_verified_at"])
+            from allauth.account.models import EmailAddress
+            EmailAddress.objects.update_or_create(
+                user=verification.user,
+                email=verification.user.email,
+                defaults={"verified": True, "primary": True},
+            )
         state = "verified"
     elif verification: state = "expired"
     return render(request, "platform/email_verification.html", {"state": state})

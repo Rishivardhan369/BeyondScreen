@@ -1,0 +1,4 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}Google Sign-In cancelled - BeyondScreen{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/auth.css' %}"><link rel="stylesheet" href="{% static 'css/auth_google.css' %}">{% endblock %}
+{% block content %}<main class="auth-page"><section class="ritual-section"><div class="auth-card"><p class="eyebrow">Sign-in cancelled</p><h2>No account changes were made</h2><p class="hero-lede">You can try Google again or use your BeyondScreen username and password.</p><a class="auth-google-button" href="{% url 'core:login' %}">Return to login</a></div></section></main>{% endblock %}
