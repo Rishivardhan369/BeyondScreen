@@ -59,8 +59,8 @@ class UserProfileAdmin(admin.ModelAdmin):
 
 @admin.register(DigitalSummary)
 class DigitalSummaryAdmin(admin.ModelAdmin):
-    list_display = ("user", "created_at", "screen_time_minutes", "wellness_score", "category")
-    list_filter = ("category", "created_at")
+    list_display = ("user", "created_at", "screen_time_minutes", "ingestion_source", "total_basis", "wellness_score", "category")
+    list_filter = ("category", "ingestion_source", "total_basis", "was_user_confirmed", "created_at")
     search_fields = ("user__username", "user__email", "insight")
     readonly_fields = ("created_at", "goal_rescue_snapshot", "mobile_analytics_snapshot", "mobile_assessment_snapshot")
     date_hierarchy = "created_at"

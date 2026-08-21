@@ -77,6 +77,30 @@ class Postcard(models.Model):
 
 
 class DigitalSummary(models.Model):
+    SOURCE_LEGACY = "legacy"
+    SOURCE_MANUAL = "manual"
+    SOURCE_SCREENSHOT = "screenshot"
+    SOURCE_FILE_IMPORT = "file_import"
+    SOURCE_DEVICE_SYNC = "device_sync"
+    INGESTION_SOURCE_CHOICES = [
+        (SOURCE_LEGACY, "Legacy or unknown"),
+        (SOURCE_MANUAL, "Manual entry"),
+        (SOURCE_SCREENSHOT, "Screenshot import"),
+        (SOURCE_FILE_IMPORT, "CSV or text import"),
+        (SOURCE_DEVICE_SYNC, "Device sync"),
+    ]
+    TOTAL_LEGACY = "legacy_unknown"
+    TOTAL_OFFICIAL = "official_reported"
+    TOTAL_USER = "user_entered"
+    TOTAL_DEVICE = "device_reported"
+    TOTAL_APP_SUM = "recognized_app_sum"
+    TOTAL_BASIS_CHOICES = [
+        (TOTAL_LEGACY, "Legacy or unknown"),
+        (TOTAL_OFFICIAL, "Official reported total"),
+        (TOTAL_USER, "User-entered total"),
+        (TOTAL_DEVICE, "Device-reported total"),
+        (TOTAL_APP_SUM, "Recognized-app sum"),
+    ]
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='digital_summaries')
     created_at = models.DateTimeField(auto_now_add=True)
     screen_time_minutes = models.IntegerField()
@@ -92,6 +116,13 @@ class DigitalSummary(models.Model):
     # report is created. Legacy summaries intentionally retain empty objects.
     mobile_analytics_snapshot = models.JSONField(default=dict, blank=True)
     mobile_assessment_snapshot = models.JSONField(default=dict, blank=True)
+    ingestion_source = models.CharField(
+        max_length=24, choices=INGESTION_SOURCE_CHOICES, default=SOURCE_LEGACY,
+    )
+    total_basis = models.CharField(
+        max_length=24, choices=TOTAL_BASIS_CHOICES, default=TOTAL_LEGACY,
+    )
+    was_user_confirmed = models.BooleanField(default=False)
 
     class Meta:
         ordering = ['-created_at']

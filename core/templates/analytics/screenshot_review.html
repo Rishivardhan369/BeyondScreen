@@ -10,7 +10,7 @@
     <p>Automatic reading can be imperfect. Your confirmed values—not the OCR guess—become the trusted report.</p>
     <div class="review-status" data-confidence="{{ extraction.confidence|lower }}">
       <strong>{{ extraction.confidence|title }} confidence</strong>
-      <span>{{ extraction.provider|title }}</span>
+      <span>{{ extraction.provider|title }}</span><span>{{ pending.screenshot_count }} of {{ max_screenshots }} screenshots</span>
     </div>
   </header>
 
@@ -20,9 +20,17 @@
       {% for warning in extraction.warnings %}<p>{{ warning }}</p>{% endfor %}
     </section>
   {% endif %}
+  {% if pending.conflicts %}
+    <section class="review-notice" aria-labelledby="merge-conflicts-title">
+      <h2 id="merge-conflicts-title">Values that need review</h2>
+      <p>Two screenshots contained different values. The first detected value remains editable below; verify it before saving.</p>
+      {% for conflict in pending.conflicts %}<p><strong>{{ conflict.app|default:conflict.field|title }}:</strong> {{ conflict.current }} and {{ conflict.incoming }}</p>{% endfor %}
+    </section>
+  {% endif %}
 
   <form method="post" class="review-form" novalidate>
     {% csrf_token %}
+    <input type="hidden" name="draft_token" value="{{ draft_token }}">
     {% if form.non_field_errors %}<div class="review-errors">{{ form.non_field_errors }}</div>{% endif %}
     <section class="review-card" aria-labelledby="report-details-title">
       <div class="review-card-heading"><div><p class="review-step">01</p><h2 id="report-details-title">Report details</h2></div><p>Correct anything that OCR misread.</p></div>
@@ -35,6 +43,11 @@
 
     <section class="review-card" aria-labelledby="apps-title">
       <div class="review-card-heading"><div><p class="review-step">02</p><h2 id="apps-title">Detected apps</h2></div><p>Recognized app total: <strong>{{ recognized_total }} minutes</strong></p></div>
+      <div class="review-coverage" aria-label="App coverage summary">
+        <div><span>Official total</span><strong>{% if coverage.official_total_minutes is not None %}{{ coverage.official_total_minutes }} min{% else %}Not detected{% endif %}</strong></div>
+        <div><span>Recognized apps</span><strong>{{ coverage.recognized_app_minutes }} min</strong></div>
+        <div><span>App coverage</span><strong>{% if coverage.ratio is not None and not coverage.exceeds_total %}{{ coverage.ratio|floatformat:0 }}%{% else %}Not available{% endif %}</strong></div>
+      </div>
       {{ app_formset.management_form }}
       {% if app_formset.non_form_errors %}<div class="review-errors">{{ app_formset.non_form_errors }}</div>{% endif %}
       {% if app_total_exceeds %}<p class="review-consistency"><strong>Check these values:</strong> app durations exceed the reported total. We will preserve your confirmed values, but they may represent a cropped or overlapping report.</p>{% endif %}
@@ -44,7 +57,9 @@
             <legend>App {{ forloop.counter }}</legend>
             <label for="{{ app_form.name.id_for_label }}"><span>App name</span>{{ app_form.name }}</label>
             <label for="{{ app_form.minutes.id_for_label }}"><span>Minutes</span>{{ app_form.minutes }}</label>
+            {{ app_form.review_state }}{{ app_form.conflicting_minutes }}
             <label class="review-delete" for="{{ app_form.DELETE.id_for_label }}">{{ app_form.DELETE }} <span>Remove</span></label>
+            {% if app_form.review_state.value == "conflict" %}<p class="review-row-state"><strong>Needs review:</strong> another screenshot detected {{ app_form.conflicting_minutes.value }} minutes.</p>{% else %}<p class="review-row-state">Detected — confirm or edit</p>{% endif %}
             {% for error in app_form.name.errors %}<small class="review-error">{{ error }}</small>{% endfor %}
             {% for error in app_form.minutes.errors %}<small class="review-error">{{ error }}</small>{% endfor %}
           </fieldset>
@@ -55,6 +70,7 @@
           <legend>New app</legend>
           <label for="{{ app_formset.empty_form.name.id_for_label }}"><span>App name</span>{{ app_formset.empty_form.name }}</label>
           <label for="{{ app_formset.empty_form.minutes.id_for_label }}"><span>Minutes</span>{{ app_formset.empty_form.minutes }}</label>
+          {{ app_formset.empty_form.review_state }}{{ app_formset.empty_form.conflicting_minutes }}
           <label class="review-delete" for="{{ app_formset.empty_form.DELETE.id_for_label }}">{{ app_formset.empty_form.DELETE }} <span>Remove</span></label>
         </fieldset>
       </template>
@@ -67,6 +83,14 @@
       <a href="{% url 'core:home' %}#upload-report" class="review-text">Enter report manually</a>
     </div>
   </form>
+  {% if pending.screenshot_count < max_screenshots %}
+    <form method="post" enctype="multipart/form-data" action="{% url 'core:screenshot_review_add' draft_token=draft_token %}" class="review-add-screen">
+      {% csrf_token %}
+      <label for="{{ add_screenshot_form.file.id_for_label }}"><span>Add another screenshot to this report</span>{{ add_screenshot_form.file }}</label>
+      <button type="submit" class="review-secondary">Add screenshot</button>
+      <p>Images are processed in memory; screenshot files and raw OCR text are not retained.</p>
+    </form>
+  {% endif %}
 </main>
 {% endblock %}
 {% block scripts %}

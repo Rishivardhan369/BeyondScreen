@@ -28,6 +28,8 @@ BeyondScreen turns recorded phone activity into an explainable Usage Assessment,
 
 Manual minutes remain enough to create a report. The required Python OCR bridge (`pytesseract`) is installed by `requirements.txt`; image OCR additionally needs the native Tesseract executable. BeyondScreen resolves it from `TESSERACT_CMD`, the system `PATH`, or standard Windows installation folders, in that order. Run `python manage.py check_ocr` for a privacy-safe runtime diagnostic. If native OCR is unavailable, the UI explains the limitation and preserves manual entry. PNG, JPEG, and WEBP screenshots are content-validated, processed in memory, and never stored with raw OCR text. Partial results open an editable confirmation screen instead of being discarded. Uploads remain limited to one supported file under 10 MB per request. PDF input uses manual fallback because no reliable PDF parser is required at runtime.
 
+Up to five screenshots can contribute to one structured report draft. Exact duplicate images are rejected before repeat OCR, conflicting totals/app durations remain visible for confirmation, and raw screenshots are never retained. Reports persist their ingestion source and total basis, so an official/device/user-entered total remains distinguishable from a compatibility total derived only from recognized apps.
+
 ## Demo data
 
 `python manage.py seed_demo_data` creates or refreshes the dedicated `beyondscreen_demo` account only. It includes Android/iOS-style analytics, app/category history, interaction metrics, Usage Signals, Actionable Inputs, Rescue outcomes, Momentum, and several weeks of review data. Use `--reset` to explicitly delete and rebuild only that account. The command never runs automatically and is disabled when `DEBUG=False`.

@@ -117,6 +117,8 @@ class ScreenshotReviewForm(forms.Form):
 class ScreenshotAppRowForm(forms.Form):
     name = forms.CharField(required=False, max_length=120)
     minutes = forms.IntegerField(required=False, min_value=0, max_value=1440)
+    review_state = forms.CharField(required=False, widget=forms.HiddenInput())
+    conflicting_minutes = forms.IntegerField(required=False, min_value=0, max_value=1440, widget=forms.HiddenInput())
     DELETE = forms.BooleanField(required=False)
 
     def clean(self):
@@ -133,6 +135,19 @@ class ScreenshotAppRowForm(forms.Form):
 
 
 ScreenshotAppFormSet = forms.formset_factory(ScreenshotAppRowForm, extra=1, max_num=50, validate_max=True)
+
+
+class ScreenshotAdditionalUploadForm(forms.Form):
+    file = forms.FileField(
+        label="Add another screenshot",
+        widget=forms.ClearableFileInput(attrs={"accept": ".png,.jpg,.jpeg,.webp"}),
+    )
+
+    def clean_file(self):
+        uploaded = PostcardForm.clean_file(self)
+        if uploaded and Path(uploaded.name).suffix.lower() not in {".png", ".jpg", ".jpeg", ".webp"}:
+            raise forms.ValidationError("Choose a PNG, JPG, or WEBP screenshot.")
+        return uploaded
 
 
 DAY_CHOICES = [

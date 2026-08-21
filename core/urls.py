@@ -9,6 +9,8 @@ urlpatterns = [
     path("ready/", platform_views.ready, name="ready"),
     path("", views.home, name="home"),
     path("analytics/screenshot-review/", views.screenshot_review, name="screenshot_review"),
+    path("analytics/screenshot-review/<str:draft_token>/", views.screenshot_review, name="screenshot_review_token"),
+    path("analytics/screenshot-review/<str:draft_token>/add/", views.screenshot_review_add, name="screenshot_review_add"),
     path(
         "goals/",
         views.goal_dna_management,

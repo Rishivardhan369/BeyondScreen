@@ -369,7 +369,16 @@ def api_mobile_analytics(request):
     if total is None: return JsonResponse({"error": "total_minutes_required"}, status=400)
     with transaction.atomic():
         try:
-            summary = DigitalSummary.objects.create(user=device.user, screen_time_minutes=total, wellness_score=max(0, min(100, 100 - int(total / 8))), category="Balanced" if total < 300 else "High", insight="Synced Mobile Analytics report.", app_usage=analytics.get("apps", []), mobile_analytics_snapshot=analytics)
+            summary = DigitalSummary.objects.create(
+                user=device.user, screen_time_minutes=total,
+                wellness_score=max(0, min(100, 100 - int(total / 8))),
+                category="Balanced" if total < 300 else "High",
+                insight="Synced Mobile Analytics report.", app_usage=analytics.get("apps", []),
+                mobile_analytics_snapshot=analytics,
+                ingestion_source=DigitalSummary.SOURCE_DEVICE_SYNC,
+                total_basis=DigitalSummary.TOTAL_DEVICE,
+                was_user_confirmed=False,
+            )
             summary.goal_rescue_snapshot = freeze_goal_rescue_snapshot(build_goal_rescue(device.user, total)); summary.mobile_assessment_snapshot = build_mobile_analytics_assessment(summary); summary.save(update_fields=["goal_rescue_snapshot", "mobile_assessment_snapshot"]); ensure_goal_rescue_outcome(summary)
             DeviceAnalyticsReport.objects.create(device=device, summary=summary, device_report_id=report_id, schema_version=schema)
         except IntegrityError:

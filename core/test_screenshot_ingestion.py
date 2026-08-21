@@ -137,10 +137,12 @@ class ScreenshotReviewFlowTests(TestCase):
     def test_upload_review_correction_and_save(self, parser):
         parser.return_value = self.extraction
         response = self.client.post(reverse("core:home"), {"file": image_upload(), "mood": "Calm", "goal": "Study"})
-        self.assertRedirects(response, reverse("core:screenshot_review"))
-        review = self.client.get(reverse("core:screenshot_review"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/analytics/screenshot-review/", response.url)
+        review_url = response.url
+        review = self.client.get(review_url)
         self.assertContains(review, "Low confidence")
-        response = self.client.post(reverse("core:screenshot_review"), {
+        response = self.client.post(review_url, {
             "report_date": "2026-08-21", "total_minutes": "240", "pickups": "31", "notifications": "75",
             "unlocks": "", "sessions": "", "longest_session_minutes": "",
             "apps-TOTAL_FORMS": "3", "apps-INITIAL_FORMS": "2", "apps-MIN_NUM_FORMS": "0", "apps-MAX_NUM_FORMS": "50",
@@ -151,6 +153,9 @@ class ScreenshotReviewFlowTests(TestCase):
         self.assertRedirects(response, reverse("core:summary"))
         saved = DigitalSummary.objects.get(user=self.user)
         self.assertEqual(saved.screen_time_minutes, 240)
+        self.assertEqual(saved.ingestion_source, DigitalSummary.SOURCE_SCREENSHOT)
+        self.assertEqual(saved.total_basis, DigitalSummary.TOTAL_OFFICIAL)
+        self.assertTrue(saved.was_user_confirmed)
         self.assertEqual(saved.mobile_analytics_snapshot["apps"], [
             {"name": "YouTube", "minutes": 55, "category": None},
             {"name": "Notion", "minutes": 25, "category": None},
@@ -161,8 +166,9 @@ class ScreenshotReviewFlowTests(TestCase):
         extraction = dict(self.extraction, total_minutes=None, total_screen_time=None)
         parser.return_value = extraction
         response = self.client.post(reverse("core:home"), {"file": image_upload(), "mood": "Calm", "goal": "Study"})
-        self.assertRedirects(response, reverse("core:screenshot_review"))
-        response = self.client.post(reverse("core:screenshot_review"), {
+        self.assertEqual(response.status_code, 302)
+        review_url = response.url
+        response = self.client.post(review_url, {
             "report_date": "2026-08-21", "total_minutes": "", "pickups": "", "unlocks": "", "notifications": "", "sessions": "", "longest_session_minutes": "",
             "apps-TOTAL_FORMS": "2", "apps-INITIAL_FORMS": "2", "apps-MIN_NUM_FORMS": "0", "apps-MAX_NUM_FORMS": "50",
             "apps-0-name": "YouTube", "apps-0-minutes": "50", "apps-1-name": "WhatsApp", "apps-1-minutes": "20",
@@ -171,6 +177,9 @@ class ScreenshotReviewFlowTests(TestCase):
         saved = DigitalSummary.objects.get(user=self.user)
         self.assertEqual(saved.screen_time_minutes, 70)
         self.assertNotIn("total_minutes", saved.mobile_analytics_snapshot)
+        self.assertEqual(saved.ingestion_source, DigitalSummary.SOURCE_SCREENSHOT)
+        self.assertEqual(saved.total_basis, DigitalSummary.TOTAL_APP_SUM)
+        self.assertTrue(saved.was_user_confirmed)
 
     @patch("core.views.parse_screen_time_report", return_value={"status": "ENGINE_UNAVAILABLE", "apps": []})
     def test_engine_unavailable_has_manual_next_step_and_no_fake_report(self, _):
@@ -182,7 +191,12 @@ class ScreenshotReviewFlowTests(TestCase):
     def test_review_requires_session_and_invalid_rows_do_not_save(self):
         self.assertRedirects(self.client.get(reverse("core:screenshot_review")), reverse("core:home"))
         session = self.client.session
-        session["screenshot_review"] = {"extraction": self.extraction, "filename": "screen.png", "mood": "Calm", "goal": "Study"}
+        session["screenshot_review_drafts"] = {"safe-token": {
+            "token": "safe-token", "extraction": self.extraction, "filename": "screen.png",
+            "mood": "Calm", "goal": "Study", "digests": ["digest"], "screenshot_count": 1,
+            "official_total_detected": True, "conflicts": [], "warnings": [],
+        }}
+        session["latest_screenshot_draft"] = "safe-token"
         session.save()
         response = self.client.post(reverse("core:screenshot_review"), {
             "report_date": "bad", "total_minutes": "", "apps-TOTAL_FORMS": "1", "apps-INITIAL_FORMS": "0",

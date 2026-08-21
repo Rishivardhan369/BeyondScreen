@@ -110,7 +110,11 @@ class DeviceApiTests(TestCase):
         second = self.client.post(reverse("core:api_mobile_analytics"), data=json.dumps(payload), content_type="application/json", **headers)
         self.assertEqual(first.status_code, 200); self.assertTrue(second.json()["idempotent"])
         self.assertEqual(DeviceAnalyticsReport.objects.count(), 1)
-        self.assertEqual(DeviceAnalyticsReport.objects.get().summary.user, self.user)
+        summary = DeviceAnalyticsReport.objects.get().summary
+        self.assertEqual(summary.user, self.user)
+        self.assertEqual(summary.ingestion_source, summary.SOURCE_DEVICE_SYNC)
+        self.assertEqual(summary.total_basis, summary.TOTAL_DEVICE)
+        self.assertFalse(summary.was_user_confirmed)
 
     def test_unsupported_schema_and_revoked_token(self):
         paired = self._pair().json(); token = paired["device_token"]

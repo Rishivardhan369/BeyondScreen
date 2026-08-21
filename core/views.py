@@ -33,6 +33,7 @@ from .forms import (
     UserProfileForm,
     ScreenshotReviewForm,
     ScreenshotAppFormSet,
+    ScreenshotAdditionalUploadForm,
 )
 from .services import (
     build_goal_health,
@@ -60,11 +61,19 @@ from .mobile_analytics import (
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from services.screen_time_parser import parse_screen_time_report
+from services.screenshot_drafts import (
+    MAX_SCREENSHOTS_PER_DRAFT,
+    coverage_summary,
+    create_draft,
+    merge_into_draft,
+    uploaded_digest,
+)
 from datetime import date, time, timedelta
 from django.db import IntegrityError, transaction
 from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
 from .platform_services import issue_email_verification, record_security_event, throttle
+from .report_quality import reconcile_known_apps
 
 
 @require_GET
@@ -1387,17 +1396,25 @@ def home(request):
             ocr_result = confirmed_ocr
             minutes_from_ocr = None
             if data["file"] and not confirmed_ocr:
+                digest = uploaded_digest(data["file"])
                 ocr_result = parse_screen_time_report(data["file"])
                 status = (ocr_result or {}).get("status")
                 if status == "SUCCESS":
-                    request.session["screenshot_review"] = {
-                        "extraction": ocr_result,
-                        "filename": filename,
-                        "mood": data["mood"],
-                        "goal": data["goal"],
-                        "manual_total": data.get("screen_time"),
-                    }
-                    return redirect("core:screenshot_review")
+                    ocr_result["apps"] = reconcile_known_apps(request.user, ocr_result.get("apps", []))
+                    draft = create_draft(
+                        ocr_result, digest, filename=filename, mood=data["mood"], goal=data["goal"],
+                        report_date=timezone.localdate().isoformat(),
+                    )
+                    drafts = request.session.get("screenshot_review_drafts", {})
+                    if not isinstance(drafts, dict):
+                        drafts = {}
+                    drafts[draft["token"]] = draft
+                    # Bound abandoned structured drafts without retaining any image bytes.
+                    while len(drafts) > 5:
+                        drafts.pop(next(iter(drafts)))
+                    request.session["screenshot_review_drafts"] = drafts
+                    request.session["latest_screenshot_draft"] = draft["token"]
+                    return redirect("core:screenshot_review_token", draft_token=draft["token"])
                 if status in ("LIBRARY_UNAVAILABLE", "ENGINE_UNAVAILABLE"):
                     messages.info(request, "Automatic screenshot reading is unavailable on this server. You can still enter your report manually.")
                 elif status == "INVALID_IMAGE":
@@ -1561,6 +1578,18 @@ def home(request):
                         goal_rescue_snapshot=goal_rescue_snapshot,
                         app_usage=mobile_analytics.get("apps", []),
                         mobile_analytics_snapshot=mobile_analytics,
+                        ingestion_source=(
+                            DigitalSummary.SOURCE_SCREENSHOT
+                            if ocr_result and ocr_result.get("source_type") not in ("csv", "text")
+                            else DigitalSummary.SOURCE_FILE_IMPORT
+                            if ocr_result
+                            else DigitalSummary.SOURCE_MANUAL
+                        ),
+                        total_basis=(
+                            ocr_result.get("_total_basis", DigitalSummary.TOTAL_OFFICIAL)
+                            if ocr_result else DigitalSummary.TOTAL_USER
+                        ),
+                        was_user_confirmed=True,
                     )
                     digital_summary.mobile_assessment_snapshot = build_mobile_analytics_assessment(
                         digital_summary
@@ -1590,14 +1619,29 @@ def home(request):
     return render(request, "home.html", {"form": form})
 
 
-def screenshot_review(request):
-    pending = request.session.get("screenshot_review")
+def _draft_from_session(request, draft_token=None):
+    token = str(draft_token or request.session.get("latest_screenshot_draft") or "")
+    drafts = request.session.get("screenshot_review_drafts", {})
+    if not isinstance(drafts, dict):
+        return token, {}, None
+    pending = drafts.get(token)
+    if not isinstance(pending, dict) or not isinstance(pending.get("extraction"), dict):
+        return token, drafts, None
+    return token, drafts, pending
+
+
+def screenshot_review(request, draft_token=None):
+    token, drafts, pending = _draft_from_session(request, draft_token)
     if not pending:
         messages.info(request, "Upload a screenshot before opening the review page.")
         return redirect("core:home")
     extraction = pending["extraction"]
+    try:
+        initial_report_date = date.fromisoformat(extraction.get("report_date", ""))
+    except (TypeError, ValueError):
+        initial_report_date = timezone.localdate()
     initial = {
-        "report_date": timezone.localdate(),
+        "report_date": initial_report_date,
         "total_minutes": extraction.get("total_minutes"),
         "pickups": extraction.get("pickups"), "unlocks": extraction.get("unlocks"),
         "notifications": extraction.get("notifications"), "sessions": extraction.get("sessions"),
@@ -1624,7 +1668,16 @@ def screenshot_review(request):
                 confirmed["total_screen_time"] = confirmed.get("total_minutes")
                 confirmed["report_date"] = form.cleaned_data["report_date"].isoformat()
                 confirmed["filename"] = pending.get("filename")
-                request.session.pop("screenshot_review", None)
+                if confirmed.get("total_minutes") is None:
+                    confirmed["_total_basis"] = DigitalSummary.TOTAL_APP_SUM
+                elif pending.get("official_total_detected"):
+                    confirmed["_total_basis"] = DigitalSummary.TOTAL_OFFICIAL
+                else:
+                    confirmed["_total_basis"] = DigitalSummary.TOTAL_USER
+                drafts.pop(token, None)
+                request.session["screenshot_review_drafts"] = drafts
+                if request.session.get("latest_screenshot_draft") == token:
+                    request.session.pop("latest_screenshot_draft", None)
                 request.session["confirmed_ocr"] = confirmed
                 post = request.POST.copy()
                 post.update({"mood": pending["mood"], "goal": pending["goal"], "screen_time": confirmed.get("total_minutes") or ""})
@@ -1638,11 +1691,48 @@ def screenshot_review(request):
         displayed_apps = [row for row in app_formset.cleaned_data if row and not row.get("DELETE") and row.get("name")]
     displayed_app_total = sum(row.get("minutes") or 0 for row in displayed_apps)
     displayed_total = form.cleaned_data.get("total_minutes") if form.is_bound and form.is_valid() else extraction.get("total_minutes")
+    coverage = coverage_summary(displayed_total, displayed_apps)
     return render(request, "analytics/screenshot_review.html", {
         "form": form, "app_formset": app_formset, "extraction": extraction,
         "recognized_total": displayed_app_total,
         "app_total_exceeds": displayed_total is not None and displayed_app_total > displayed_total,
+        "coverage": coverage, "pending": pending, "draft_token": token,
+        "add_screenshot_form": ScreenshotAdditionalUploadForm(),
+        "max_screenshots": MAX_SCREENSHOTS_PER_DRAFT,
     })
+
+
+@require_POST
+def screenshot_review_add(request, draft_token):
+    token, drafts, pending = _draft_from_session(request, draft_token)
+    if not pending:
+        messages.info(request, "That screenshot report draft is no longer available.")
+        return redirect("core:home")
+    form = ScreenshotAdditionalUploadForm(request.POST, request.FILES)
+    if not form.is_valid():
+        messages.error(request, "Choose a valid PNG, JPG, or WEBP screenshot under 10 MB.")
+        return redirect("core:screenshot_review_token", draft_token=token)
+    uploaded = form.cleaned_data["file"]
+    digest = uploaded_digest(uploaded)
+    if digest in pending.get("digests", []):
+        messages.info(request, "This screenshot is already included in this report.")
+        return redirect("core:screenshot_review_token", draft_token=token)
+    if pending.get("screenshot_count", 0) >= MAX_SCREENSHOTS_PER_DRAFT:
+        messages.error(request, f"A report can include up to {MAX_SCREENSHOTS_PER_DRAFT} screenshots.")
+        return redirect("core:screenshot_review_token", draft_token=token)
+    extraction = parse_screen_time_report(uploaded)
+    if extraction.get("status") != "SUCCESS":
+        messages.info(request, "We couldn't find additional recognizable analytics in that screenshot.")
+        return redirect("core:screenshot_review_token", draft_token=token)
+    extraction["apps"] = reconcile_known_apps(request.user, extraction.get("apps", []))
+    merged, status = merge_into_draft(pending, extraction, digest)
+    drafts[token] = merged
+    request.session["screenshot_review_drafts"] = drafts
+    if status == "date_conflict":
+        messages.warning(request, "This screenshot appears to represent a different report date, so its values were not merged.")
+    else:
+        messages.success(request, "Screenshot added to this report draft. Review the combined values before saving.")
+    return redirect("core:screenshot_review_token", draft_token=token)
 
 
 
@@ -2386,6 +2476,8 @@ def export_personal_data(request):
             "app_usage": s.app_usage, "goal_rescue_snapshot": s.goal_rescue_snapshot,
             "mobile_analytics_snapshot": s.mobile_analytics_snapshot,
             "mobile_assessment_snapshot": s.mobile_assessment_snapshot,
+            "ingestion_source": s.ingestion_source, "total_basis": s.total_basis,
+            "was_user_confirmed": s.was_user_confirmed,
         } for s in summaries],
         "goal_rescue_outcomes": [{
             "summary_id": o.digital_summary_id, "goal_id": o.goal_id, "action_id": o.action_id,
